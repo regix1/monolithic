@@ -1,0 +1,24 @@
+version: '3'
+services:
+  monolithic:
+    build:
+      context: .
+      args:
+        PUID: ${PUID:-1000}
+        PGID: ${PGID:-1000}
+    image: lancache-monolithic:latest
+    env_file:
+      - .env
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./data/cache:/data/cache
+      - ./data/logs:/data/logs
+      - ./data/cachedomains:/data/cachedomains
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - CACHE_DISK_SIZE=${CACHE_DISK_SIZE:-1000g}
+      - CACHE_INDEX_SIZE=${CACHE_INDEX_SIZE:-500m}
+      - CACHE_MAX_AGE=${CACHE_MAX_AGE:-3560d}
+      - UPSTREAM_DNS=${UPSTREAM_DNS:-8.8.8.8 8.8.4.4}

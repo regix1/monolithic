@@ -14,13 +14,25 @@ fi
 PUID=${PUID:-1000}
 PGID=${PGID:-1000}
 
-# Validate they're numeric
-if ! [[ "$PUID" =~ ^[0-9]+$ ]]; then
-    echo "Warning: PUID '$PUID' is not numeric, using default 1000"
+# Check if user wants to use default www-data IDs
+SKIP_PUID=false
+SKIP_PGID=false
+
+# Validate PUID - allow "www-data" as a special value to keep defaults
+if [ "$PUID" = "www-data" ]; then
+    echo "Using default www-data UID (no modification)"
+    SKIP_PUID=true
+elif ! [[ "$PUID" =~ ^[0-9]+$ ]]; then
+    echo "Warning: PUID '$PUID' is not numeric or 'www-data', using default 1000"
     PUID=1000
 fi
-if ! [[ "$PGID" =~ ^[0-9]+$ ]]; then
-    echo "Warning: PGID '$PGID' is not numeric, using default 1000"
+
+# Validate PGID - allow "www-data" as a special value to keep defaults
+if [ "$PGID" = "www-data" ]; then
+    echo "Using default www-data GID (no modification)"
+    SKIP_PGID=true
+elif ! [[ "$PGID" =~ ^[0-9]+$ ]]; then
+    echo "Warning: PGID '$PGID' is not numeric or 'www-data', using default 1000"
     PGID=1000
 fi
 
@@ -31,18 +43,22 @@ CURRENT_PGID=$(id -g ${WEBUSER} 2>/dev/null || echo "1000")
 echo "Configuring ${WEBUSER} user with PUID=${PUID} and PGID=${PGID}"
 
 # Only modify if different from current values (avoids unnecessary work on restart)
-if [ "$CURRENT_PGID" != "$PGID" ]; then
-    echo "  Changing ${WEBUSER} GID: ${CURRENT_PGID} -> ${PGID}"
-    groupmod -o -g "$PGID" ${WEBUSER}
-else
-    echo "  GID ${PGID} already set"
+if [ "$SKIP_PGID" = false ]; then
+    if [ "$CURRENT_PGID" != "$PGID" ]; then
+        echo "  Changing ${WEBUSER} GID: ${CURRENT_PGID} -> ${PGID}"
+        groupmod -o -g "$PGID" ${WEBUSER}
+    else
+        echo "  GID ${PGID} already set"
+    fi
 fi
 
-if [ "$CURRENT_PUID" != "$PUID" ]; then
-    echo "  Changing ${WEBUSER} UID: ${CURRENT_PUID} -> ${PUID}"
-    usermod -o -u "$PUID" ${WEBUSER}
-else
-    echo "  UID ${PUID} already set"
+if [ "$SKIP_PUID" = false ]; then
+    if [ "$CURRENT_PUID" != "$PUID" ]; then
+        echo "  Changing ${WEBUSER} UID: ${CURRENT_PUID} -> ${PUID}"
+        usermod -o -u "$PUID" ${WEBUSER}
+    else
+        echo "  UID ${PUID} already set"
+    fi
 fi
 
 echo "  User configured: $(id ${WEBUSER})"

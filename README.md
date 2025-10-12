@@ -17,7 +17,11 @@ The following environment variables can be configured in your docker-compose.yml
 ### User and Group Configuration
 
 - `PUID` - User ID for the cache process (default: 1000)
+  - Set to a numeric UID to match your host user
+  - Set to `www-data` to use the default www-data user without modification
 - `PGID` - Group ID for the cache process (default: 1000)
+  - Set to a numeric GID to match your host group
+  - Set to `www-data` to use the default www-data group without modification
 
 These are particularly useful when you need to match specific user/group permissions on your host system for the cache directories.
 

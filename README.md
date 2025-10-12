@@ -10,6 +10,68 @@ The specific documentation for this monolithic container is [here](http://lancac
 
 If you have any problems after reading the documentation please see [the support page](http://lancache.net/support/) before opening a new issue on github.
 
+## Environment Variables
+
+The following environment variables can be configured in your docker-compose.yml file:
+
+### User and Group Configuration
+
+- `PUID` - User ID for the cache process (default: 1000)
+- `PGID` - Group ID for the cache process (default: 1000)
+
+These are particularly useful when you need to match specific user/group permissions on your host system for the cache directories.
+
+### Cache Configuration
+
+- `CACHE_INDEX_SIZE` - Size of the cache index (default: 500m)
+- `CACHE_DISK_SIZE` - Maximum size of the disk cache (default: 1000g)
+- `MIN_FREE_DISK` - Minimum free disk space to maintain (default: 10g)
+- `CACHE_MAX_AGE` - Maximum age of cached content (default: 3560d)
+- `CACHE_SLICE_SIZE` - Size of cache slices (default: 1m)
+
+### Network Configuration
+
+- `UPSTREAM_DNS` - DNS servers to use for upstream resolution (default: "8.8.8.8 8.8.4.4")
+
+### Nginx Configuration
+
+- `NGINX_WORKER_PROCESSES` - Number of nginx worker processes (default: auto)
+- `NGINX_LOG_FORMAT` - Log format to use (default: cachelog)
+
+### Timeout Configuration
+
+- `NGINX_PROXY_CONNECT_TIMEOUT` - Proxy connection timeout (default: 300s)
+- `NGINX_PROXY_SEND_TIMEOUT` - Proxy send timeout (default: 300s)
+- `NGINX_PROXY_READ_TIMEOUT` - Proxy read timeout (default: 300s)
+- `NGINX_SEND_TIMEOUT` - Send timeout (default: 300s)
+
+### Other Configuration
+
+- `FORCE_PERMS_CHECK` - Force full recursive permissions check on startup (default: false)
+  - Set to "true" if you encounter permission errors after changing PUID/PGID
+  - Note: This will take a long time on large caches
+
+### Example docker-compose.yml
+
+```yaml
+services:
+  monolithic:
+    image: lancachenet/monolithic:latest
+    environment:
+      - PUID=1006
+      - PGID=1006
+      - CACHE_DISK_SIZE=2000g
+      - NGINX_PROXY_READ_TIMEOUT=600s
+      - UPSTREAM_DNS=1.1.1.1;1.0.0.1
+    volumes:
+      - ./cache:/data/cache
+      - ./logs:/data/logs
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
+```
+
 ## Thanks
 
 - Based on original configs from [ansible-lanparty](https://github.com/ti-mo/ansible-lanparty).

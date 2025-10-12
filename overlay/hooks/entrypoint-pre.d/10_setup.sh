@@ -22,3 +22,12 @@ sed -i "s/UPSTREAM_DNS/${UPSTREAM_DNS}/"    /etc/nginx/sites-available/upstream.
 sed -i "s/UPSTREAM_DNS/${UPSTREAM_DNS}/"    /etc/nginx/stream-available/10_sni.conf
 sed -i "s/LOG_FORMAT/${NGINX_LOG_FORMAT}/"  /etc/nginx/sites-available/10_cache.conf
 sed -i "s/LOG_FORMAT/${NGINX_LOG_FORMAT}/"  /etc/nginx/sites-available/20_upstream.conf
+
+# Process timeout configuration if template exists
+if [ -f /etc/nginx/conf.d/99_timeouts.conf.template ]; then
+    cp /etc/nginx/conf.d/99_timeouts.conf.template /etc/nginx/conf.d/99_timeouts.conf
+    sed -i "s/NGINX_PROXY_CONNECT_TIMEOUT/${NGINX_PROXY_CONNECT_TIMEOUT}/" /etc/nginx/conf.d/99_timeouts.conf
+    sed -i "s/NGINX_PROXY_SEND_TIMEOUT/${NGINX_PROXY_SEND_TIMEOUT}/" /etc/nginx/conf.d/99_timeouts.conf
+    sed -i "s/NGINX_PROXY_READ_TIMEOUT/${NGINX_PROXY_READ_TIMEOUT}/" /etc/nginx/conf.d/99_timeouts.conf
+    sed -i "s/NGINX_SEND_TIMEOUT/${NGINX_SEND_TIMEOUT}/" /etc/nginx/conf.d/99_timeouts.conf
+fi

@@ -3,18 +3,14 @@ LABEL version=3
 LABEL description="Single caching container for caching game content at LAN parties."
 LABEL maintainer="LanCache.Net Team <team@lancache.net>"
 
-# Accept PUID/PGID as build arguments with defaults
-ARG PUID=1000
-ARG PGID=1000
-
 RUN	apt-get update							;\
 	apt-get install -y jq git				;
 
 ENV GENERICCACHE_VERSION=2 \
     CACHE_MODE=monolithic \
     WEBUSER=www-data \
-    PUID=${PUID} \
-    PGID=${PGID} \
+    PUID=1000 \
+    PGID=1000 \
     CACHE_INDEX_SIZE=500m \
     CACHE_DISK_SIZE=1000g \
     MIN_FREE_DISK=10g \
@@ -26,7 +22,11 @@ ENV GENERICCACHE_VERSION=2 \
     CACHE_DOMAINS_REPO="https://github.com/uklans/cache-domains.git" \
     CACHE_DOMAINS_BRANCH=master \
     NGINX_WORKER_PROCESSES=auto \
-    NGINX_LOG_FORMAT=cachelog
+    NGINX_LOG_FORMAT=cachelog \
+    NGINX_PROXY_CONNECT_TIMEOUT=300s \
+    NGINX_PROXY_SEND_TIMEOUT=300s \
+    NGINX_PROXY_READ_TIMEOUT=300s \
+    NGINX_SEND_TIMEOUT=300s
 
 COPY overlay/ /
 
@@ -47,11 +47,6 @@ RUN rm /etc/nginx/sites-enabled/* /etc/nginx/stream-enabled/* ;\
     ln -s /etc/nginx/stream-available/10_sni.conf /etc/nginx/stream-enabled/10_sni.conf; \
     mkdir -m 755 -p /data/cachedomains		;\
     mkdir -m 755 -p /tmp/nginx
-
-# Modify www-data user to use custom PUID/PGID
-RUN groupmod -o -g ${PGID} www-data && \
-    usermod -o -u ${PUID} -g www-data www-data && \
-    chown -R ${PUID}:${PGID} /data/ /tmp/nginx/ /var/www/
 
 RUN git clone --depth=1 --no-single-branch https://github.com/uklans/cache-domains/ /data/cachedomains
 

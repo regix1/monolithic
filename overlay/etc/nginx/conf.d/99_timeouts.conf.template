@@ -1,0 +1,11 @@
+# Custom timeout settings
+# These values can be customized via environment variables in docker-compose.yml:
+#   NGINX_PROXY_CONNECT_TIMEOUT (default: 300s)
+#   NGINX_PROXY_SEND_TIMEOUT (default: 300s)
+#   NGINX_PROXY_READ_TIMEOUT (default: 300s)
+#   NGINX_SEND_TIMEOUT (default: 300s)
+
+proxy_connect_timeout NGINX_PROXY_CONNECT_TIMEOUT;
+proxy_send_timeout NGINX_PROXY_SEND_TIMEOUT;
+proxy_read_timeout NGINX_PROXY_READ_TIMEOUT;
+send_timeout NGINX_SEND_TIMEOUT;

@@ -19,6 +19,7 @@ ENV GENERICCACHE_VERSION=2 \
     UPSTREAM_DNS="8.8.8.8 8.8.4.4" \
     BEAT_TIME=1h \
     LOGFILE_RETENTION=3560 \
+    LOG_REOPEN_INTERVAL=3600 \
     CACHE_DOMAINS_REPO="https://github.com/uklans/cache-domains.git" \
     CACHE_DOMAINS_BRANCH=master \
     NGINX_WORKER_PROCESSES=auto \
@@ -35,6 +36,7 @@ RUN rm /etc/nginx/sites-enabled/* /etc/nginx/stream-enabled/* ;\
     chmod 754  /var/log/tallylog ; \
     id -u ${WEBUSER} &> /dev/null || adduser --system --home /var/www/ --no-create-home --shell /bin/false --group --disabled-login ${WEBUSER} ;\
     chmod 755 /scripts/*		;\
+    chmod 755 /hooks/entrypoint-pre.d/*.sh	;\
 	  mkdir -m 755 -p /data/cache		;\
 	  mkdir -m 755 -p /data/info		;\
     mkdir -m 755 -p /data/logs		;\

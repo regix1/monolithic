@@ -78,8 +78,8 @@ services:
   monolithic:
     image: ghcr.io/regix1/monolithic:latest
     environment:
-      - PUID=1006
-      - PGID=1006
+      - PUID=1000
+      - PGID=1000
       - CACHE_DISK_SIZE=2000g
       - NGINX_PROXY_READ_TIMEOUT=600s
       - UPSTREAM_DNS=1.1.1.1 1.0.0.1

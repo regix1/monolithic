@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# This hook runs BEFORE other setup scripts to ensure www-data user has correct PUID/PGID
+# This hook runs BEFORE other setup scripts to ensure the web user has correct PUID/PGID
 # It must run early so subsequent hooks (like 20_perms_check.sh) use the correct user
 
 # Verify we're running as root (required for user/group modification)
@@ -14,25 +14,25 @@ fi
 PUID=${PUID:-1000}
 PGID=${PGID:-1000}
 
-# Check if user wants to use default www-data IDs
+# Check if user wants to use default IDs
 SKIP_PUID=false
 SKIP_PGID=false
 
-# Validate PUID - allow "www-data" as a special value to keep defaults
-if [ "$PUID" = "www-data" ]; then
-    echo "Using default www-data UID (no modification)"
+# Validate PUID - allow "nginx" or "www-data" as special values to keep defaults
+if [ "$PUID" = "nginx" ] || [ "$PUID" = "www-data" ]; then
+    echo "Using default ${WEBUSER} UID (no modification)"
     SKIP_PUID=true
 elif ! [[ "$PUID" =~ ^[0-9]+$ ]]; then
-    echo "Warning: PUID '$PUID' is not numeric or 'www-data', using default 1000"
+    echo "Warning: PUID '$PUID' is not numeric, using default 1000"
     PUID=1000
 fi
 
-# Validate PGID - allow "www-data" as a special value to keep defaults
-if [ "$PGID" = "www-data" ]; then
-    echo "Using default www-data GID (no modification)"
+# Validate PGID - allow "nginx" or "www-data" as special values to keep defaults
+if [ "$PGID" = "nginx" ] || [ "$PGID" = "www-data" ]; then
+    echo "Using default ${WEBUSER} GID (no modification)"
     SKIP_PGID=true
 elif ! [[ "$PGID" =~ ^[0-9]+$ ]]; then
-    echo "Warning: PGID '$PGID' is not numeric or 'www-data', using default 1000"
+    echo "Warning: PGID '$PGID' is not numeric, using default 1000"
     PGID=1000
 fi
 

@@ -10,6 +10,14 @@ The specific documentation for this monolithic container is [here](http://lancac
 
 If you have any problems after reading the documentation please see [the support page](http://lancache.net/support/) before opening a new issue on github.
 
+## Multi-Architecture Support
+
+This image supports both **AMD64** and **ARM64** architectures. Docker will automatically pull the correct image for your platform.
+
+Supported platforms:
+- `linux/amd64` - Standard x86_64 servers and desktops
+- `linux/arm64` - ARM-based systems (Raspberry Pi 4/5, Apple Silicon, AWS Graviton, etc.)
+
 ## Environment Variables
 
 The following environment variables can be configured in your docker-compose.yml file:
@@ -18,12 +26,12 @@ The following environment variables can be configured in your docker-compose.yml
 
 - `PUID` - User ID for the cache process (default: 1000)
   - Set to a numeric UID to match your host user
-  - Set to `www-data` to use the default www-data user without modification
+  - Set to `nginx` to use the default nginx user without modification
 - `PGID` - Group ID for the cache process (default: 1000)
   - Set to a numeric GID to match your host group
-  - Set to `www-data` to use the default www-data group without modification
+  - Set to `nginx` to use the default nginx group without modification
 
-These are particularly useful when you need to match specific user/group permissions on your host system for the cache directories.
+These are particularly useful when you need to match specific user/group permissions on your host system for the cache directories, especially when using NFS mounts.
 
 ### Cache Configuration
 
@@ -49,26 +57,31 @@ These are particularly useful when you need to match specific user/group permiss
 - `NGINX_PROXY_READ_TIMEOUT` - Proxy read timeout (default: 300s)
 - `NGINX_SEND_TIMEOUT` - Send timeout (default: 300s)
 
-### Other Configuration
+### Permissions Configuration
 
 - `SKIP_PERMS_CHECK` - Skip the permissions check entirely on startup (default: false)
   - Set to "true" to disable all permissions checking at startup
-- `FORCE_PERMS_CHECK` - Force full recursive permissions check on startup (default: false)
+  - Useful when you know permissions are already correct or managed externally
+- `FORCE_PERMS_CHECK` - Force full recursive permissions fix on startup (default: false)
   - Set to "true" if you encounter permission errors after changing PUID/PGID
   - Note: This will take a long time on large caches
+
+The permissions check runs a fast check on startup and will warn if files have incorrect ownership. It will not block container startup. If you need to fix permissions, either:
+1. Set `FORCE_PERMS_CHECK=true` to attempt fixing from within the container
+2. Run `chown -R <PUID>:<PGID> /path/to/cache` on the host system
 
 ### Example docker-compose.yml
 
 ```yaml
 services:
   monolithic:
-    image: lancachenet/monolithic:latest
+    image: ghcr.io/regix1/monolithic:latest
     environment:
       - PUID=1006
       - PGID=1006
       - CACHE_DISK_SIZE=2000g
       - NGINX_PROXY_READ_TIMEOUT=600s
-      - UPSTREAM_DNS=1.1.1.1;1.0.0.1
+      - UPSTREAM_DNS=1.1.1.1 1.0.0.1
     volumes:
       - ./cache:/data/cache
       - ./logs:/data/logs
@@ -76,6 +89,26 @@ services:
       - "80:80"
       - "443:443"
     restart: unless-stopped
+```
+
+## NFS Mount Considerations
+
+When using NFS-mounted cache directories:
+
+1. **Set PUID/PGID** to match the user/group that owns the NFS share
+2. **Use Mapall** (not just Maproot) in your NFS server settings if you want all writes to use the same UID/GID
+3. If you see "Operation not permitted" errors during permissions check, the NFS server may not allow ownership changes - fix permissions on the NFS server directly or use `SKIP_PERMS_CHECK=true`
+
+## Building from Source
+
+This image is self-contained and builds from the official `nginx:alpine` base image, which provides multi-architecture support. To build locally:
+
+```bash
+# Build for current architecture
+docker build -t monolithic:local .
+
+# Build for multiple architectures (requires buildx)
+docker buildx build --platform linux/amd64,linux/arm64 -t monolithic:local .
 ```
 
 ## Thanks

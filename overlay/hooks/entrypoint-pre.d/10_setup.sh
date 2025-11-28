@@ -23,6 +23,13 @@ sed -i "s/UPSTREAM_DNS/${UPSTREAM_DNS}/"    /etc/nginx/stream-available/10_sni.c
 sed -i "s/LOG_FORMAT/${NGINX_LOG_FORMAT}/"  /etc/nginx/sites-available/10_cache.conf
 sed -i "s/LOG_FORMAT/${NGINX_LOG_FORMAT}/"  /etc/nginx/sites-available/20_upstream.conf
 
+# Configure nginx stdout logging (for debugging)
+if [[ "${NGINX_LOG_TO_STDOUT}" == "true" ]]; then
+    sed -i "s|NGINX_STDOUT_LOGFILE|/dev/stdout|" /etc/supervisor/conf.d/nginx.conf
+else
+    sed -i "s|NGINX_STDOUT_LOGFILE|/dev/null|" /etc/supervisor/conf.d/nginx.conf
+fi
+
 # Process timeout configuration if template exists
 if [ -f /etc/nginx/conf.d/99_timeouts.conf.template ]; then
     cp /etc/nginx/conf.d/99_timeouts.conf.template /etc/nginx/conf.d/99_timeouts.conf

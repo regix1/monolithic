@@ -37,11 +37,12 @@ ENV GENERICCACHE_VERSION=2 \
     NGINX_PROXY_CONNECT_TIMEOUT=300s \
     NGINX_PROXY_SEND_TIMEOUT=300s \
     NGINX_PROXY_READ_TIMEOUT=300s \
-    NGINX_SEND_TIMEOUT=300s
+    NGINX_SEND_TIMEOUT=300s \
+    NGINX_LOG_TO_STDOUT=false
 
 # Setup directories
 RUN mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled \
-    /etc/nginx/stream-available /etc/nginx/stream-enabled \
+    /etc/nginx/stream-available /etc/nginx/stream-enabled /etc/nginx/stream.d \
     /etc/nginx/conf.d /var/log/nginx /var/www /var/log/supervisor \
     && rm -f /etc/nginx/conf.d/default.conf \
     && chown -R nginx:nginx /var/log/nginx /var/www

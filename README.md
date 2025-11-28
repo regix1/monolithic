@@ -49,6 +49,7 @@ These are particularly useful when you need to match specific user/group permiss
 
 - `NGINX_WORKER_PROCESSES` - Number of nginx worker processes (default: auto)
 - `NGINX_LOG_FORMAT` - Log format to use (default: cachelog)
+- `NGINX_LOG_TO_STDOUT` - Output nginx access logs to stdout for debugging (default: false)
 
 ### Timeout Configuration
 

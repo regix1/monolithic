@@ -51,6 +51,8 @@ These are particularly useful when you need to match specific user/group permiss
 
 ### Other Configuration
 
+- `SKIP_PERMS_CHECK` - Skip the permissions check entirely on startup (default: false)
+  - Set to "true" to disable all permissions checking at startup
 - `FORCE_PERMS_CHECK` - Force full recursive permissions check on startup (default: false)
   - Set to "true" if you encounter permission errors after changing PUID/PGID
   - Note: This will take a long time on large caches

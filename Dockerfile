@@ -19,7 +19,6 @@ ENV GENERICCACHE_VERSION=2 \
     UPSTREAM_DNS="8.8.8.8 8.8.4.4" \
     BEAT_TIME=1h \
     LOGFILE_RETENTION=3560 \
-    LOG_REOPEN_INTERVAL=3600 \
     CACHE_DOMAINS_REPO="https://github.com/uklans/cache-domains.git" \
     CACHE_DOMAINS_BRANCH=master \
     NGINX_WORKER_PROCESSES=auto \

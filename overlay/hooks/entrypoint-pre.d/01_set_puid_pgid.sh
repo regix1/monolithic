@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+
 # This hook runs BEFORE other setup scripts to ensure the web user has correct PUID/PGID
 # It must run early so subsequent hooks (like 20_perms_check.sh) use the correct user
 

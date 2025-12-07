@@ -74,5 +74,8 @@ VOLUME ["/data/logs", "/data/cache", "/data/cachedomains", "/var/www"]
 EXPOSE 80 443 8080
 WORKDIR /scripts
 
+HEALTHCHECK --interval=1m --timeout=10s --start-period=120s --retries=3 \
+    CMD curl --fail http://127.0.0.1/lancache-heartbeat || exit 1
+
 ENTRYPOINT ["/bin/bash", "-e", "/init/entrypoint"]
 CMD ["run"]

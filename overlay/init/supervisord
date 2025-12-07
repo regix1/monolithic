@@ -26,5 +26,7 @@ fi
 [[ -f "/hooks/supervisord-pre" ]] && echo "The /hooks/supervisord-pre hook has been replaced with /hooks/supervisord-pre.d/*" && exit 1
 
 echo "Starting Supervisord"
+echo "NOTE: 'Starting Supervisord' is the expected final startup message."
+echo "      The container is now running. Check container health status or logs for activity."
 
 exec /usr/bin/supervisord -n -c /etc/supervisor/supervisord.conf -e ${SUPERVISORD_LOGLEVEL:-error}

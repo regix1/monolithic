@@ -55,6 +55,8 @@ These are particularly useful when you need to match specific user/group permiss
 
 - `NGINX_WORKER_PROCESSES` - Number of nginx worker processes (default: auto)
 - `NGINX_LOG_FORMAT` - Log format to use (default: cachelog)
+  - `cachelog` - Human-readable format: `[steam] 192.168.1.10 - [07/Dec/2025:12:00:00] "GET /..." 200 ...`
+  - `cachelog-json` - JSON format for log parsers: `{"timestamp":"...","cache_identifier":"steam",...}`
 - `NGINX_LOG_TO_STDOUT` - Output nginx access logs to stdout for debugging (default: false)
 
 ### Timeout Configuration

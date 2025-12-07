@@ -71,6 +71,62 @@ The permissions check runs a fast check on startup and will warn if files have i
 1. Set `FORCE_PERMS_CHECK=true` to attempt fixing from within the container
 2. Run `chown -R <PUID>:<PGID> /path/to/cache` on the host system
 
+### SSL Bump Configuration (HTTPS Caching)
+
+Some game publishers (like Ubisoft Connect) use HTTPS-only downloads, which cannot be cached by default. SSL Bump enables caching of HTTPS traffic by intercepting and decrypting it.
+
+**Warning:** This requires installing a CA certificate on all client machines.
+
+- `ENABLE_SSL_BUMP` - Enable HTTPS interception and caching (default: false)
+- `SSL_BUMP_TEST_TIMEOUT` - Timeout for testing each domain in seconds (default: 3)
+- `SSL_BUMP_RETEST` - Force re-test all domains, ignoring cache (default: false)
+- `SSL_BUMP_MAX_FAILURES` - Number of SSL failures before bypassing a domain (default: 3)
+- `SSL_BUMP_CHECK_INTERVAL` - How often to check for SSL failures in seconds (default: 30)
+
+#### How SSL Bump Works
+
+1. On startup, the container tests each domain from cache-domains to detect HTTPS-only domains
+2. Only HTTPS-only domains are intercepted; HTTP domains pass through normally
+3. A CA certificate is generated in `/data/ssl/` on first startup
+4. Clients must install this certificate to allow HTTPS interception
+5. If a domain fails SSL bump (e.g., certificate pinning), it's automatically bypassed after 3 failures
+
+#### Installing the CA Certificate
+
+After enabling SSL bump, download and install the certificate on your gaming PCs:
+
+**From browser:** `http://<LANCACHE_IP>/lancache-certs`
+
+**Direct downloads:**
+- Windows: `http://<LANCACHE_IP>/lancache-certs/lancache-ca.der`
+- Linux: `http://<LANCACHE_IP>/lancache-certs/lancache-ca.pem`
+
+**Windows Installation:**
+1. Download the `.der` file
+2. Double-click and select "Install Certificate"
+3. Choose "Local Machine" > "Place all certificates in the following store"
+4. Select "Trusted Root Certification Authorities"
+5. Complete the wizard
+
+**Linux Installation:**
+```bash
+sudo cp lancache-ca.pem /usr/local/share/ca-certificates/lancache-ca.crt
+sudo update-ca-certificates
+```
+
+#### Checking SSL Bump Status
+
+```bash
+# View which domains will be SSL bumped
+docker exec <container> cat /etc/squid/bump-domains.txt
+
+# View domains that failed and are bypassed
+docker exec <container> cat /etc/squid/splice-domains.txt
+
+# View Squid logs
+docker exec <container> tail -f /data/logs/squid-access.log
+```
+
 ### Example docker-compose.yml
 
 ```yaml
@@ -83,9 +139,11 @@ services:
       - CACHE_DISK_SIZE=2000g
       - NGINX_PROXY_READ_TIMEOUT=600s
       - UPSTREAM_DNS=1.1.1.1 1.0.0.1
+      - ENABLE_SSL_BUMP=false
     volumes:
       - ./cache:/data/cache
       - ./logs:/data/logs
+      - ./ssl:/data/ssl
     ports:
       - "80:80"
       - "443:443"

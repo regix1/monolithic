@@ -1,12 +1,12 @@
-version: '3'
 services:
   monolithic:
-    build:
-      context: .
-      args:
-        PUID: ${PUID:-1000}
-        PGID: ${PGID:-1000}
-    image: lancache-monolithic:latest
+    # For local builds, use:
+    # build:
+    #   context: .
+    # image: lancache-monolithic:latest
+
+    # For pre-built image:
+    image: ghcr.io/regix1/monolithic:latest
     env_file:
       - .env
     restart: unless-stopped
@@ -14,8 +14,7 @@ services:
     volumes:
       - ./data/cache:/data/cache
       - ./data/logs:/data/logs
-      - ./data/cachedomains:/data/cachedomains
-      - ./data/ssl:/data/ssl  # SSL certificates for HTTPS caching
+      - ./data/ssl:/data/ssl
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -23,6 +22,6 @@ services:
       - CACHE_INDEX_SIZE=${CACHE_INDEX_SIZE:-500m}
       - CACHE_MAX_AGE=${CACHE_MAX_AGE:-3560d}
       - UPSTREAM_DNS=${UPSTREAM_DNS:-8.8.8.8 8.8.4.4}
-      - NGINX_LOG_TO_STDOUT=${NGINX_LOG_TO_STDOUT:-false}
-      # Set to true to enable HTTPS caching via SSL bump (requires cert install on clients)
+      # Set to true to enable HTTPS caching via SSL bump
+      # Requires installing CA certificate on client machines
       - ENABLE_SSL_BUMP=${ENABLE_SSL_BUMP:-false}

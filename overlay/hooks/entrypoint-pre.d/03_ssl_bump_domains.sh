@@ -48,19 +48,42 @@ done
 # Sort and remove duplicates
 sort -u "${TEMP_FILE}" -o "${TEMP_FILE}"
 
-# Remove conflicting entries: if we have both .foo.com and foo.com, keep only .foo.com
-# Squid errors if a subdomain wildcard (.cdn.blizzard.com) conflicts with parent (cdn.blizzard.com)
+# Remove conflicting entries: Squid errors if a specific domain is also covered by a wildcard
+# Examples of conflicts:
+#   - cdn.blizzard.com conflicts with .cdn.blizzard.com
+#   - officecdn.microsoft.com.edgesuite.net conflicts with .microsoft.com.edgesuite.net
+#
+# Strategy: For each non-wildcard domain, check if any parent wildcard would match it
 while IFS= read -r domain; do
-    # Skip if this exact domain (without leading dot) already exists as a wildcard
-    base_domain="${domain#.}"
-    if [[ "$domain" != ".$base_domain" ]]; then
-        # This is not a wildcard, check if wildcard version exists
-        if grep -qx "\.${domain}" "${TEMP_FILE}" 2>/dev/null; then
-            # Wildcard exists, skip this specific domain
-            continue
-        fi
+    # If this is already a wildcard (starts with .), always keep it
+    if [[ "$domain" == .* ]]; then
+        echo "$domain" >> "${BUMP_DOMAINS_FILE}"
+        continue
     fi
-    echo "$domain" >> "${BUMP_DOMAINS_FILE}"
+
+    # For specific domains, check if any parent wildcard exists
+    skip_domain=false
+    check_domain="$domain"
+
+    # Walk up the domain hierarchy checking for wildcards
+    while [[ "$check_domain" == *.* ]]; do
+        # Check if wildcard for this exact domain exists (.domain.com)
+        if grep -qx "\.${check_domain}" "${TEMP_FILE}" 2>/dev/null; then
+            skip_domain=true
+            break
+        fi
+        # Remove the leftmost label and check parent
+        check_domain="${check_domain#*.}"
+        # Check if wildcard for parent exists (.parent.com would match sub.parent.com)
+        if grep -qx "\.${check_domain}" "${TEMP_FILE}" 2>/dev/null; then
+            skip_domain=true
+            break
+        fi
+    done
+
+    if [[ "$skip_domain" == "false" ]]; then
+        echo "$domain" >> "${BUMP_DOMAINS_FILE}"
+    fi
 done < "${TEMP_FILE}"
 
 rm -f "${TEMP_FILE}"

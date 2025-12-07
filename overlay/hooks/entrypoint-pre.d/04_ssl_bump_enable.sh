@@ -21,8 +21,8 @@ if [[ -f /etc/supervisor/conf.d/ssl-bump-info.conf.disabled ]]; then
 fi
 
 # Create required directories
-mkdir -p /run/squid /var/spool/squid /var/lib/squid
-chown -R squid:squid /run/squid /var/spool/squid /var/lib/squid 2>/dev/null || true
+mkdir -p /run/squid /var/spool/squid /var/lib/squid /var/log/squid
+chown -R squid:squid /run/squid /var/spool/squid /var/lib/squid /var/log/squid 2>/dev/null || true
 
 # Make the info script executable
 chmod +x /scripts/ssl-bump-info.sh 2>/dev/null || true

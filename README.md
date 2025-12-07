@@ -45,6 +45,12 @@ These are particularly useful when you need to match specific user/group permiss
 
 - `UPSTREAM_DNS` - DNS servers to use for upstream resolution (default: "8.8.8.8 8.8.4.4")
 
+### Cache Domains Configuration
+
+- `CACHE_DOMAINS_REPO` - Git repository for cache domain lists (default: "https://github.com/uklans/cache-domains.git")
+- `CACHE_DOMAINS_BRANCH` - Branch to use from the cache domains repo (default: master)
+- `NOFETCH` - Skip fetching/updating cache-domains on startup (default: false)
+
 ### Nginx Configuration
 
 - `NGINX_WORKER_PROCESSES` - Number of nginx worker processes (default: auto)
@@ -57,6 +63,12 @@ These are particularly useful when you need to match specific user/group permiss
 - `NGINX_PROXY_SEND_TIMEOUT` - Proxy send timeout (default: 300s)
 - `NGINX_PROXY_READ_TIMEOUT` - Proxy read timeout (default: 300s)
 - `NGINX_SEND_TIMEOUT` - Send timeout (default: 300s)
+
+### Logging Configuration
+
+- `LOGFILE_RETENTION` - Number of days to retain log files (default: 3560)
+- `BEAT_TIME` - Interval between heartbeat log entries (default: 1h)
+- `SUPERVISORD_LOGLEVEL` - Supervisord log level: critical, error, warn, info, debug, trace, blather (default: error)
 
 ### Permissions Configuration
 

@@ -16,12 +16,15 @@ services:
       - ./data/logs:/data/logs
       - ./data/ssl:/data/ssl
     environment:
+      # User/Group
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
+      # Cache settings
       - CACHE_DISK_SIZE=${CACHE_DISK_SIZE:-1000g}
       - CACHE_INDEX_SIZE=${CACHE_INDEX_SIZE:-500m}
       - CACHE_MAX_AGE=${CACHE_MAX_AGE:-3560d}
       - UPSTREAM_DNS=${UPSTREAM_DNS:-8.8.8.8 8.8.4.4}
-      # Set to true to enable HTTPS caching via SSL bump
-      # Requires installing CA certificate on client machines
+      # Logging - set to true to output nginx logs to stdout for debugging
+      - NGINX_LOG_TO_STDOUT=${NGINX_LOG_TO_STDOUT:-false}
+      # SSL Bump - set to true to enable HTTPS caching (requires CA cert on clients)
       - ENABLE_SSL_BUMP=${ENABLE_SSL_BUMP:-false}

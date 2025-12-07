@@ -10,9 +10,11 @@ echo "Generating SSL bump domain list from cache-domains..."
 
 BUMP_DOMAINS_FILE="/etc/squid/bump-domains.txt"
 CACHE_DOMAINS_DIR="/data/cachedomains"
+TEMP_FILE="/tmp/bump-domains-temp.txt"
 
-# Clear existing file
+# Clear existing files
 > "${BUMP_DOMAINS_FILE}"
+> "${TEMP_FILE}"
 
 # Check if cache domains directory exists
 if [[ ! -d "${CACHE_DOMAINS_DIR}" ]]; then
@@ -20,28 +22,48 @@ if [[ ! -d "${CACHE_DOMAINS_DIR}" ]]; then
     exit 0
 fi
 
-# Read all domain files and add to bump list
-# Uses the same domains that lancache already caches via HTTP
+# Read all domain files and add to temp list
 for domain_file in "${CACHE_DOMAINS_DIR}"/*.txt; do
     if [[ -f "${domain_file}" ]]; then
-        # Skip empty lines and comments, convert wildcards to regex
         while IFS= read -r domain || [[ -n "$domain" ]]; do
             # Skip empty lines and comments
-            [[ -z "$domain" || "$domain" =~ ^# ]] && continue
+            [[ -z "$domain" ]] && continue
+            [[ "$domain" =~ ^[[:space:]]*# ]] && continue
+
+            # Trim whitespace
+            domain=$(echo "$domain" | tr -d '[:space:]')
+            [[ -z "$domain" ]] && continue
 
             # Convert wildcard domains to Squid format
             # *.example.com -> .example.com (Squid uses leading dot for wildcards)
             if [[ "$domain" == \*.* ]]; then
-                echo "${domain#\*}" >> "${BUMP_DOMAINS_FILE}"
+                echo "${domain#\*}" >> "${TEMP_FILE}"
             else
-                echo "$domain" >> "${BUMP_DOMAINS_FILE}"
+                echo "$domain" >> "${TEMP_FILE}"
             fi
         done < "$domain_file"
     fi
 done
 
-# Remove duplicates and sort
-sort -u "${BUMP_DOMAINS_FILE}" -o "${BUMP_DOMAINS_FILE}"
+# Sort and remove duplicates
+sort -u "${TEMP_FILE}" -o "${TEMP_FILE}"
+
+# Remove conflicting entries: if we have both .foo.com and foo.com, keep only .foo.com
+# Squid errors if a subdomain wildcard (.cdn.blizzard.com) conflicts with parent (cdn.blizzard.com)
+while IFS= read -r domain; do
+    # Skip if this exact domain (without leading dot) already exists as a wildcard
+    base_domain="${domain#.}"
+    if [[ "$domain" != ".$base_domain" ]]; then
+        # This is not a wildcard, check if wildcard version exists
+        if grep -qx "\.${domain}" "${TEMP_FILE}" 2>/dev/null; then
+            # Wildcard exists, skip this specific domain
+            continue
+        fi
+    fi
+    echo "$domain" >> "${BUMP_DOMAINS_FILE}"
+done < "${TEMP_FILE}"
+
+rm -f "${TEMP_FILE}"
 
 DOMAIN_COUNT=$(wc -l < "${BUMP_DOMAINS_FILE}")
 echo "SSL bump domain list generated: ${DOMAIN_COUNT} domains"

@@ -1,0 +1,9 @@
+[program:ssl-bump-info]
+command=/bin/bash -c 'sleep 3 && /scripts/ssl-bump-info.sh'
+autostart=true
+autorestart=false
+startsecs=0
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0

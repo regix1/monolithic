@@ -2,8 +2,9 @@
 # Enable Squid supervisor config if SSL bump is enabled
 
 if [[ "${ENABLE_SSL_BUMP}" != "true" ]]; then
-    # Ensure Squid is disabled
+    # Ensure Squid and SSL bump info are disabled
     rm -f /etc/supervisor/conf.d/squid.conf 2>/dev/null
+    rm -f /etc/supervisor/conf.d/ssl-bump-info.conf 2>/dev/null
     exit 0
 fi
 
@@ -14,9 +15,17 @@ if [[ -f /etc/supervisor/conf.d/squid.conf.disabled ]]; then
     cp /etc/supervisor/conf.d/squid.conf.disabled /etc/supervisor/conf.d/squid.conf
 fi
 
+# Enable SSL bump info display
+if [[ -f /etc/supervisor/conf.d/ssl-bump-info.conf.disabled ]]; then
+    cp /etc/supervisor/conf.d/ssl-bump-info.conf.disabled /etc/supervisor/conf.d/ssl-bump-info.conf
+fi
+
 # Create required directories
 mkdir -p /run/squid /var/spool/squid /var/lib/squid
 chown -R squid:squid /run/squid /var/spool/squid /var/lib/squid 2>/dev/null || true
+
+# Make the info script executable
+chmod +x /scripts/ssl-bump-info.sh 2>/dev/null || true
 
 # Update nginx stream config to redirect HTTPS to Squid instead of passthrough
 # When SSL bump is enabled, we want Squid to handle HTTPS traffic

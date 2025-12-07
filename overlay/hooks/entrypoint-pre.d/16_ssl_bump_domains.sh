@@ -1,6 +1,7 @@
 #!/bin/bash
 # Generate SSL bump domain list by testing which domains require HTTPS
 # Only runs if ENABLE_SSL_BUMP=true
+# Caches results so only new domains are tested on restart
 
 if [[ "${ENABLE_SSL_BUMP}" != "true" ]]; then
     exit 0
@@ -12,13 +13,31 @@ BUMP_DOMAINS_FILE="/etc/squid/bump-domains.txt"
 CACHE_DOMAINS_DIR="/data/cachedomains"
 TEMP_FILE="/tmp/bump-domains-temp.txt"
 TEMP_HTTPS="/tmp/https-domains.txt"
+TEMP_TO_TEST="/tmp/domains-to-test.txt"
 TIMEOUT="${SSL_BUMP_TEST_TIMEOUT:-3}"
-MAX_PARALLEL="${SSL_BUMP_TEST_PARALLEL:-10}"
 
-# Clear existing files
+# Cache files (persistent across restarts)
+TESTED_CACHE="/data/ssl/tested-domains.txt"
+HTTPS_CACHE="/data/ssl/https-domains-cache.txt"
+
+# Clear working files
 > "${BUMP_DOMAINS_FILE}"
 > "${TEMP_FILE}"
 > "${TEMP_HTTPS}"
+> "${TEMP_TO_TEST}"
+
+# Ensure cache directory exists
+mkdir -p /data/ssl
+
+# Initialize cache files if they don't exist
+touch "${TESTED_CACHE}" "${HTTPS_CACHE}"
+
+# Force re-test all domains if requested
+if [[ "${SSL_BUMP_RETEST:-false}" == "true" ]]; then
+    echo "SSL_BUMP_RETEST=true - clearing cache and re-testing all domains"
+    > "${TESTED_CACHE}"
+    > "${HTTPS_CACHE}"
+fi
 
 # Check if cache domains directory exists
 if [[ ! -d "${CACHE_DOMAINS_DIR}" ]]; then
@@ -112,33 +131,63 @@ done
 # Sort and remove duplicates
 sort -u "${TEMP_FILE}" -o "${TEMP_FILE}"
 TOTAL_DOMAINS=$(wc -l < "${TEMP_FILE}")
-echo "Found ${TOTAL_DOMAINS} unique domains to test..."
 
-# Test each domain for HTTPS requirement
-TESTED=0
-HTTPS_COUNT=0
+# Load cached HTTPS domains into temp file
+if [[ -s "${HTTPS_CACHE}" ]]; then
+    cat "${HTTPS_CACHE}" >> "${TEMP_HTTPS}"
+fi
 
+# Find domains that haven't been tested yet
 while IFS= read -r domain; do
-    TESTED=$((TESTED + 1))
-
-    # Show progress every 20 domains
-    if [[ $((TESTED % 20)) -eq 0 ]]; then
-        echo "  Testing domain ${TESTED}/${TOTAL_DOMAINS}... (${HTTPS_COUNT} HTTPS-only found)"
-    fi
-
-    if test_https_required "$domain"; then
-        echo "$domain" >> "${TEMP_HTTPS}"
-        HTTPS_COUNT=$((HTTPS_COUNT + 1))
-        # Log HTTPS-only domains as they're found
-        if [[ "$domain" == .* ]]; then
-            echo "  [HTTPS] *${domain}"
-        else
-            echo "  [HTTPS] ${domain}"
-        fi
+    if ! grep -qxF "$domain" "${TESTED_CACHE}" 2>/dev/null; then
+        echo "$domain" >> "${TEMP_TO_TEST}"
     fi
 done < "${TEMP_FILE}"
 
-echo "Testing complete: ${HTTPS_COUNT} HTTPS-only domains found out of ${TOTAL_DOMAINS}"
+NEW_DOMAINS=$(wc -l < "${TEMP_TO_TEST}")
+CACHED_COUNT=$(wc -l < "${TESTED_CACHE}" 2>/dev/null || echo "0")
+
+echo "Found ${TOTAL_DOMAINS} unique domains (${CACHED_COUNT} cached, ${NEW_DOMAINS} new to test)"
+
+if [[ "$NEW_DOMAINS" -eq 0 ]]; then
+    echo "All domains already tested - using cached results"
+else
+    echo "Testing ${NEW_DOMAINS} new domains..."
+
+    # Test each new domain for HTTPS requirement
+    TESTED=0
+    HTTPS_COUNT=0
+
+    while IFS= read -r domain; do
+        TESTED=$((TESTED + 1))
+
+        # Show progress every 10 domains
+        if [[ $((TESTED % 10)) -eq 0 ]]; then
+            echo "  Testing domain ${TESTED}/${NEW_DOMAINS}... (${HTTPS_COUNT} HTTPS-only found)"
+        fi
+
+        # Add to tested cache
+        echo "$domain" >> "${TESTED_CACHE}"
+
+        if test_https_required "$domain"; then
+            echo "$domain" >> "${TEMP_HTTPS}"
+            echo "$domain" >> "${HTTPS_CACHE}"
+            HTTPS_COUNT=$((HTTPS_COUNT + 1))
+            # Log HTTPS-only domains as they're found
+            if [[ "$domain" == .* ]]; then
+                echo "  [HTTPS] *${domain}"
+            else
+                echo "  [HTTPS] ${domain}"
+            fi
+        fi
+    done < "${TEMP_TO_TEST}"
+
+    echo "Testing complete: ${HTTPS_COUNT} new HTTPS-only domains found"
+
+    # Clean up cache files (remove duplicates)
+    sort -u "${TESTED_CACHE}" -o "${TESTED_CACHE}"
+    sort -u "${HTTPS_CACHE}" -o "${HTTPS_CACHE}"
+fi
 
 # Now filter out conflicting domains from the HTTPS list
 # (specific domains covered by wildcards)
@@ -174,7 +223,7 @@ if [[ -s "${TEMP_HTTPS}" ]]; then
     done < "${TEMP_HTTPS}"
 fi
 
-rm -f "${TEMP_FILE}" "${TEMP_HTTPS}"
+rm -f "${TEMP_FILE}" "${TEMP_HTTPS}" "${TEMP_TO_TEST}"
 
 FINAL_COUNT=$(wc -l < "${BUMP_DOMAINS_FILE}" 2>/dev/null || echo "0")
 echo ""

@@ -15,6 +15,7 @@ services:
       - ./data/cache:/data/cache
       - ./data/logs:/data/logs
       - ./data/cachedomains:/data/cachedomains
+      - ./data/ssl:/data/ssl  # SSL certificates for HTTPS caching
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -23,3 +24,5 @@ services:
       - CACHE_MAX_AGE=${CACHE_MAX_AGE:-3560d}
       - UPSTREAM_DNS=${UPSTREAM_DNS:-8.8.8.8 8.8.4.4}
       - NGINX_LOG_TO_STDOUT=${NGINX_LOG_TO_STDOUT:-false}
+      # Set to true to enable HTTPS caching via SSL bump (requires cert install on clients)
+      - ENABLE_SSL_BUMP=${ENABLE_SSL_BUMP:-false}

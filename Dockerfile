@@ -15,7 +15,9 @@ RUN apk add --no-cache \
     curl \
     findutils \
     coreutils \
-    shadow
+    shadow \
+    openssl \
+    squid
 
 ENV GENERICCACHE_VERSION=2 \
     CACHE_MODE=monolithic \
@@ -38,7 +40,8 @@ ENV GENERICCACHE_VERSION=2 \
     NGINX_PROXY_SEND_TIMEOUT=300s \
     NGINX_PROXY_READ_TIMEOUT=300s \
     NGINX_SEND_TIMEOUT=300s \
-    NGINX_LOG_TO_STDOUT=false
+    NGINX_LOG_TO_STDOUT=false \
+    ENABLE_SSL_BUMP=false
 
 # Setup directories
 RUN mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled \
@@ -69,7 +72,11 @@ RUN rm -f /etc/nginx/sites-enabled/* /etc/nginx/stream-enabled/* 2>/dev/null || 
 
 RUN git clone --depth=1 --no-single-branch https://github.com/uklans/cache-domains/ /data/cachedomains
 
-VOLUME ["/data/logs", "/data/cache", "/data/cachedomains", "/var/www"]
+# SSL bump directories (for Squid)
+RUN mkdir -p /data/ssl /var/lib/squid /var/spool/squid /run/squid /etc/squid \
+    && chown -R squid:squid /var/lib/squid /var/spool/squid /run/squid 2>/dev/null || true
+
+VOLUME ["/data/logs", "/data/cache", "/data/cachedomains", "/data/ssl", "/var/www"]
 
 EXPOSE 80 443 8080
 WORKDIR /scripts

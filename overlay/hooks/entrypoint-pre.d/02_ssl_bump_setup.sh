@@ -76,6 +76,9 @@ echo ""
 chmod 600 "${CA_KEY}"
 chmod 644 "${CA_CERT}" "${CA_DER}" 2>/dev/null || true
 
+# Note: Server certificate for nginx SSL termination is generated in
+# 17_ssl_server_cert.sh after bump-domains.txt is created by 16_ssl_bump_domains.sh
+
 # Initialize Squid SSL certificate database if needed
 SSL_DB="/var/lib/squid/ssl_db"
 CERTGEN_PATH="/usr/lib/squid/security_file_certgen"

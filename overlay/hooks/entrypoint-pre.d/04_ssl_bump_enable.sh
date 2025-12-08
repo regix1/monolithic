@@ -40,7 +40,7 @@ if [[ -f /etc/nginx/stream-enabled/10_sni.conf ]]; then
 # Map to determine if we should bump (terminate SSL) or splice (passthrough)
 map $ssl_preread_server_name $ssl_backend {
     # Include generated bump domain mappings
-    include /etc/nginx/stream.d/ssl-bump-map.conf;
+    include /etc/nginx/ssl-bump/stream-map.conf;
     # Default: passthrough to original destination
     default passthrough;
 }
@@ -67,8 +67,8 @@ EOF
 fi
 
 # Create empty map file (will be populated by 18_ssl_bump_nginx_map.sh after domains are detected)
-mkdir -p /etc/nginx/stream.d
-touch /etc/nginx/stream.d/ssl-bump-map.conf
+mkdir -p /etc/nginx/ssl-bump
+touch /etc/nginx/ssl-bump/stream-map.conf
 
 # Enable SSL cache nginx config
 if [[ -f /etc/nginx/sites-available/15_ssl_cache.conf ]]; then

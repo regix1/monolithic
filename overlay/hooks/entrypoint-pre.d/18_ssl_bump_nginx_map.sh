@@ -8,10 +8,10 @@ if [[ "${ENABLE_SSL_BUMP}" != "true" ]]; then
 fi
 
 BUMP_DOMAINS_FILE="/etc/nginx/ssl-bump/bump-domains.txt"
-MAP_FILE="/etc/nginx/stream.d/ssl-bump-map.conf"
+MAP_FILE="/etc/nginx/ssl-bump/stream-map.conf"
 
 echo "Generating nginx SSL bump domain map..."
-mkdir -p /etc/nginx/stream.d
+mkdir -p /etc/nginx/ssl-bump
 
 if [[ -f "${BUMP_DOMAINS_FILE}" ]] && [[ -s "${BUMP_DOMAINS_FILE}" ]]; then
     # Convert bump-domains.txt to nginx map format

@@ -1,52 +1,28 @@
 #!/bin/bash
-# Enable Squid supervisor config if SSL bump is enabled
+# Enable nginx SSL termination for HTTPS caching
+# This uses pure nginx instead of Squid for SSL termination
 
 if [[ "${ENABLE_SSL_BUMP}" != "true" ]]; then
-    # Ensure Squid and SSL bump services are disabled
-    rm -f /etc/supervisor/conf.d/squid.conf 2>/dev/null
+    # Ensure SSL bump services are disabled
     rm -f /etc/supervisor/conf.d/ssl-bump-info.conf 2>/dev/null
-    rm -f /etc/supervisor/conf.d/ssl-bump-monitor.conf 2>/dev/null
+    rm -f /etc/nginx/sites-enabled/15_ssl_cache.conf 2>/dev/null
     exit 0
 fi
 
-echo "Enabling Squid SSL bump proxy..."
-
-# Enable Squid supervisor config
-if [[ -f /etc/supervisor/conf.d/squid.conf.disabled ]]; then
-    cp /etc/supervisor/conf.d/squid.conf.disabled /etc/supervisor/conf.d/squid.conf
-fi
+echo "Enabling nginx SSL termination for HTTPS caching..."
 
 # Enable SSL bump info display
 if [[ -f /etc/supervisor/conf.d/ssl-bump-info.conf.disabled ]]; then
     cp /etc/supervisor/conf.d/ssl-bump-info.conf.disabled /etc/supervisor/conf.d/ssl-bump-info.conf
 fi
 
-# Enable SSL bump failure monitor
-if [[ -f /etc/supervisor/conf.d/ssl-bump-monitor.conf.disabled ]]; then
-    cp /etc/supervisor/conf.d/ssl-bump-monitor.conf.disabled /etc/supervisor/conf.d/ssl-bump-monitor.conf
-fi
-
-# Create required directories
-# Squid runs as nginx user (cache_effective_user) to match file permissions
-mkdir -p /run/squid /var/spool/squid /var/lib/squid
-chown -R nginx:nginx /run/squid /var/spool/squid /var/lib/squid 2>/dev/null || true
-
-# Create squid log files with proper permissions in /data/logs
-touch /data/logs/squid-access.log /data/logs/squid-cache.log 2>/dev/null || true
-chown nginx:nginx /data/logs/squid-access.log /data/logs/squid-cache.log 2>/dev/null || true
-chmod 644 /data/logs/squid-access.log /data/logs/squid-cache.log 2>/dev/null || true
-
 # Make scripts executable
 chmod +x /scripts/ssl-bump-info.sh 2>/dev/null || true
-chmod +x /scripts/ssl-bump-monitor.sh 2>/dev/null || true
 
-# Create splice-domains.txt for domains that fail SSL bump (certificate pinning, etc.)
-# Load from persistent storage if exists, otherwise start empty
-if [[ -f /data/ssl/splice-domains.txt ]]; then
-    cp /data/ssl/splice-domains.txt /etc/squid/splice-domains.txt
-else
-    touch /etc/squid/splice-domains.txt
-fi
+# Create bump-domains.txt placeholder if it doesn't exist yet
+# (will be populated by 16_ssl_bump_domains.sh)
+mkdir -p /etc/squid
+touch /etc/squid/bump-domains.txt
 
 # Update nginx stream config to route HTTPS to nginx SSL termination
 # We use nginx's ssl module instead of Squid for SSL termination because

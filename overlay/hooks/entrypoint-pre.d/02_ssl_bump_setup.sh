@@ -1,6 +1,6 @@
 #!/bin/bash
 # SSL Bump Setup Script
-# This script sets up SSL bump capabilities for HTTPS caching
+# This script sets up SSL certificates for HTTPS caching via nginx SSL termination
 # Only runs if ENABLE_SSL_BUMP=true
 
 if [[ "${ENABLE_SSL_BUMP}" != "true" ]]; then
@@ -8,15 +8,7 @@ if [[ "${ENABLE_SSL_BUMP}" != "true" ]]; then
     exit 0
 fi
 
-echo "Setting up SSL Bump for HTTPS caching..."
-
-# Check if Squid has SSL bump support
-if ! squid -v 2>&1 | grep -q "with-openssl\|with-gnutls\|enable-ssl"; then
-    echo "ERROR: Squid was not compiled with SSL support!"
-    echo "SSL Bump requires Squid with --with-openssl"
-    echo "Please use a Squid package with SSL support or disable ENABLE_SSL_BUMP"
-    exit 1
-fi
+echo "Setting up SSL certificates for HTTPS caching..."
 
 SSL_CERT_DIR="/data/ssl"
 CA_CERT="${SSL_CERT_DIR}/lancache-ca.pem"
@@ -79,20 +71,4 @@ chmod 644 "${CA_CERT}" "${CA_DER}" 2>/dev/null || true
 # Note: Server certificate for nginx SSL termination is generated in
 # 17_ssl_server_cert.sh after bump-domains.txt is created by 16_ssl_bump_domains.sh
 
-# Initialize Squid SSL certificate database if needed
-SSL_DB="/var/lib/squid/ssl_db"
-CERTGEN_PATH="/usr/lib/squid/security_file_certgen"
-
-# Alpine may have it in a different location
-if [[ ! -x "${CERTGEN_PATH}" ]]; then
-    CERTGEN_PATH=$(find /usr -name "security_file_certgen" -o -name "ssl_crtd" 2>/dev/null | head -1)
-fi
-
-if [[ -x "${CERTGEN_PATH}" ]] && [[ ! -d "${SSL_DB}" ]]; then
-    echo "Initializing Squid SSL certificate database..."
-    mkdir -p /var/lib/squid
-    "${CERTGEN_PATH}" -c -s "${SSL_DB}" -M 64MB
-    chown -R nginx:nginx /var/lib/squid 2>/dev/null || true
-fi
-
-echo "SSL Bump setup complete!"
+echo "SSL certificate setup complete!"

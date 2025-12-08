@@ -153,6 +153,8 @@ After enabling SSL bump, download and install the certificate on your gaming PCs
 
    ![Step 9](https://github.com/user-attachments/assets/65bbae5f-08ce-474b-90dc-0da14dbdadd0)
 
+10. After a reboot, the certificate will appear in the certlm (Local Computer Certificates) view under "Trusted Root Certification Authorities"
+
 **Linux Installation:**
 ```bash
 sudo cp lancache-ca.pem /usr/local/share/ca-certificates/lancache-ca.crt

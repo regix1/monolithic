@@ -66,32 +66,9 @@ server {
 EOF
 fi
 
-# Generate the SSL bump map from bump-domains.txt
-# This maps domain names to "bump" so they get routed to SSL termination
-echo "Generating SSL bump domain map..."
+# Create empty map file (will be populated by 18_ssl_bump_nginx_map.sh after domains are detected)
 mkdir -p /etc/nginx/stream.d
-
-if [[ -f /etc/nginx/ssl-bump/bump-domains.txt ]]; then
-    # Convert bump-domains.txt to nginx map format
-    # Each domain gets mapped to "bump"
-    > /etc/nginx/stream.d/ssl-bump-map.conf
-    while IFS= read -r domain || [[ -n "$domain" ]]; do
-        # Skip empty lines and comments
-        [[ -z "$domain" || "$domain" =~ ^# ]] && continue
-        # Handle wildcard domains (convert .domain.com to ~\.domain\.com$)
-        if [[ "$domain" == .* ]]; then
-            # Wildcard domain like .gog.cdn.net
-            escaped=$(echo "$domain" | sed 's/\./\\./g')
-            echo "    ~${escaped}\$ bump;" >> /etc/nginx/stream.d/ssl-bump-map.conf
-        else
-            # Exact domain
-            echo "    ${domain} bump;" >> /etc/nginx/stream.d/ssl-bump-map.conf
-        fi
-    done < /etc/nginx/ssl-bump/bump-domains.txt
-else
-    # Empty map file
-    touch /etc/nginx/stream.d/ssl-bump-map.conf
-fi
+touch /etc/nginx/stream.d/ssl-bump-map.conf
 
 # Enable SSL cache nginx config
 if [[ -f /etc/nginx/sites-available/15_ssl_cache.conf ]]; then

@@ -46,6 +46,19 @@ if [[ "${SSL_BUMP_RETEST:-false}" == "true" ]]; then
     > "${HTTPS_CACHE}"
 fi
 
+# Add manually specified SSL bump domains (for domains that can't be auto-detected)
+if [[ -n "${SSL_BUMP_DOMAINS:-}" ]]; then
+    echo "Adding manually specified SSL bump domains: ${SSL_BUMP_DOMAINS}"
+    for domain in ${SSL_BUMP_DOMAINS}; do
+        # Normalize: add dot prefix for wildcards if not present
+        if [[ "$domain" == \*.* ]]; then
+            domain="${domain#\*}"
+        fi
+        echo "$domain" >> "${HTTPS_CACHE}"
+        echo "$domain" >> "${TESTED_CACHE}"
+    done
+fi
+
 # Check if cache domains directory exists
 if [[ ! -d "${CACHE_DOMAINS_DIR}" ]]; then
     echo "Warning: Cache domains directory not found: ${CACHE_DOMAINS_DIR}"
@@ -54,24 +67,40 @@ fi
 
 # Function to resolve domain IP using upstream DNS
 # This ensures we test against real servers, not ourselves
+# Follows CNAMEs to get the final IP address
 resolve_domain() {
     local domain="$1"
     local dns_server="$2"
+    local result=""
 
-    # Try dig first (more reliable)
+    # Try dig first (more reliable) - use +recurse to follow CNAMEs
     if command -v dig &>/dev/null; then
-        dig +short +time=2 +tries=1 "@${dns_server}" "$domain" A 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1
-        return
+        # dig +short returns CNAMEs and IPs, grep for just the IP
+        result=$(dig +short +time=2 +tries=1 +recurse "@${dns_server}" "$domain" 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+        if [[ -n "$result" ]]; then
+            echo "$result"
+            return
+        fi
+        # If no direct IP, the domain might have a CNAME - dig should follow it
+        # Try without +short to parse the ANSWER section
+        result=$(dig +time=2 +tries=1 "@${dns_server}" "$domain" A 2>/dev/null | grep -E "^[^;].*IN\s+A\s+" | awk '{print $NF}' | head -1)
+        if [[ -n "$result" ]]; then
+            echo "$result"
+            return
+        fi
     fi
 
     # Fall back to host command
     if command -v host &>/dev/null; then
-        host -t A -W 2 "$domain" "$dns_server" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1
-        return
+        result=$(host -t A -W 2 "$domain" "$dns_server" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+        if [[ -n "$result" ]]; then
+            echo "$result"
+            return
+        fi
     fi
 
     # Last resort: nslookup (less reliable parsing)
-    nslookup "$domain" "$dns_server" 2>/dev/null | grep -A1 'Name:' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1
+    nslookup "$domain" "$dns_server" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | grep -v "^${dns_server}$" | head -1
 }
 
 # Function to test if a domain requires HTTPS
@@ -119,13 +148,14 @@ test_https_required() {
         return 0
     fi
 
-    # If HTTP works (2xx, 3xx, 4xx), no SSL bump needed
-    if [[ "$http_code" =~ ^[234] ]]; then
+    # If HTTP returns 2xx or 3xx (non-redirect), HTTP works fine
+    if [[ "$http_code" =~ ^[23] ]]; then
         return 1
     fi
 
-    # Test 2: If HTTP failed/refused, check if HTTPS works
-    if [[ "$http_code" == "000" ]]; then
+    # Test 2: If HTTP failed (000), forbidden (403), or other 4xx, check HTTPS
+    # CDNs often return 403 on HTTP but serve content via HTTPS
+    if [[ "$http_code" == "000" ]] || [[ "$http_code" =~ ^4 ]]; then
         local https_code
         https_code=$(curl -s -o /dev/null -w '%{http_code}' \
             --connect-timeout "$TIMEOUT" \
@@ -134,7 +164,8 @@ test_https_required() {
             -k -A "Mozilla/5.0" \
             "https://${test_domain}/" 2>/dev/null)
 
-        # HTTPS works but HTTP doesn't = HTTPS-only
+        # HTTPS responds (2xx, 3xx, or even 4xx) = HTTPS-only
+        # If HTTPS works at all, we should SSL bump to cache it
         if [[ "$https_code" =~ ^[234] ]]; then
             return 0
         fi

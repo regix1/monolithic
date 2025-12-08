@@ -16,7 +16,8 @@ RUN apk add --no-cache \
     findutils \
     coreutils \
     shadow \
-    openssl
+    openssl \
+    bind-tools
 
 ENV GENERICCACHE_VERSION=2 \
     CACHE_MODE=monolithic \

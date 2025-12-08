@@ -23,12 +23,18 @@ fi
 generate_server_cert() {
     echo "Generating server certificate for SSL termination..."
 
+    # Get server IP for CRL distribution point URL
+    local CRL_SERVER_IP=$(hostname -i 2>/dev/null | awk '{print $1}' || ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1)
+    if [[ -z "$CRL_SERVER_IP" ]]; then
+        CRL_SERVER_IP="lancache.local"
+    fi
+
     # Generate server private key
     openssl genrsa -out "${SERVER_KEY}" 2048
 
-    # Create CSR config with SANs
+    # Create CSR config with SANs and CRL Distribution Point
     local san_config=$(mktemp)
-    cat > "${san_config}" << 'EOFCSR'
+    cat > "${san_config}" << EOFCSR
 [req]
 distinguished_name = req_distinguished_name
 req_extensions = v3_req
@@ -45,6 +51,7 @@ CN = lancache.local
 basicConstraints = CA:FALSE
 keyUsage = nonRepudiation, digitalSignature, keyEncipherment
 subjectAltName = @alt_names
+crlDistributionPoints = URI:http://${CRL_SERVER_IP}/crl/lancache-ca.crl
 
 [alt_names]
 DNS.1 = lancache.local

@@ -11,3 +11,6 @@ data/
 
 # Logs
 *.log
+
+# Windows artifacts
+nul

@@ -16,6 +16,10 @@ TEMP_HTTPS="/tmp/https-domains.txt"
 TEMP_TO_TEST="/tmp/domains-to-test.txt"
 TIMEOUT="${SSL_BUMP_TEST_TIMEOUT:-3}"
 
+# Get upstream DNS server for resolving domains (avoid testing against ourselves)
+UPSTREAM_DNS_SERVER=$(echo "${UPSTREAM_DNS:-8.8.8.8}" | awk '{print $1}')
+echo "Using upstream DNS server for domain testing: ${UPSTREAM_DNS_SERVER}"
+
 # Cache files (persistent across restarts)
 TESTED_CACHE="/data/ssl/tested-domains.txt"
 HTTPS_CACHE="/data/ssl/https-domains-cache.txt"
@@ -48,6 +52,28 @@ if [[ ! -d "${CACHE_DOMAINS_DIR}" ]]; then
     exit 0
 fi
 
+# Function to resolve domain IP using upstream DNS
+# This ensures we test against real servers, not ourselves
+resolve_domain() {
+    local domain="$1"
+    local dns_server="$2"
+
+    # Try dig first (more reliable)
+    if command -v dig &>/dev/null; then
+        dig +short +time=2 +tries=1 "@${dns_server}" "$domain" A 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1
+        return
+    fi
+
+    # Fall back to host command
+    if command -v host &>/dev/null; then
+        host -t A -W 2 "$domain" "$dns_server" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1
+        return
+    fi
+
+    # Last resort: nslookup (less reliable parsing)
+    nslookup "$domain" "$dns_server" 2>/dev/null | grep -A1 'Name:' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1
+}
+
 # Function to test if a domain requires HTTPS
 # Returns 0 if HTTPS-only, 1 if HTTP works
 test_https_required() {
@@ -64,11 +90,24 @@ test_https_required() {
         return 1
     fi
 
+    # Resolve domain using upstream DNS to get real IP (not lancache)
+    local real_ip
+    real_ip=$(resolve_domain "$test_domain" "$UPSTREAM_DNS_SERVER")
+
+    # If we can't resolve, skip this domain
+    if [[ -z "$real_ip" ]]; then
+        return 1
+    fi
+
+    # Build curl resolve arguments to bypass local DNS
+    local resolve_arg="--resolve ${test_domain}:80:${real_ip} --resolve ${test_domain}:443:${real_ip}"
+
     # Test 1: Try HTTP and check for redirect to HTTPS
     local http_result
     http_result=$(curl -s -o /dev/null -w '%{http_code}:%{redirect_url}' \
         --connect-timeout "$TIMEOUT" \
         --max-time "$((TIMEOUT * 2))" \
+        $resolve_arg \
         -A "Mozilla/5.0" \
         "http://${test_domain}/" 2>/dev/null)
 
@@ -91,6 +130,7 @@ test_https_required() {
         https_code=$(curl -s -o /dev/null -w '%{http_code}' \
             --connect-timeout "$TIMEOUT" \
             --max-time "$((TIMEOUT * 2))" \
+            $resolve_arg \
             -k -A "Mozilla/5.0" \
             "https://${test_domain}/" 2>/dev/null)
 
@@ -104,9 +144,11 @@ test_https_required() {
     return 1
 }
 
-# Export function for parallel execution
+# Export functions and variables for parallel execution
 export -f test_https_required
+export -f resolve_domain
 export TIMEOUT
+export UPSTREAM_DNS_SERVER
 
 # Read all domain files and collect unique domains
 echo "Collecting domains from cache-domains..."

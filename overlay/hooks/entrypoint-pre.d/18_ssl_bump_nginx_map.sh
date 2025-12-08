@@ -27,12 +27,12 @@ if [[ -f "${BUMP_DOMAINS_FILE}" ]] && [[ -s "${BUMP_DOMAINS_FILE}" ]]; then
         if [[ "$domain" == .* ]]; then
             # Wildcard domain like .gog.cdn.net -> regex match for *.gog.cdn.net
             # Escape dots for regex: .gog.cdn.net -> \.gog\.cdn\.net
-            # nginx map regex format: ~*pattern value;
-            escaped=$(echo "${domain}" | sed 's/\./\\\\./g')
-            echo "    ~*${escaped}\$  bump;" >> "${MAP_FILE}"
+            # nginx map regex format: "~*pattern$" value; (quoted regex)
+            escaped=$(echo "${domain}" | sed 's/\./\\./g')
+            printf '    "~*%s$" bump;\n' "${escaped}" >> "${MAP_FILE}"
         else
-            # Exact domain - no quotes needed
-            echo "    ${domain}  bump;" >> "${MAP_FILE}"
+            # Exact domain
+            echo "    ${domain} bump;" >> "${MAP_FILE}"
         fi
         ((count++))
     done < "${BUMP_DOMAINS_FILE}"

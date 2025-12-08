@@ -40,8 +40,7 @@ ENV GENERICCACHE_VERSION=2 \
     NGINX_PROXY_SEND_TIMEOUT=300s \
     NGINX_PROXY_READ_TIMEOUT=300s \
     NGINX_SEND_TIMEOUT=300s \
-    NGINX_LOG_TO_STDOUT=false \
-    ENABLE_SSL_BUMP=false
+    NGINX_LOG_TO_STDOUT=false
 
 # Setup directories
 RUN mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled \
@@ -72,10 +71,7 @@ RUN rm -f /etc/nginx/sites-enabled/* /etc/nginx/stream-enabled/* 2>/dev/null || 
 
 RUN git clone --depth=1 --no-single-branch https://github.com/uklans/cache-domains/ /data/cachedomains
 
-# SSL bump directories
-RUN mkdir -p /data/ssl /etc/nginx/ssl-bump
-
-VOLUME ["/data/logs", "/data/cache", "/data/cachedomains", "/data/ssl", "/var/www"]
+VOLUME ["/data/logs", "/data/cache", "/data/cachedomains", "/var/www"]
 
 EXPOSE 80 443 8080
 WORKDIR /scripts

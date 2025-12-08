@@ -14,7 +14,6 @@ services:
     volumes:
       - ./data/cache:/data/cache
       - ./data/logs:/data/logs
-      - ./data/ssl:/data/ssl
     environment:
       # User/Group
       - PUID=${PUID:-1000}
@@ -26,5 +25,3 @@ services:
       - UPSTREAM_DNS=${UPSTREAM_DNS:-8.8.8.8 8.8.4.4}
       # Logging - set to true to output nginx logs to stdout for debugging
       - NGINX_LOG_TO_STDOUT=${NGINX_LOG_TO_STDOUT:-false}
-      # SSL Bump - set to true to enable HTTPS caching (requires CA cert on clients)
-      - ENABLE_SSL_BUMP=${ENABLE_SSL_BUMP:-false}

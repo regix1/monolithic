@@ -89,7 +89,7 @@ if [[ -x "${CERTGEN_PATH}" ]] && [[ ! -d "${SSL_DB}" ]]; then
     echo "Initializing Squid SSL certificate database..."
     mkdir -p /var/lib/squid
     "${CERTGEN_PATH}" -c -s "${SSL_DB}" -M 64MB
-    chown -R squid:squid /var/lib/squid 2>/dev/null || true
+    chown -R nginx:nginx /var/lib/squid 2>/dev/null || true
 fi
 
 echo "SSL Bump setup complete!"

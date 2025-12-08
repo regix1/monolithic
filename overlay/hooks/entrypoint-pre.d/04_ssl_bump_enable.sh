@@ -27,12 +27,13 @@ if [[ -f /etc/supervisor/conf.d/ssl-bump-monitor.conf.disabled ]]; then
 fi
 
 # Create required directories
+# Squid runs as nginx user (cache_effective_user) to match file permissions
 mkdir -p /run/squid /var/spool/squid /var/lib/squid
-chown -R squid:squid /run/squid /var/spool/squid /var/lib/squid 2>/dev/null || true
+chown -R nginx:nginx /run/squid /var/spool/squid /var/lib/squid 2>/dev/null || true
 
 # Create squid log files with proper permissions in /data/logs
 touch /data/logs/squid-access.log /data/logs/squid-cache.log 2>/dev/null || true
-chown squid:squid /data/logs/squid-access.log /data/logs/squid-cache.log 2>/dev/null || true
+chown nginx:nginx /data/logs/squid-access.log /data/logs/squid-cache.log 2>/dev/null || true
 chmod 644 /data/logs/squid-access.log /data/logs/squid-cache.log 2>/dev/null || true
 
 # Make scripts executable

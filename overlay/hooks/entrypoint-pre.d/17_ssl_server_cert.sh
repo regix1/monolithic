@@ -12,7 +12,7 @@ CA_CERT="${SSL_CERT_DIR}/lancache-ca.pem"
 CA_KEY="${SSL_CERT_DIR}/lancache-ca.key"
 SERVER_CERT="${SSL_CERT_DIR}/server.pem"
 SERVER_KEY="${SSL_CERT_DIR}/server.key"
-BUMP_DOMAINS_FILE="/etc/squid/bump-domains.txt"
+BUMP_DOMAINS_FILE="/etc/nginx/ssl-bump/bump-domains.txt"
 
 # Check if CA exists
 if [[ ! -f "${CA_CERT}" ]] || [[ ! -f "${CA_KEY}" ]]; then

@@ -21,8 +21,8 @@ chmod +x /scripts/ssl-bump-info.sh 2>/dev/null || true
 
 # Create bump-domains.txt placeholder if it doesn't exist yet
 # (will be populated by 16_ssl_bump_domains.sh)
-mkdir -p /etc/squid
-touch /etc/squid/bump-domains.txt
+mkdir -p /etc/nginx/ssl-bump
+touch /etc/nginx/ssl-bump/bump-domains.txt
 
 # Update nginx stream config to route HTTPS to nginx SSL termination
 # We use nginx's ssl module instead of Squid for SSL termination because
@@ -71,7 +71,7 @@ fi
 echo "Generating SSL bump domain map..."
 mkdir -p /etc/nginx/stream.d
 
-if [[ -f /etc/squid/bump-domains.txt ]]; then
+if [[ -f /etc/nginx/ssl-bump/bump-domains.txt ]]; then
     # Convert bump-domains.txt to nginx map format
     # Each domain gets mapped to "bump"
     > /etc/nginx/stream.d/ssl-bump-map.conf
@@ -87,7 +87,7 @@ if [[ -f /etc/squid/bump-domains.txt ]]; then
             # Exact domain
             echo "    ${domain} bump;" >> /etc/nginx/stream.d/ssl-bump-map.conf
         fi
-    done < /etc/squid/bump-domains.txt
+    done < /etc/nginx/ssl-bump/bump-domains.txt
 else
     # Empty map file
     touch /etc/nginx/stream.d/ssl-bump-map.conf

@@ -9,7 +9,7 @@ fi
 
 echo "Detecting HTTPS-only domains for SSL bump..."
 
-BUMP_DOMAINS_FILE="/etc/squid/bump-domains.txt"
+BUMP_DOMAINS_FILE="/etc/nginx/ssl-bump/bump-domains.txt"
 CACHE_DOMAINS_DIR="/data/cachedomains"
 TEMP_FILE="/tmp/bump-domains-temp.txt"
 TEMP_HTTPS="/tmp/https-domains.txt"
@@ -19,6 +19,9 @@ TIMEOUT="${SSL_BUMP_TEST_TIMEOUT:-3}"
 # Cache files (persistent across restarts)
 TESTED_CACHE="/data/ssl/tested-domains.txt"
 HTTPS_CACHE="/data/ssl/https-domains-cache.txt"
+
+# Ensure ssl-bump directory exists
+mkdir -p /etc/nginx/ssl-bump
 
 # Clear working files
 > "${BUMP_DOMAINS_FILE}"
@@ -118,7 +121,7 @@ for domain_file in "${CACHE_DOMAINS_DIR}"/*.txt; do
             domain=$(echo "$domain" | tr -d '[:space:]')
             [[ -z "$domain" ]] && continue
 
-            # Convert wildcard domains to Squid format
+            # Convert wildcard domains to dot-prefix format (.example.com)
             if [[ "$domain" == \*.* ]]; then
                 echo "${domain#\*}" >> "${TEMP_FILE}"
             else

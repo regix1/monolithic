@@ -16,8 +16,7 @@ RUN apk add --no-cache \
     findutils \
     coreutils \
     shadow \
-    openssl \
-    squid
+    openssl
 
 ENV GENERICCACHE_VERSION=2 \
     CACHE_MODE=monolithic \
@@ -72,9 +71,8 @@ RUN rm -f /etc/nginx/sites-enabled/* /etc/nginx/stream-enabled/* 2>/dev/null || 
 
 RUN git clone --depth=1 --no-single-branch https://github.com/uklans/cache-domains/ /data/cachedomains
 
-# SSL bump directories (for Squid)
-RUN mkdir -p /data/ssl /var/lib/squid /var/spool/squid /run/squid /etc/squid \
-    && chown -R squid:squid /var/lib/squid /var/spool/squid /run/squid 2>/dev/null || true
+# SSL bump directories
+RUN mkdir -p /data/ssl /etc/nginx/ssl-bump
 
 VOLUME ["/data/logs", "/data/cache", "/data/cachedomains", "/data/ssl", "/var/www"]
 

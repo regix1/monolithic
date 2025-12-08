@@ -116,11 +116,42 @@ After enabling SSL bump, download and install the certificate on your gaming PCs
 - Linux: `http://<LANCACHE_IP>/lancache-certs/lancache-ca.pem`
 
 **Windows Installation:**
-1. Download the `.der` file
-2. Double-click and select "Install Certificate"
-3. Choose "Local Machine" > "Place all certificates in the following store"
-4. Select "Trusted Root Certification Authorities"
-5. Complete the wizard
+
+1. Download the `.der` file and double-click to open
+
+   ![Step 1](https://github.com/user-attachments/assets/3003eadf-15b9-4976-8357-b8aa1e4df2b8)
+
+2. Click "Install Certificate..."
+
+   ![Step 2](https://github.com/user-attachments/assets/39e78796-0346-4e25-b62e-6cc6a4f54a61)
+
+3. Select "Local Machine" and click Next
+
+   ![Step 3](https://github.com/user-attachments/assets/36b83714-41b6-4391-bae3-48b9de64101c)
+
+4. Select "Place all certificates in the following store" and click Browse
+
+   ![Step 4](https://github.com/user-attachments/assets/903f7841-d4ed-45bd-a257-e4a580013ffa)
+
+5. Select "Trusted Root Certification Authorities"
+
+   ![Step 5](https://github.com/user-attachments/assets/bc622d7f-dcd6-441e-916d-a3f9b2800b29)
+
+6. Click Next
+
+   ![Step 6](https://github.com/user-attachments/assets/817c25a7-4c33-4c0b-8471-9bb5875c1f0c)
+
+7. Click Finish
+
+   ![Step 7](https://github.com/user-attachments/assets/ab97f1a2-1a0d-410b-b7ea-4d436b5e0863)
+
+8. Click Yes to confirm the security warning
+
+   ![Step 8](https://github.com/user-attachments/assets/8e79b88e-35c1-4f71-ba6d-8ddd865c6a52)
+
+9. Certificate installed successfully
+
+   ![Step 9](https://github.com/user-attachments/assets/65bbae5f-08ce-474b-90dc-0da14dbdadd0)
 
 **Linux Installation:**
 ```bash

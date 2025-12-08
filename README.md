@@ -127,7 +127,7 @@ After enabling SSL bump, download and install the certificate on your gaming PCs
 
 3. Select "Local Machine" and click Next
 
-   ![Step 3](https://github.com/user-attachments/assets/36b83714-41b6-4391-bae3-48b9de64101c)
+   ![Step 3](https://github.com/user-attachments/assets/c2cf03e5-ff22-4bbc-b1e2-4094bcb73db1)
 
 4. Select "Place all certificates in the following store" and click Browse
 

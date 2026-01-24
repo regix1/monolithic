@@ -101,7 +101,8 @@ process_error_line() {
     
     # Extract hostname from the error line
     # Format: ... host: "hostname"
-    local host=$(echo "$line" | grep -oP 'host:\s*"\K[^"]+')
+    # Using sed instead of grep -oP for Alpine compatibility
+    local host=$(echo "$line" | sed -n 's/.*host: "\([^"]*\)".*/\1/p')
     
     if [[ -z "$host" ]]; then
         return

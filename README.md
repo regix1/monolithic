@@ -24,14 +24,14 @@ The following environment variables can be configured in your docker-compose.yml
 
 ### User and Group Configuration
 
-- `PUID` - User ID for the cache process (default: 1000)
+- `PUID` - User ID for the cache process (default: 33)
   - Set to a numeric UID to match your host user
   - Set to `nginx` to use the default nginx user without modification
-- `PGID` - Group ID for the cache process (default: 1000)
+- `PGID` - Group ID for the cache process (default: 33)
   - Set to a numeric GID to match your host group
   - Set to `nginx` to use the default nginx group without modification
 
-These are particularly useful when you need to match specific user/group permissions on your host system for the cache directories, especially when using NFS mounts.
+The ability to configure PUID/PGID was added to support NFS and SMB network shares, where matching the correct user/group permissions is essential for proper cache directory access.
 
 ### Cache Configuration
 
@@ -101,8 +101,8 @@ services:
   monolithic:
     image: ghcr.io/regix1/monolithic:latest
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=33
+      - PGID=33
       - CACHE_DISK_SIZE=2000g
       - NGINX_PROXY_READ_TIMEOUT=600s
       - UPSTREAM_DNS=1.1.1.1 1.0.0.1

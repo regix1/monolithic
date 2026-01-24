@@ -22,8 +22,8 @@ RUN apk add --no-cache \
 ENV GENERICCACHE_VERSION=2 \
     CACHE_MODE=monolithic \
     WEBUSER=nginx \
-    PUID=1000 \
-    PGID=1000 \
+    PUID=33 \
+    PGID=33 \
     CACHE_INDEX_SIZE=500m \
     CACHE_DISK_SIZE=1000g \
     MIN_FREE_DISK=10g \

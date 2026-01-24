@@ -59,6 +59,9 @@ if [[ "${NOSLICE_FALLBACK}" == "true" ]]; then
         chown ${WEBUSER}:${WEBUSER} /data/noslice-hosts.map
     fi
     
+    # Add include directive to the noslice_host map
+    sed -i 's|#NOSLICE_INCLUDE|include /data/noslice-hosts.map;|' /etc/nginx/conf.d/30_maps.conf
+    
     # Initialize state file if it doesn't exist
     if [[ ! -f /data/noslice-state.json ]]; then
         echo '{}' > /data/noslice-state.json

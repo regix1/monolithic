@@ -40,7 +40,9 @@ ENV GENERICCACHE_VERSION=2 \
     NGINX_PROXY_SEND_TIMEOUT=300s \
     NGINX_PROXY_READ_TIMEOUT=300s \
     NGINX_SEND_TIMEOUT=300s \
-    NGINX_LOG_TO_STDOUT=false
+    NGINX_LOG_TO_STDOUT=false \
+    NOSLICE_FALLBACK=true \
+    NOSLICE_THRESHOLD=3
 
 # Setup directories
 RUN mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled \

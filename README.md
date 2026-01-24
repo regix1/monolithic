@@ -40,6 +40,15 @@ These are particularly useful when you need to match specific user/group permiss
 - `MIN_FREE_DISK` - Minimum free disk space to maintain (default: 10g)
 - `CACHE_MAX_AGE` - Maximum age of cached content (default: 3560d)
 - `CACHE_SLICE_SIZE` - Size of cache slices (default: 1m)
+- `NOSLICE_FALLBACK` - Automatic detection and handling of servers that don't support HTTP Range requests (default: true)
+  - A background service monitors the error log for "invalid range in slice response" errors
+  - After `NOSLICE_THRESHOLD` failures for a host, it's automatically added to a blocklist
+  - Blocklisted hosts are routed to a no-slice location that caches without using byte-range requests
+  - This fixes caching issues with servers like RenegadeX (patches.totemarts.services) that don't properly support Range requests
+  - No-slice responses are marked with an `X-LanCache-NoSlice: true` header
+  - Blocklist is persisted at `/data/noslice-hosts.map` and survives container restarts
+  - Set to "false" to disable automatic detection
+- `NOSLICE_THRESHOLD` - Number of slice failures before a host is added to the blocklist (default: 3)
 
 ### Network Configuration
 

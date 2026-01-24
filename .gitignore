@@ -6,6 +6,9 @@ reports
 # Claude Code
 .claude
 
+# Serena
+.serena/
+
 # Docker volumes and data
 data/
 

@@ -117,9 +117,29 @@ services:
     environment:
       - PUID=33
       - PGID=33
-      - CACHE_DISK_SIZE=2000g
-      - NGINX_PROXY_READ_TIMEOUT=600s
-      - UPSTREAM_DNS=1.1.1.1 1.0.0.1
+      - CACHE_DISK_SIZE=1000g
+      - CACHE_INDEX_SIZE=500m
+      - CACHE_MAX_AGE=3560d
+      - CACHE_SLICE_SIZE=1m
+      - MIN_FREE_DISK=10g
+      - UPSTREAM_DNS=8.8.8.8 8.8.4.4
+      - CACHE_DOMAINS_REPO=https://github.com/uklans/cache-domains.git
+      - CACHE_DOMAINS_BRANCH=master
+      - NOFETCH=false
+      - NGINX_WORKER_PROCESSES=auto
+      - NGINX_LOG_FORMAT=cachelog
+      - NGINX_LOG_TO_STDOUT=false
+      - NGINX_PROXY_CONNECT_TIMEOUT=300s
+      - NGINX_PROXY_SEND_TIMEOUT=300s
+      - NGINX_PROXY_READ_TIMEOUT=300s
+      - NGINX_SEND_TIMEOUT=300s
+      - NOSLICE_FALLBACK=false
+      - NOSLICE_THRESHOLD=3
+      - SKIP_PERMS_CHECK=false
+      - FORCE_PERMS_CHECK=false
+      - LOGFILE_RETENTION=3560
+      - BEAT_TIME=1h
+      - SUPERVISORD_LOGLEVEL=error
     volumes:
       - ./cache:/data/cache
       - ./logs:/data/logs

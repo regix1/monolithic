@@ -58,9 +58,9 @@ if [[ "${NOSLICE_FALLBACK}" == "true" ]]; then
         cp /var/noslice-hosts.map /data/noslice-hosts.map
         chown ${WEBUSER}:${WEBUSER} /data/noslice-hosts.map
     fi
-    
-    # Add include directive to the noslice_host map
-    sed -i 's|#NOSLICE_INCLUDE|include /data/noslice-hosts.map;|' /etc/nginx/conf.d/30_maps.conf
+
+    # Point the map include at the live blocklist
+    ln -sf /data/noslice-hosts.map /etc/nginx/conf.d/noslice-hosts.map
     
     # Initialize state file if it doesn't exist
     if [[ ! -f /data/noslice-state.json ]]; then
@@ -74,4 +74,10 @@ if [[ "${NOSLICE_FALLBACK}" == "true" ]]; then
     
     # Make detector script executable
     chmod +x /scripts/noslice-detector.sh
+else
+    # Ensure the include file is a harmless stub when noslice is disabled
+    rm -f /etc/nginx/conf.d/noslice-hosts.map
+    cat > /etc/nginx/conf.d/noslice-hosts.map <<'EOF'
+# noslice fallback disabled; map uses only the default value
+EOF
 fi

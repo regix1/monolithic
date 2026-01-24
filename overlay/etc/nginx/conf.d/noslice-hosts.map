@@ -1,0 +1,2 @@
+# noslice fallback disabled; map uses only the default value
+# This file is replaced with a symlink to /data/noslice-hosts.map when enabled.

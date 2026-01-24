@@ -61,7 +61,7 @@
     add_header X-Upstream-Status $upstream_status;
     add_header X-Upstream-Response-Time $upstream_response_time;
     add_header X-Upstream-Cache-Status $upstream_cache_status;
-    add_header X-LanCache-NoSlice "true";
+    add_header X-LanCache-NoSlice "true" always;
 
     # Memorial header
     add_header X-Clacks-Overhead "GNU Terry Pratchett, GNU Zoey -Crabbey- Lough";

@@ -53,7 +53,7 @@ The ability to configure PUID/PGID was added to support NFS and SMB network shar
   - A background service monitors the error log for "invalid range in slice response" errors
   - After `NOSLICE_THRESHOLD` failures for a host, it's automatically added to a blocklist
   - Blocklisted hosts are routed to a no-slice location that caches without using byte-range requests
-  - This fixes caching issues with servers like RenegadeX (patches.totemarts.services) that don't properly support Range requests
+  - This fixes caching issues with servers that don't properly support Range requests
   - No-slice responses are marked with an `X-LanCache-NoSlice: true` header
   - Blocklist is persisted at `/data/noslice-hosts.map` and survives container restarts
   - Set to "true" to enable automatic detection

@@ -1,6 +1,8 @@
     # Route hosts in the noslice blocklist to @noslice location
     # $noslice_host is set via map in /etc/nginx/maps.d/30_maps.conf
     # The blocklist is managed by the noslice-detector script
+    # Note: Can't use 'rewrite' to named locations - must use error_page
+    error_page 460 = @noslice;
     if ($noslice_host = 1) {
-      rewrite ^ @noslice last;
+      return 460;
     }

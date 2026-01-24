@@ -98,12 +98,15 @@ reload_nginx() {
 # Process a single error line
 process_error_line() {
     local line="$1"
-    
+    local host=""
+
     # Extract hostname from the error line
-    # Format: ... host: "hostname"
-    # Using sed instead of grep -oP for Alpine compatibility
-    local host=$(echo "$line" | sed -n 's/.*host: "\([^"]*\)".*/\1/p')
-    
+    # Format: ... host: "hostname" (with variable whitespace)
+    # Using pure bash regex for maximum compatibility
+    if [[ "$line" =~ host:[[:space:]]*\"([^\"]+)\" ]]; then
+        host="${BASH_REMATCH[1]}"
+    fi
+
     if [[ -z "$host" ]]; then
         return
     fi
@@ -133,7 +136,7 @@ monitor_logs() {
     # Use tail -F to follow the log file (handles rotation)
     tail -n 0 -F "$ERROR_LOG" 2>/dev/null | while read -r line; do
         # Check for slice-related errors
-        if echo "$line" | grep -q "invalid range in slice response\|unexpected range in slice response\|unexpected status code.*in slice response"; then
+        if echo "$line" | grep -qE "invalid range in slice response|unexpected range in slice response|unexpected status code.*in slice response"; then
             process_error_line "$line"
         fi
     done

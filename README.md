@@ -2,6 +2,15 @@
 
 ![Docker Pulls](https://img.shields.io/docker/pulls/lancachenet/monolithic?label=Monolithic) ![Docker Pulls](https://img.shields.io/docker/pulls/lancachenet/lancache-dns?label=Lancache-dns) ![Docker Pulls](https://img.shields.io/docker/pulls/lancachenet/sniproxy?label=Sniproxy) ![Docker Pulls](https://img.shields.io/docker/pulls/lancachenet/generic?label=Generic)
 
+> [!NOTE]
+> **Recommended image tag:**
+>
+> ```bash
+> docker pull ghcr.io/regix1/monolithic:latest
+> ```
+>
+> GitHub's package registry may show other tags prominently. For production use, always pull `:latest` to ensure you have the stable release.
+
 ## Documentation
 
 The documentation for the LanCache.net project can be found on [our website](http://www.lancache.net)
@@ -49,6 +58,11 @@ The ability to configure PUID/PGID was added to support NFS and SMB network shar
   - Blocklist is persisted at `/data/noslice-hosts.map` and survives container restarts
   - Set to "true" to enable automatic detection
 - `NOSLICE_THRESHOLD` - Number of slice failures before a host is added to the blocklist (default: 3)
+
+To clear the noslice blocklist and reset failure counts:
+```bash
+docker exec <container-name> bash -c 'echo "{}" > /data/noslice-state.json && head -5 /data/noslice-hosts.map > /tmp/map && mv /tmp/map /data/noslice-hosts.map && nginx -s reload'
+```
 
 ### Network Configuration
 

@@ -45,12 +45,16 @@ Point your DNS at [lancache-dns](https://github.com/lancachenet/lancache-dns) or
 | `CACHE_SLICE_SIZE` | `1m` | Size of chunks for partial/resumable downloads. 1m works well for most cases. |
 | `MIN_FREE_DISK` | `10g` | Stops caching new content when free disk space drops below this threshold. |
 
+---
+
 ### Network
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `UPSTREAM_DNS` | `8.8.8.8 8.8.4.4` | DNS server(s) for resolving CDN hostnames. Space-separated for multiple servers. |
 | `LANCACHE_IP` | - | IP address(es) where clients reach the cache. Used by lancache-dns. |
+
+---
 
 ### Cache Domains
 
@@ -59,6 +63,8 @@ Point your DNS at [lancache-dns](https://github.com/lancachenet/lancache-dns) or
 | `CACHE_DOMAINS_REPO` | `https://github.com/uklans/cache-domains.git` | Git repository containing the list of domains to cache. |
 | `CACHE_DOMAINS_BRANCH` | `master` | Branch to use from the cache domains repository. |
 | `NOFETCH` | `false` | Set to `true` to skip updating cache-domains on container startup. |
+
+---
 
 ### Upstream Keepalive
 
@@ -70,6 +76,22 @@ Point your DNS at [lancache-dns](https://github.com/lancachenet/lancache-dns) or
 | `UPSTREAM_KEEPALIVE_REQUESTS` | `10000` | Maximum requests per connection before recycling. Prevents memory leaks. |
 | `UPSTREAM_REFRESH_INTERVAL` | `1h` | How often to re-resolve CDN DNS and update upstream IPs. Set to `0` to disable. |
 
+By default, nginx opens a new TCP connection for every request to CDN servers. With keepalive enabled, connections are reused across multiple requests, eliminating TCP handshake and TLS negotiation overhead.
+
+**Benefits:**
+- Faster cache-miss downloads (users report 3-5x improvement)
+- Lower latency for chunked downloads
+- Reduced CPU usage from fewer TLS handshakes
+
+**How it works:**
+1. On startup, resolves all domains from cache_domains.json using `UPSTREAM_DNS`
+2. Creates nginx upstream pools with the resolved IPs
+3. Maps incoming requests to the appropriate upstream pool
+4. A background service re-resolves DNS hourly (configurable) and reloads nginx if IPs change
+5. Wildcard domains and unresolvable hosts fall back to direct proxy
+
+---
+
 ### No-Slice Fallback
 
 | Variable | Default | Description |
@@ -78,6 +100,25 @@ Point your DNS at [lancache-dns](https://github.com/lancachenet/lancache-dns) or
 | `NOSLICE_THRESHOLD` | `3` | Number of slice failures before a host is added to the no-slice blocklist. |
 | `DECAY_INTERVAL` | `86400` | Seconds (24h) before failure counts decay by 1. Prevents permanent blocklisting. |
 
+Lancache uses HTTP Range requests to cache files in slices, enabling partial downloads and resumption. Some CDN servers don't implement Range requests correctly, causing cache errors. This feature automatically detects problematic servers and routes them through a non-sliced cache path.
+
+**How it works:**
+1. Monitors nginx error logs for "invalid range in slice response" errors
+2. Tracks failure counts per hostname with timestamps
+3. After reaching the threshold (default: 3), adds the host to a blocklist
+4. Blocklisted hosts are cached without byte-range slicing
+5. Failure counts decay over time (default: 24h) to allow recovery
+6. Blocklist persists at `/data/noslice-hosts.map` across restarts
+
+**Response header:** `X-LanCache-NoSlice: true` indicates the response came from the no-slice path.
+
+**Reset the blocklist:**
+```bash
+docker exec <container> bash -c 'echo "{}" > /data/noslice-state.json && head -5 /data/noslice-hosts.map > /tmp/map && mv /tmp/map /data/noslice-hosts.map && nginx -s reload'
+```
+
+---
+
 ### Nginx
 
 | Variable | Default | Description |
@@ -85,6 +126,20 @@ Point your DNS at [lancache-dns](https://github.com/lancachenet/lancache-dns) or
 | `NGINX_WORKER_PROCESSES` | `auto` | Number of nginx worker processes. `auto` uses one per CPU core. |
 | `NGINX_LOG_FORMAT` | `cachelog` | Log format: `cachelog` (human-readable) or `cachelog-json` (for log parsers). |
 | `NGINX_LOG_TO_STDOUT` | `false` | Mirror access logs to container stdout for debugging with `docker logs`. |
+
+**Log format examples:**
+
+`cachelog` (default):
+```
+[steam] 192.168.1.100 HIT "GET /depot/123/chunk/abc" 200 1048576 "Mozilla/5.0"
+```
+
+`cachelog-json`:
+```json
+{"timestamp":"2025-01-31T12:00:00","client":"192.168.1.100","cache_status":"HIT","request":"GET /depot/123/chunk/abc","status":200,"bytes":1048576,"cache_identifier":"steam"}
+```
+
+---
 
 ### Timeouts
 
@@ -95,6 +150,8 @@ Point your DNS at [lancache-dns](https://github.com/lancachenet/lancache-dns) or
 | `NGINX_PROXY_SEND_TIMEOUT` | `300s` | Timeout for sending request to upstream. |
 | `NGINX_SEND_TIMEOUT` | `300s` | Timeout for sending response to client. |
 
+---
+
 ### Permissions
 
 | Variable | Default | Description |
@@ -104,6 +161,13 @@ Point your DNS at [lancache-dns](https://github.com/lancachenet/lancache-dns) or
 | `SKIP_PERMS_CHECK` | `false` | Skip the ownership check on startup. Use when permissions are managed externally. |
 | `FORCE_PERMS_CHECK` | `false` | Force recursive `chown` on startup. Warning: slow on large caches. |
 
+For NFS/SMB shares where file ownership matters:
+- Set `PUID`/`PGID` to match your NFS export or SMB share owner
+- Use `SKIP_PERMS_CHECK=true` if the NFS server doesn't allow ownership changes
+- Set to `nginx` to use the container's default nginx user without modification
+
+---
+
 ### Logging
 
 | Variable | Default | Description |
@@ -111,74 +175,6 @@ Point your DNS at [lancache-dns](https://github.com/lancachenet/lancache-dns) or
 | `LOGFILE_RETENTION` | `3560` | Days to keep rotated log files before deletion. |
 | `BEAT_TIME` | `1h` | Interval between heartbeat entries in logs. Confirms the cache is running. |
 | `SUPERVISORD_LOGLEVEL` | `error` | Supervisor log verbosity: `critical`, `error`, `warn`, `info`, `debug`. |
-
----
-
-## Features
-
-### Upstream Keepalive
-
-By default, nginx opens a new TCP connection for every request to CDN servers. With keepalive enabled, connections are reused across multiple requests, eliminating TCP handshake and TLS negotiation overhead.
-
-**Benefits:**
-- Faster cache-miss downloads (users report 3-5x improvement)
-- Lower latency for chunked downloads
-- Reduced CPU usage from fewer TLS handshakes
-
-```yaml
-environment:
-  - ENABLE_UPSTREAM_KEEPALIVE=true
-  - UPSTREAM_DNS=8.8.8.8
-```
-
-**How it works:**
-1. On startup, resolves all domains from cache_domains.json using `UPSTREAM_DNS`
-2. Creates nginx upstream pools with the resolved IPs
-3. Maps incoming requests to the appropriate upstream pool
-4. A background service re-resolves DNS hourly (configurable) and reloads nginx if IPs change
-5. Wildcard domains and unresolvable hosts fall back to direct proxy
-
-### No-Slice Fallback
-
-Lancache uses HTTP Range requests to cache files in slices, enabling partial downloads and resumption. Some CDN servers don't implement Range requests correctly, causing cache errors.
-
-This feature automatically detects problematic servers and routes them through a non-sliced cache path.
-
-```yaml
-environment:
-  - NOSLICE_FALLBACK=true
-  - NOSLICE_THRESHOLD=3
-```
-
-**How it works:**
-1. Monitors nginx error logs for "invalid range in slice response" errors
-2. Tracks failure counts per hostname with timestamps
-3. After reaching the threshold (default: 3), adds the host to a blocklist
-4. Blocklisted hosts are cached without byte-range slicing
-5. Failure counts decay over time (default: 24h) to allow recovery
-6. Blocklist persists at `/data/noslice-hosts.map` across restarts
-
-**Response headers:**
-- `X-LanCache-NoSlice: true` - indicates the response came from the no-slice path
-
-**Reset the blocklist:**
-```bash
-docker exec <container> bash -c 'echo "{}" > /data/noslice-state.json && head -5 /data/noslice-hosts.map > /tmp/map && mv /tmp/map /data/noslice-hosts.map && nginx -s reload'
-```
-
-### Custom User/Group (NFS/SMB Support)
-
-For network-attached storage where file ownership matters:
-
-```yaml
-environment:
-  - PUID=33
-  - PGID=33
-```
-
-- Set `PUID`/`PGID` to match your NFS export or SMB share owner
-- Use `SKIP_PERMS_CHECK=true` if the NFS server doesn't allow ownership changes
-- Set to `nginx` to use the container's default nginx user without modification
 
 ---
 
@@ -231,20 +227,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-```
-
----
-
-## Log Format Examples
-
-**cachelog (default):**
-```
-[steam] 192.168.1.100 HIT "GET /depot/123/chunk/abc" 200 1048576 "Mozilla/5.0"
-```
-
-**cachelog-json:**
-```json
-{"timestamp":"2025-01-31T12:00:00","client":"192.168.1.100","cache_status":"HIT","request":"GET /depot/123/chunk/abc","status":200,"bytes":1048576,"cache_identifier":"steam"}
 ```
 
 ---

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -eo pipefail
 
 IFS=' '
 mkdir -p /data/cachedomains
@@ -13,14 +14,18 @@ fi
 if [[ "${NOFETCH:-false}" != "true" ]]; then
 	# Disable error checking whilst we attempt to get latest
 	set +e
+	# Set git timeout to avoid hanging on slow/unresponsive servers
+	export GIT_HTTP_LOW_SPEED_LIMIT=1000
+	export GIT_HTTP_LOW_SPEED_TIME=30
 	git remote set-url origin ${CACHE_DOMAINS_REPO}
-	git fetch origin || echo "Failed to update from remote, using local copy of cache_domains"
+	timeout 60 git fetch origin || echo "Failed to update from remote, using local copy of cache_domains"
 	git reset --hard origin/${CACHE_DOMAINS_BRANCH}
 	# Reenable error checking
 	set -e
 fi
 
 TEMP_PATH=$(mktemp -d)
+trap 'rm -rf "${TEMP_PATH}"' EXIT
 OUTPUTFILE=${TEMP_PATH}/outfile.conf
 echo "map \"\$http_user_agent£££\$http_host\" \$cacheidentifier {" >> $OUTPUTFILE
 echo "    default \$http_host;" >> $OUTPUTFILE
@@ -53,4 +58,4 @@ done
 echo "}" >> $OUTPUTFILE
 cat $OUTPUTFILE
 cp $OUTPUTFILE /etc/nginx/conf.d/30_maps.conf
-rm -rf $TEMP_PATH
+# Note: rm -rf $TEMP_PATH is now handled by the EXIT trap

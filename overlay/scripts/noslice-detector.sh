@@ -13,6 +13,7 @@ ERROR_LOG="/data/logs/error.log"
 STATE_FILE="/data/noslice-state.json"
 BLOCKLIST_FILE="/data/noslice-hosts.map"
 LOCK_FILE="/tmp/noslice-detector.lock"
+DECAY_INTERVAL=${DECAY_INTERVAL:-86400}  # 24 hours - how long before error counts decay
 
 # Logging helper
 log() {
@@ -38,27 +39,46 @@ init_blocklist() {
 }
 
 # Get failure count for a host from state
+# Handles both old format (number) and new format (object with count and last_error)
 get_failure_count() {
     local host="$1"
-    if [[ -f "$STATE_FILE" ]]; then
-        local count=$(jq -r --arg h "$host" '.[$h] // 0' "$STATE_FILE" 2>/dev/null)
-        echo "${count:-0}"
-    else
-        echo "0"
-    fi
+    jq -r --arg h "$host" '.[$h].count // .[$h] // 0' "$STATE_FILE" 2>/dev/null || echo "0"
 }
 
 # Increment failure count for a host
+# Uses flock for atomic updates to prevent race conditions
 increment_failure_count() {
     local host="$1"
-    local current=$(get_failure_count "$host")
-    local new=$((current + 1))
-    
-    # Update state file atomically
+    (
+        flock -x -w 10 200 || { echo "0"; exit 1; }
+        local current=$(jq -r --arg h "$host" '.[$h].count // .[$h] // 0' "$STATE_FILE" 2>/dev/null || echo "0")
+        local new=$((current + 1))
+        local now=$(date +%s)
+        local tmp=$(mktemp)
+        jq --arg h "$host" --argjson c "$new" --argjson t "$now" \
+            '.[$h] = {"count": $c, "last_error": $t}' "$STATE_FILE" > "$tmp" && mv "$tmp" "$STATE_FILE"
+        echo "$new"
+    ) 200>"${STATE_FILE}.lock"
+}
+
+# Decay old error counts over time
+# Reduces count by 1 for hosts that haven't had errors in DECAY_INTERVAL seconds
+decay_old_errors() {
+    local decay_after=${DECAY_INTERVAL}
+    local now=$(date +%s)
     local tmp=$(mktemp)
-    jq --arg h "$host" --argjson c "$new" '.[$h] = $c' "$STATE_FILE" > "$tmp" && mv "$tmp" "$STATE_FILE"
-    
-    echo "$new"
+
+    if jq --argjson now "$now" --argjson decay "$decay_after" '
+        to_entries | map(
+            if .value.last_error and ((.value.last_error + $decay) < $now) then
+                .value.count = ([0, .value.count - 1] | max)
+            else . end
+        ) | from_entries
+    ' "$STATE_FILE" > "$tmp" 2>/dev/null; then
+        mv "$tmp" "$STATE_FILE"
+    else
+        rm -f "$tmp"
+    fi
 }
 
 # Check if host is already in blocklist
@@ -132,9 +152,19 @@ monitor_logs() {
     log "Starting noslice-detector (threshold: $NOSLICE_THRESHOLD failures)"
     log "Monitoring: $ERROR_LOG"
     log "Blocklist: $BLOCKLIST_FILE"
-    
+
+    local last_decay_check=0
+    local decay_check_interval=3600  # Check for decay every hour
+
     # Use tail -F to follow the log file (handles rotation)
     tail -n 0 -F "$ERROR_LOG" 2>/dev/null | while read -r line; do
+        # Periodically decay old error counts
+        local now=$(date +%s)
+        if (( now - last_decay_check > decay_check_interval )); then
+            decay_old_errors
+            last_decay_check=$now
+        fi
+
         # Check for slice-related errors
         if echo "$line" | grep -qE "invalid range in slice response|unexpected range in slice response|unexpected status code.*in slice response"; then
             process_error_line "$line"

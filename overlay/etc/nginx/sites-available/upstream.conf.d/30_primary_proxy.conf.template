@@ -1,0 +1,10 @@
+  # Proxy all requests to upstream
+  location / {
+    # Proxy the request to upstream
+    # Target is $host (default) or $upstream_name (when ENABLE_UPSTREAM_KEEPALIVE=true)
+    proxy_pass http://PROXY_PASS_TARGET$request_uri;
+
+    # Catch the errors to process the redirects
+    proxy_intercept_errors on;
+    error_page 301 302 307 = @upstream_redirect;
+  }

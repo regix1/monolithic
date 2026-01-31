@@ -1,0 +1,17 @@
+[program:upstream-refresh]
+command=/scripts/refresh_upstreams.sh
+user=root
+autostart=true
+autorestart=unexpected
+exitcodes=0
+startsecs=15
+startretries=5
+stopwaitsecs=30
+stopsignal=TERM
+stopasgroup=true
+killasgroup=true
+priority=999
+redirect_stderr=true
+stdout_logfile=/data/logs/upstream-refresh.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=3

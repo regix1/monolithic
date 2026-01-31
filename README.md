@@ -89,6 +89,47 @@ docker exec <container-name> bash -c 'echo "{}" > /data/noslice-state.json && he
 - `NGINX_PROXY_READ_TIMEOUT` - Proxy read timeout (default: 300s)
 - `NGINX_SEND_TIMEOUT` - Send timeout (default: 300s)
 
+### Upstream Keepalive Configuration
+
+Upstream keepalive enables HTTP/1.1 connection pooling to CDN origin servers. This dramatically improves cache-miss download speeds by reusing TCP connections instead of creating new ones for each chunk request.
+
+**Benefits:**
+- Significantly faster cache-miss downloads (reported improvements from ~200Mbps to ~1Gbps)
+- Reduced latency for small chunk requests
+- Lower CPU usage from fewer TCP handshakes
+
+- `ENABLE_UPSTREAM_KEEPALIVE` - Enable upstream connection pooling (default: false)
+  - When enabled, generates nginx upstream blocks for each cache domain
+  - DNS is resolved at startup using `UPSTREAM_DNS` to avoid routing loops
+  - Falls back to direct proxy for wildcard domains or unresolvable hosts
+- `UPSTREAM_REFRESH_INTERVAL` - How often to refresh upstream DNS (default: 1h)
+  - Supports time units: s (seconds), m (minutes), h (hours), d (days)
+  - Set to "0" to disable periodic refresh (DNS only resolved at startup)
+  - CDN IPs can change frequently; 1 hour is a reasonable default
+- `UPSTREAM_KEEPALIVE_CONNECTIONS` - Connections per upstream pool (default: 16)
+  - This is per nginx worker process
+  - Higher values may improve throughput for busy caches
+- `UPSTREAM_KEEPALIVE_REQUESTS` - Requests per keepalive connection (default: 10000)
+  - Number of requests through a connection before closing it
+  - Prevents potential memory leaks from very long-lived connections
+- `UPSTREAM_KEEPALIVE_TIMEOUT` - Idle connection timeout (default: 5m)
+  - How long to keep idle connections open
+
+**How it works:**
+1. At startup, the hook script parses `cache_domains.json` and resolves each domain
+2. Generates nginx upstream blocks with resolved IPs and keepalive settings
+3. Creates a map that routes requests to the appropriate upstream pool
+4. Steam traffic is detected by User-Agent header (not domain wildcard)
+5. A background service periodically re-resolves DNS and reloads nginx if IPs change
+
+**Example with keepalive enabled:**
+```yaml
+environment:
+  - ENABLE_UPSTREAM_KEEPALIVE=true
+  - UPSTREAM_REFRESH_INTERVAL=1h
+  - UPSTREAM_KEEPALIVE_CONNECTIONS=32
+```
+
 ### Logging Configuration
 
 - `LOGFILE_RETENTION` - Number of days to retain log files (default: 3560)
@@ -135,6 +176,8 @@ services:
       - NGINX_SEND_TIMEOUT=300s
       - NOSLICE_FALLBACK=false
       - NOSLICE_THRESHOLD=3
+      - ENABLE_UPSTREAM_KEEPALIVE=false
+      - UPSTREAM_REFRESH_INTERVAL=1h
       - SKIP_PERMS_CHECK=false
       - FORCE_PERMS_CHECK=false
       - LOGFILE_RETENTION=3560

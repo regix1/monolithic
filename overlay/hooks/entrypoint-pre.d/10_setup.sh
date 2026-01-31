@@ -40,6 +40,30 @@ if [ -f /etc/nginx/conf.d/99_timeouts.conf.template ]; then
     sed -i "s/NGINX_SEND_TIMEOUT/${NGINX_SEND_TIMEOUT}/" /etc/nginx/conf.d/99_timeouts.conf
 fi
 
+# Handle ENABLE_UPSTREAM_KEEPALIVE - HTTP/1.1 connection pooling to upstream CDN servers
+if [ -f /etc/nginx/sites-available/upstream.conf.d/30_primary_proxy.conf.template ]; then
+    cp /etc/nginx/sites-available/upstream.conf.d/30_primary_proxy.conf.template \
+       /etc/nginx/sites-available/upstream.conf.d/30_primary_proxy.conf
+    
+    if [[ "${ENABLE_UPSTREAM_KEEPALIVE}" == "true" ]]; then
+        echo "Enabling upstream keepalive connection pooling"
+        # Use $upstream_name which is set by the generated map (defaults to $host for unmapped domains)
+        sed -i "s/PROXY_PASS_TARGET/\$upstream_name/" \
+            /etc/nginx/sites-available/upstream.conf.d/30_primary_proxy.conf
+        
+        # Enable the upstream-refresh supervisor service
+        mv /etc/supervisor/conf.d/upstream_refresh.conf.disabled \
+           /etc/supervisor/conf.d/upstream_refresh.conf 2>/dev/null || true
+        
+        # Make refresh script executable
+        chmod +x /scripts/refresh_upstreams.sh 2>/dev/null || true
+    else
+        # Default behavior: direct pass using $host
+        sed -i "s/PROXY_PASS_TARGET/\$host/" \
+            /etc/nginx/sites-available/upstream.conf.d/30_primary_proxy.conf
+    fi
+fi
+
 # Handle NOSLICE_FALLBACK - automatic detection and routing of hosts that don't support Range requests
 if [[ "${NOSLICE_FALLBACK}" == "true" ]]; then
     echo "Enabling automatic no-slice fallback (threshold: ${NOSLICE_THRESHOLD} failures)"

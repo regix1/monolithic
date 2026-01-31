@@ -1,12 +1,12 @@
 #!/bin/sh
-set -e
-echo "Currently configured config:"
-/scripts/getconfig.sh /etc/nginx/nginx.conf
+echo "Verifying nginx configuration..."
 
-echo "Checking nginx config"
-/usr/sbin/nginx -t
+if ! /usr/sbin/nginx -t; then
+    echo "ERROR: nginx configuration test failed"
+    exit 1
+fi
 
- [ $? -ne 0 ] || echo "Config check successful"
+echo "Config check successful"
 
 echo "Ready for supervisord startup"
 if [ -n "$CACHE_ROOT" ]

@@ -37,10 +37,10 @@ entrypoint_pre=$(ls /hooks/entrypoint-pre.d/* 2>/dev/null | sort -n )
 if [ "$entrypoint_pre" != "" ]; then
   for hook in $entrypoint_pre; do
     echo "Executing hook ${hook}"
-    /bin/bash -c "${hook}"
-    if [ "$?" != "0" ]; then
-      die "hook ${hook}} returned a non-zero exit status '$?'"
-    fi
+    /bin/bash -c "${hook}" || {
+      exit_code=$?
+      die "hook ${hook} returned a non-zero exit status '${exit_code}'"
+    }
   done
 fi
 

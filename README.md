@@ -2,7 +2,7 @@
 
 ![Docker Pulls](https://img.shields.io/docker/pulls/lancachenet/monolithic?label=Monolithic) ![Docker Pulls](https://img.shields.io/docker/pulls/lancachenet/lancache-dns?label=Lancache-dns) ![Docker Pulls](https://img.shields.io/docker/pulls/lancachenet/sniproxy?label=Sniproxy) ![Docker Pulls](https://img.shields.io/docker/pulls/lancachenet/generic?label=Generic)
 
-A caching proxy for game downloads. Caches Steam, Epic, Origin, Battle.net, Xbox, PlayStation, Nintendo, and other game/update downloads to serve them locally at LAN speeds.
+A high-performance caching proxy for game downloads. Caches content from Steam, Epic Games, Origin, Battle.net, Riot, Xbox, PlayStation, Nintendo, Uplay, and many other platforms to serve subsequent downloads at LAN speeds.
 
 ```bash
 docker pull ghcr.io/regix1/monolithic:latest
@@ -23,59 +23,67 @@ services:
       - ./logs:/data/logs
     ports:
       - "80:80"
+    restart: unless-stopped
 ```
+
+Point your DNS at [lancache-dns](https://github.com/lancachenet/lancache-dns) or configure your router to redirect game CDN domains to the cache IP.
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | **Cache Settings** |||
-| `CACHE_DISK_SIZE` | `1000g` | Max cache size on disk |
-| `CACHE_INDEX_SIZE` | `500m` | Memory for cache index (increase for large caches) |
-| `CACHE_MAX_AGE` | `3560d` | How long to keep cached files |
-| `CACHE_SLICE_SIZE` | `1m` | Chunk size for partial downloads |
-| `MIN_FREE_DISK` | `10g` | Stop caching when free space drops below this |
+| `CACHE_DISK_SIZE` | `1000g` | Maximum size of the cache on disk. Set slightly below your actual disk size. |
+| `CACHE_INDEX_SIZE` | `500m` | Memory allocated for the cache index. Increase for caches over 1TB (1g per 1TB recommended). |
+| `CACHE_MAX_AGE` | `3560d` | How long cached content is kept before expiring (~10 years default). |
+| `CACHE_SLICE_SIZE` | `1m` | Size of chunks for partial/resumable downloads. 1m works well for most cases. |
+| `MIN_FREE_DISK` | `10g` | Stops caching new content when free disk space drops below this threshold. |
 | **Network** |||
-| `UPSTREAM_DNS` | `8.8.8.8 8.8.4.4` | DNS servers for upstream resolution (space-separated) |
-| `LANCACHE_IP` | - | IP address(es) clients use to reach the cache |
+| `UPSTREAM_DNS` | `8.8.8.8 8.8.4.4` | DNS server(s) for resolving CDN hostnames. Space-separated for multiple servers. |
+| `LANCACHE_IP` | - | IP address(es) where clients reach the cache. Used by lancache-dns. |
 | **Cache Domains** |||
-| `CACHE_DOMAINS_REPO` | `https://github.com/uklans/cache-domains.git` | Repository with domain lists |
-| `CACHE_DOMAINS_BRANCH` | `master` | Branch to use |
-| `NOFETCH` | `false` | Skip updating cache-domains on startup |
+| `CACHE_DOMAINS_REPO` | `https://github.com/uklans/cache-domains.git` | Git repository containing the list of domains to cache. |
+| `CACHE_DOMAINS_BRANCH` | `master` | Branch to use from the cache domains repository. |
+| `NOFETCH` | `false` | Set to `true` to skip updating cache-domains on container startup. |
 | **Upstream Keepalive** |||
-| `ENABLE_UPSTREAM_KEEPALIVE` | `false` | Enable HTTP/1.1 connection pooling to CDNs |
-| `UPSTREAM_KEEPALIVE_CONNECTIONS` | `16` | Connections per upstream pool (per worker) |
-| `UPSTREAM_KEEPALIVE_TIMEOUT` | `5m` | Idle connection timeout |
-| `UPSTREAM_KEEPALIVE_REQUESTS` | `10000` | Max requests per connection |
-| `UPSTREAM_REFRESH_INTERVAL` | `1h` | DNS re-resolution interval (0 = disabled) |
+| `ENABLE_UPSTREAM_KEEPALIVE` | `false` | Enable HTTP/1.1 persistent connections to CDN servers for faster downloads. |
+| `UPSTREAM_KEEPALIVE_CONNECTIONS` | `16` | Number of idle connections to keep open per upstream pool (per nginx worker). |
+| `UPSTREAM_KEEPALIVE_TIMEOUT` | `5m` | How long idle upstream connections stay open before closing. |
+| `UPSTREAM_KEEPALIVE_REQUESTS` | `10000` | Maximum requests per connection before recycling. Prevents memory leaks. |
+| `UPSTREAM_REFRESH_INTERVAL` | `1h` | How often to re-resolve CDN DNS and update upstream IPs. Set to `0` to disable. |
 | **No-Slice Fallback** |||
-| `NOSLICE_FALLBACK` | `false` | Auto-detect servers that don't support Range requests |
-| `NOSLICE_THRESHOLD` | `3` | Failures before blocklisting a host |
-| `DECAY_INTERVAL` | `86400` | Seconds before failure counts decay |
+| `NOSLICE_FALLBACK` | `false` | Automatically detect and handle CDN servers that don't support HTTP Range requests. |
+| `NOSLICE_THRESHOLD` | `3` | Number of slice failures before a host is added to the no-slice blocklist. |
+| `DECAY_INTERVAL` | `86400` | Seconds (24h) before failure counts decay by 1. Prevents permanent blocklisting. |
 | **Nginx** |||
-| `NGINX_WORKER_PROCESSES` | `auto` | Number of worker processes |
-| `NGINX_LOG_FORMAT` | `cachelog` | Log format: `cachelog` or `cachelog-json` |
-| `NGINX_LOG_TO_STDOUT` | `false` | Also log to container stdout |
+| `NGINX_WORKER_PROCESSES` | `auto` | Number of nginx worker processes. `auto` uses one per CPU core. |
+| `NGINX_LOG_FORMAT` | `cachelog` | Log format: `cachelog` (human-readable) or `cachelog-json` (for log parsers). |
+| `NGINX_LOG_TO_STDOUT` | `false` | Mirror access logs to container stdout for debugging with `docker logs`. |
 | **Timeouts** |||
-| `NGINX_PROXY_CONNECT_TIMEOUT` | `300s` | Upstream connection timeout |
-| `NGINX_PROXY_READ_TIMEOUT` | `300s` | Upstream read timeout |
-| `NGINX_PROXY_SEND_TIMEOUT` | `300s` | Upstream send timeout |
-| `NGINX_SEND_TIMEOUT` | `300s` | Client send timeout |
+| `NGINX_PROXY_CONNECT_TIMEOUT` | `300s` | Timeout for establishing connection to upstream CDN servers. |
+| `NGINX_PROXY_READ_TIMEOUT` | `300s` | Timeout for reading response from upstream. Increase for slow CDNs. |
+| `NGINX_PROXY_SEND_TIMEOUT` | `300s` | Timeout for sending request to upstream. |
+| `NGINX_SEND_TIMEOUT` | `300s` | Timeout for sending response to client. |
 | **Permissions** |||
-| `PUID` | `33` | User ID for cache process |
-| `PGID` | `33` | Group ID for cache process |
-| `SKIP_PERMS_CHECK` | `false` | Skip permissions check on startup |
-| `FORCE_PERMS_CHECK` | `false` | Force full recursive permissions fix |
+| `PUID` | `33` | User ID that owns the cache files. Default 33 is www-data on Debian/Ubuntu. |
+| `PGID` | `33` | Group ID for cache files. Match your host user for NFS/SMB shares. |
+| `SKIP_PERMS_CHECK` | `false` | Skip the ownership check on startup. Use when permissions are managed externally. |
+| `FORCE_PERMS_CHECK` | `false` | Force recursive `chown` on startup. Warning: slow on large caches. |
 | **Logging** |||
-| `LOGFILE_RETENTION` | `3560` | Days to keep log files |
-| `BEAT_TIME` | `1h` | Heartbeat interval in logs |
-| `SUPERVISORD_LOGLEVEL` | `error` | Supervisor log level |
+| `LOGFILE_RETENTION` | `3560` | Days to keep rotated log files before deletion. |
+| `BEAT_TIME` | `1h` | Interval between heartbeat entries in logs. Confirms the cache is running. |
+| `SUPERVISORD_LOGLEVEL` | `error` | Supervisor log verbosity: `critical`, `error`, `warn`, `info`, `debug`. |
 
 ## Features
 
 ### Upstream Keepalive
 
-Reuses TCP connections to CDN servers instead of opening new ones per request. Speeds up cache-miss downloads significantly.
+By default, nginx opens a new TCP connection for every request to CDN servers. With keepalive enabled, connections are reused across multiple requests, eliminating TCP handshake and TLS negotiation overhead.
+
+**Benefits:**
+- Faster cache-miss downloads (users report 3-5x improvement)
+- Lower latency for chunked downloads
+- Reduced CPU usage from fewer TLS handshakes
 
 ```yaml
 environment:
@@ -83,35 +91,44 @@ environment:
   - UPSTREAM_DNS=8.8.8.8
 ```
 
-When enabled:
-- Resolves all cache domains at startup using `UPSTREAM_DNS`
-- Creates connection pools for each domain
-- Re-resolves DNS periodically (default: hourly)
-- Falls back to direct proxy for wildcards and unresolvable hosts
+**How it works:**
+1. On startup, resolves all domains from cache_domains.json using `UPSTREAM_DNS`
+2. Creates nginx upstream pools with the resolved IPs
+3. Maps incoming requests to the appropriate upstream pool
+4. A background service re-resolves DNS hourly (configurable) and reloads nginx if IPs change
+5. Wildcard domains and unresolvable hosts fall back to direct proxy
 
 ### No-Slice Fallback
 
-Some CDN servers don't support HTTP Range requests properly, causing cache failures. This feature detects them automatically.
+Lancache uses HTTP Range requests to cache files in slices, enabling partial downloads and resumption. Some CDN servers don't implement Range requests correctly, causing cache errors.
+
+This feature automatically detects problematic servers and routes them through a non-sliced cache path.
 
 ```yaml
 environment:
   - NOSLICE_FALLBACK=true
+  - NOSLICE_THRESHOLD=3
 ```
 
-When enabled:
-- Monitors error logs for slice failures
-- After 3 failures (configurable), blocklists the host
-- Blocklisted hosts are cached without byte-range requests
-- Blocklist persists across restarts at `/data/noslice-hosts.map`
+**How it works:**
+1. Monitors nginx error logs for "invalid range in slice response" errors
+2. Tracks failure counts per hostname with timestamps
+3. After reaching the threshold (default: 3), adds the host to a blocklist
+4. Blocklisted hosts are cached without byte-range slicing
+5. Failure counts decay over time (default: 24h) to allow recovery
+6. Blocklist persists at `/data/noslice-hosts.map` across restarts
 
-To reset the blocklist:
+**Response headers:**
+- `X-LanCache-NoSlice: true` - indicates the response came from the no-slice path
+
+**Reset the blocklist:**
 ```bash
 docker exec <container> bash -c 'echo "{}" > /data/noslice-state.json && head -5 /data/noslice-hosts.map > /tmp/map && mv /tmp/map /data/noslice-hosts.map && nginx -s reload'
 ```
 
-### Custom User/Group
+### Custom User/Group (NFS/SMB Support)
 
-For NFS/SMB shares where permissions matter:
+For network-attached storage where file ownership matters:
 
 ```yaml
 environment:
@@ -119,11 +136,23 @@ environment:
   - PGID=1000
 ```
 
-Set to `nginx` to use the default nginx user without modification.
+- Set `PUID`/`PGID` to match your NFS export or SMB share owner
+- Use `SKIP_PERMS_CHECK=true` if the NFS server doesn't allow ownership changes
+- Set to `nginx` to use the container's default nginx user without modification
+
+## Volumes
+
+| Path | Description |
+|------|-------------|
+| `/data/cache` | Game download cache. Mount your largest/fastest storage here. |
+| `/data/logs` | Access and error logs. `access.log` shows cache hits/misses. |
 
 ## Architecture Support
 
-Supports `linux/amd64` and `linux/arm64`. Docker pulls the correct image automatically.
+Supports `linux/amd64` and `linux/arm64`. Docker automatically pulls the correct image for your platform.
+
+- **amd64**: Standard x86_64 servers and desktops
+- **arm64**: Raspberry Pi 4/5, Apple Silicon (via Docker Desktop), AWS Graviton
 
 ## Full Example
 
@@ -132,13 +161,18 @@ services:
   monolithic:
     image: ghcr.io/regix1/monolithic:latest
     environment:
+      # Network
       - UPSTREAM_DNS=8.8.8.8
+      # Cache
       - CACHE_DISK_SIZE=2000g
-      - CACHE_INDEX_SIZE=500m
+      - CACHE_INDEX_SIZE=2g
+      - MIN_FREE_DISK=50g
+      # Performance
       - ENABLE_UPSTREAM_KEEPALIVE=true
       - NOSLICE_FALLBACK=true
-      - PUID=1000
-      - PGID=1000
+      # Permissions (match your storage owner)
+      - PUID=33
+      - PGID=33
     volumes:
       - /mnt/cache:/data/cache
       - ./logs:/data/logs
@@ -146,14 +180,32 @@ services:
       - "80:80"
       - "443:443"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/lancache-heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 ```
 
-## Building
+## Log Format Examples
+
+**cachelog (default):**
+```
+[steam] 192.168.1.100 HIT "GET /depot/123/chunk/abc" 200 1048576 "Mozilla/5.0"
+```
+
+**cachelog-json:**
+```json
+{"timestamp":"2025-01-31T12:00:00","client":"192.168.1.100","cache_status":"HIT","request":"GET /depot/123/chunk/abc","status":200,"bytes":1048576,"cache_identifier":"steam"}
+```
+
+## Building from Source
 
 ```bash
+# Build for current architecture
 docker build -t monolithic:local .
 
-# Multi-arch
+# Build for multiple architectures (requires buildx)
 docker buildx build --platform linux/amd64,linux/arm64 -t monolithic:local .
 ```
 

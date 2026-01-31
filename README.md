@@ -4,9 +4,12 @@
 
 A high-performance caching proxy for game downloads. Caches content from Steam, Epic Games, Origin, Battle.net, Riot, Xbox, PlayStation, Nintendo, Uplay, and many other platforms to serve subsequent downloads at LAN speeds.
 
-```bash
-docker pull ghcr.io/regix1/monolithic:latest
-```
+> [!NOTE]
+> **Recommended image:**
+>
+> ```bash
+> docker pull ghcr.io/regix1/monolithic:latest
+> ```
 
 **Docs:** [lancache.net](http://www.lancache.net) | [Monolithic docs](http://lancache.net/docs/containers/monolithic/) | [Support](http://lancache.net/support/)
 
@@ -132,8 +135,8 @@ For network-attached storage where file ownership matters:
 
 ```yaml
 environment:
-  - PUID=1000
-  - PGID=1000
+  - PUID=33
+  - PGID=33
 ```
 
 - Set `PUID`/`PGID` to match your NFS export or SMB share owner
@@ -170,7 +173,7 @@ services:
       # Performance
       - ENABLE_UPSTREAM_KEEPALIVE=true
       - NOSLICE_FALLBACK=true
-      # Permissions (match your storage owner)
+      # Permissions
       - PUID=33
       - PGID=33
     volumes:

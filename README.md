@@ -79,7 +79,7 @@ Point your DNS at [lancache-dns](https://github.com/lancachenet/lancache-dns) or
 By default, nginx opens a new TCP connection for every request to CDN servers. With keepalive enabled, connections are reused across multiple requests, eliminating TCP handshake and TLS negotiation overhead.
 
 **Benefits:**
-- Faster cache-miss downloads (users report 3-5x improvement)
+- Faster cache-miss downloads (estimated 3-5x improvement)
 - Lower latency for chunked downloads
 - Reduced CPU usage from fewer TLS handshakes
 

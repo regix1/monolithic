@@ -191,24 +191,24 @@ done < <(jq -r '.cache_domains | to_entries[] | .key' cache_domains.json 2>/dev/
 # Close the map block
 echo "}" >> "${MAPS_TMP_FILE}"
 
-# Validate generated config before installing
-log "Validating generated configuration..."
-cp "${MAPS_TMP_FILE}" /etc/nginx/conf.d/35_upstream_maps.conf.new
-cp "${POOLS_TMP_FILE}" /etc/nginx/conf.d/40_upstream_pools.conf.new
+# Install generated config files (must be installed before nginx -t can validate)
+log "Installing generated configuration..."
+cp "${MAPS_TMP_FILE}" /etc/nginx/conf.d/35_upstream_maps.conf
+cp "${POOLS_TMP_FILE}" /etc/nginx/conf.d/40_upstream_pools.conf
 
+# Validate the complete nginx configuration
+log "Validating nginx configuration..."
 if nginx -t 2>&1; then
-    # Config is valid, install it
-    mv /etc/nginx/conf.d/35_upstream_maps.conf.new /etc/nginx/conf.d/35_upstream_maps.conf
-    mv /etc/nginx/conf.d/40_upstream_pools.conf.new /etc/nginx/conf.d/40_upstream_pools.conf
     log "Generated upstream keepalive configuration:"
     log "  Maps: /etc/nginx/conf.d/35_upstream_maps.conf"
     log "  Pools: /etc/nginx/conf.d/40_upstream_pools.conf"
-    
+
     # Count upstreams created
     UPSTREAM_COUNT=$(wc -l < "${CREATED_UPSTREAMS_FILE}")
     log "  Total upstream pools: ${UPSTREAM_COUNT}"
 else
     log_error "Generated configuration failed nginx validation"
-    rm -f /etc/nginx/conf.d/*.conf.new
+    # Rollback: remove the installed files
+    rm -f /etc/nginx/conf.d/35_upstream_maps.conf /etc/nginx/conf.d/40_upstream_pools.conf
     exit 1
 fi

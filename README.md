@@ -42,7 +42,7 @@ Point your DNS at [lancache-dns](https://github.com/lancachenet/lancache-dns) or
 | `CACHE_DISK_SIZE` | `1000g` | Maximum size of the cache on disk. Set slightly below your actual disk size. |
 | `CACHE_INDEX_SIZE` | `500m` | Memory allocated for the cache index. Increase for caches over 1TB (1g per 1TB recommended). |
 | `CACHE_MAX_AGE` | `3560d` | How long cached content is kept before expiring (~10 years default). |
-| `CACHE_SLICE_SIZE` | `1m` | Size of chunks for partial/resumable downloads. 1m works well for most cases. |
+| `CACHE_SLICE_SIZE` | `1m` | Size of chunks for partial/resumable downloads. 1m is recommended - works with all CDNs and enables fast resume. Combined with `NOSLICE_FALLBACK`, problematic servers are handled automatically. |
 | `MIN_FREE_DISK` | `10g` | Stops caching new content when free disk space drops below this threshold. |
 
 ---

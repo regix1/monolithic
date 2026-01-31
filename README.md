@@ -114,7 +114,7 @@ Lancache uses HTTP Range requests to cache files in slices, enabling partial dow
 
 **Reset the blocklist:**
 ```bash
-docker exec lancache-monolithic /scripts/reset-noslice.sh
+docker exec lancache-monolithic-1 /scripts/reset-noslice.sh
 ```
 
 ---

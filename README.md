@@ -31,51 +31,88 @@ services:
 
 Point your DNS at [lancache-dns](https://github.com/lancachenet/lancache-dns) or configure your router to redirect game CDN domains to the cache IP.
 
+---
+
 ## Environment Variables
+
+### Cache Settings
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| **Cache Settings** |||
 | `CACHE_DISK_SIZE` | `1000g` | Maximum size of the cache on disk. Set slightly below your actual disk size. |
 | `CACHE_INDEX_SIZE` | `500m` | Memory allocated for the cache index. Increase for caches over 1TB (1g per 1TB recommended). |
 | `CACHE_MAX_AGE` | `3560d` | How long cached content is kept before expiring (~10 years default). |
 | `CACHE_SLICE_SIZE` | `1m` | Size of chunks for partial/resumable downloads. 1m works well for most cases. |
 | `MIN_FREE_DISK` | `10g` | Stops caching new content when free disk space drops below this threshold. |
-| **Network** |||
+
+### Network
+
+| Variable | Default | Description |
+|----------|---------|-------------|
 | `UPSTREAM_DNS` | `8.8.8.8 8.8.4.4` | DNS server(s) for resolving CDN hostnames. Space-separated for multiple servers. |
 | `LANCACHE_IP` | - | IP address(es) where clients reach the cache. Used by lancache-dns. |
-| **Cache Domains** |||
+
+### Cache Domains
+
+| Variable | Default | Description |
+|----------|---------|-------------|
 | `CACHE_DOMAINS_REPO` | `https://github.com/uklans/cache-domains.git` | Git repository containing the list of domains to cache. |
 | `CACHE_DOMAINS_BRANCH` | `master` | Branch to use from the cache domains repository. |
 | `NOFETCH` | `false` | Set to `true` to skip updating cache-domains on container startup. |
-| **Upstream Keepalive** |||
+
+### Upstream Keepalive
+
+| Variable | Default | Description |
+|----------|---------|-------------|
 | `ENABLE_UPSTREAM_KEEPALIVE` | `false` | Enable HTTP/1.1 persistent connections to CDN servers for faster downloads. |
 | `UPSTREAM_KEEPALIVE_CONNECTIONS` | `16` | Number of idle connections to keep open per upstream pool (per nginx worker). |
 | `UPSTREAM_KEEPALIVE_TIMEOUT` | `5m` | How long idle upstream connections stay open before closing. |
 | `UPSTREAM_KEEPALIVE_REQUESTS` | `10000` | Maximum requests per connection before recycling. Prevents memory leaks. |
 | `UPSTREAM_REFRESH_INTERVAL` | `1h` | How often to re-resolve CDN DNS and update upstream IPs. Set to `0` to disable. |
-| **No-Slice Fallback** |||
+
+### No-Slice Fallback
+
+| Variable | Default | Description |
+|----------|---------|-------------|
 | `NOSLICE_FALLBACK` | `false` | Automatically detect and handle CDN servers that don't support HTTP Range requests. |
 | `NOSLICE_THRESHOLD` | `3` | Number of slice failures before a host is added to the no-slice blocklist. |
 | `DECAY_INTERVAL` | `86400` | Seconds (24h) before failure counts decay by 1. Prevents permanent blocklisting. |
-| **Nginx** |||
+
+### Nginx
+
+| Variable | Default | Description |
+|----------|---------|-------------|
 | `NGINX_WORKER_PROCESSES` | `auto` | Number of nginx worker processes. `auto` uses one per CPU core. |
 | `NGINX_LOG_FORMAT` | `cachelog` | Log format: `cachelog` (human-readable) or `cachelog-json` (for log parsers). |
 | `NGINX_LOG_TO_STDOUT` | `false` | Mirror access logs to container stdout for debugging with `docker logs`. |
-| **Timeouts** |||
+
+### Timeouts
+
+| Variable | Default | Description |
+|----------|---------|-------------|
 | `NGINX_PROXY_CONNECT_TIMEOUT` | `300s` | Timeout for establishing connection to upstream CDN servers. |
 | `NGINX_PROXY_READ_TIMEOUT` | `300s` | Timeout for reading response from upstream. Increase for slow CDNs. |
 | `NGINX_PROXY_SEND_TIMEOUT` | `300s` | Timeout for sending request to upstream. |
 | `NGINX_SEND_TIMEOUT` | `300s` | Timeout for sending response to client. |
-| **Permissions** |||
+
+### Permissions
+
+| Variable | Default | Description |
+|----------|---------|-------------|
 | `PUID` | `33` | User ID that owns the cache files. Default 33 is www-data on Debian/Ubuntu. |
 | `PGID` | `33` | Group ID for cache files. Match your host user for NFS/SMB shares. |
 | `SKIP_PERMS_CHECK` | `false` | Skip the ownership check on startup. Use when permissions are managed externally. |
 | `FORCE_PERMS_CHECK` | `false` | Force recursive `chown` on startup. Warning: slow on large caches. |
-| **Logging** |||
+
+### Logging
+
+| Variable | Default | Description |
+|----------|---------|-------------|
 | `LOGFILE_RETENTION` | `3560` | Days to keep rotated log files before deletion. |
 | `BEAT_TIME` | `1h` | Interval between heartbeat entries in logs. Confirms the cache is running. |
 | `SUPERVISORD_LOGLEVEL` | `error` | Supervisor log verbosity: `critical`, `error`, `warn`, `info`, `debug`. |
+
+---
 
 ## Features
 
@@ -143,6 +180,8 @@ environment:
 - Use `SKIP_PERMS_CHECK=true` if the NFS server doesn't allow ownership changes
 - Set to `nginx` to use the container's default nginx user without modification
 
+---
+
 ## Volumes
 
 | Path | Description |
@@ -150,12 +189,16 @@ environment:
 | `/data/cache` | Game download cache. Mount your largest/fastest storage here. |
 | `/data/logs` | Access and error logs. `access.log` shows cache hits/misses. |
 
+---
+
 ## Architecture Support
 
 Supports `linux/amd64` and `linux/arm64`. Docker automatically pulls the correct image for your platform.
 
 - **amd64**: Standard x86_64 servers and desktops
 - **arm64**: Raspberry Pi 4/5, Apple Silicon (via Docker Desktop), AWS Graviton
+
+---
 
 ## Full Example
 
@@ -190,6 +233,8 @@ services:
       retries: 3
 ```
 
+---
+
 ## Log Format Examples
 
 **cachelog (default):**
@@ -202,6 +247,8 @@ services:
 {"timestamp":"2025-01-31T12:00:00","client":"192.168.1.100","cache_status":"HIT","request":"GET /depot/123/chunk/abc","status":200,"bytes":1048576,"cache_identifier":"steam"}
 ```
 
+---
+
 ## Building from Source
 
 ```bash
@@ -211,6 +258,8 @@ docker build -t monolithic:local .
 # Build for multiple architectures (requires buildx)
 docker buildx build --platform linux/amd64,linux/arm64 -t monolithic:local .
 ```
+
+---
 
 ## Thanks
 

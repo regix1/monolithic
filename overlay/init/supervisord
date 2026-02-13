@@ -1,6 +1,6 @@
 #!/bin/bash
 
-[ ${DOCKER_DEBUG} ] && set -x
+[[ ${DOCKER_DEBUG:-} ]] && set -x
 
 die () {
   echo "ERROR: ${1}"
@@ -17,13 +17,19 @@ if [ "$supervisord_pre" != "" ]; then
   for hook in $supervisord_pre; do
     echo "Executing hook ${hook}"
     /bin/bash -c "${hook}"
-    if [ "$?" != "0" ]; then
-      die "hook ${hook}} returned a non-zero exit status '$?'"
+    hook_exit=$?
+    if [ "$hook_exit" != "0" ]; then
+      die "hook ${hook} returned a non-zero exit status '$hook_exit'"
     fi
   done
 fi
 
 [[ -f "/hooks/supervisord-pre" ]] && echo "The /hooks/supervisord-pre hook has been replaced with /hooks/supervisord-pre.d/*" && exit 1
+
+echo "Validating nginx configuration..."
+if ! nginx -t 2>&1; then
+  die "nginx configuration test failed - check config files"
+fi
 
 echo "Starting Supervisord"
 echo "NOTE: 'Starting Supervisord' is the expected final startup message."

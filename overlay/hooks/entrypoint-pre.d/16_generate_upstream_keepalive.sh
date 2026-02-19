@@ -55,6 +55,38 @@ KEEPALIVE_CONNECTIONS="${UPSTREAM_KEEPALIVE_CONNECTIONS:-16}"
 KEEPALIVE_TIMEOUT="${UPSTREAM_KEEPALIVE_TIMEOUT:-5m}"
 KEEPALIVE_REQUESTS="${UPSTREAM_KEEPALIVE_REQUESTS:-10000}"
 
+# Optional: comma-separated cache identifiers to always exclude (overrides auto-detection for those).
+# Leave unset to rely only on multi-CDN auto-detection.
+UPSTREAM_KEEPALIVE_EXCLUDE="${UPSTREAM_KEEPALIVE_EXCLUDE:-}"
+
+# Auto-exclude caches that use many distinct CDN base domains (e.g. Epic: epicgames.com + akamaized.net +
+# fastly-edge.com). Such caches often fail with keepalive because: (1) CDNs do host-based routing and
+# fixed upstream IPs + Host header can time out (lancachenet/monolithic#192); (2) nginx closes keepalive
+# when proxy_intercept_errors + error_page handle 302 (nginx #2388/#2033). Exclude when distinct bases >= this.
+UPSTREAM_KEEPALIVE_MAX_BASE_DOMAINS="${UPSTREAM_KEEPALIVE_MAX_BASE_DOMAINS:-3}"
+
+# Returns the "base domain" (last two dot-separated parts) for a hostname, e.g. download.epicgames.com -> epicgames.com
+get_base_domain() {
+    local host="$1"
+    echo "$host" | awk -F. '{ if (NF >= 2) print $(NF-1)"."$NF; else print $0 }'
+}
+
+# Count distinct base domains for a cache entry (by index). Used to detect multi-CDN / redirect-heavy caches.
+count_distinct_base_domains() {
+    local cache_entry="$1"
+    local bases=""
+    while read -r DOMAIN_FILE; do
+        [[ ! -f "${DOMAIN_FILE}" ]] && continue
+        while IFS= read -r domain || [[ -n "${domain}" ]]; do
+            domain=$(tr -d '[:space:]' <<< "${domain}")
+            [[ -z "${domain}" || "${domain}" == \#* || "${domain}" == \** ]] && continue
+            base=$(get_base_domain "$domain")
+            [[ -n "$base" ]] && bases="$bases $base"
+        done < "${DOMAIN_FILE}"
+    done < <(jq -r ".cache_domains[${cache_entry}].domain_files | to_entries[] | .value" cache_domains.json 2>/dev/null)
+    echo "$bases" | tr ' ' '\n' | sort -u | grep -c . 2>/dev/null || echo "0"
+}
+
 # Function to resolve a domain to IPs using UPSTREAM_DNS
 # Returns all IPv4 addresses (up to 5) for load balancing
 resolve_domain() {
@@ -113,10 +145,37 @@ map "$http_user_agent£££$http_host" $upstream_name {
     default $host;  # Fallback to direct proxy for unmapped domains
 EOF
 
+# Returns 0 if the given cache identifier is in the explicit exclude list (comma-separated)
+is_in_exclude_list() {
+    local id="$1"
+    local list="${UPSTREAM_KEEPALIVE_EXCLUDE}"
+    [[ -z "$list" ]] && return 1
+    local i
+    for i in $(echo "$list" | tr ',' ' '); do
+        i="${i#"${i%%[![:space:]]*}"}"
+        i="${i%"${i##*[![:space:]]}"}"
+        [[ "$i" == "$id" ]] && return 0
+    done
+    return 1
+}
+
 # Process each cache entry in cache_domains.json
 # Using process substitution to avoid subshell variable scope issues
 while read -r CACHE_ENTRY; do
     CACHE_IDENTIFIER=$(jq -r ".cache_domains[${CACHE_ENTRY}].name" cache_domains.json)
+    
+    if is_in_exclude_list "$CACHE_IDENTIFIER"; then
+        log "Skipping ${CACHE_IDENTIFIER} (in UPSTREAM_KEEPALIVE_EXCLUDE; will use direct proxy)"
+        continue
+    fi
+
+    # Auto-detect multi-CDN caches: many distinct base domains => redirects between hosts => keepalive often fails
+    distinct_bases=$(count_distinct_base_domains "$CACHE_ENTRY")
+    max_bases="${UPSTREAM_KEEPALIVE_MAX_BASE_DOMAINS:-3}"
+    if [[ -n "$distinct_bases" && "$distinct_bases" -ge "$max_bases" ]] 2>/dev/null; then
+        log "Skipping ${CACHE_IDENTIFIER} (${distinct_bases} distinct CDN base domains >= ${max_bases}; will use direct proxy)"
+        continue
+    fi
     
     log "Processing: ${CACHE_IDENTIFIER}"
     

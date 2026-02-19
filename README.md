@@ -75,6 +75,8 @@ Point your DNS at [lancache-dns](https://github.com/lancachenet/lancache-dns) or
 | `UPSTREAM_KEEPALIVE_TIMEOUT` | `5m` | How long idle upstream connections stay open before closing. |
 | `UPSTREAM_KEEPALIVE_REQUESTS` | `10000` | Maximum requests per connection before recycling. Prevents memory leaks. |
 | `UPSTREAM_REFRESH_INTERVAL` | `1h` | How often to re-resolve CDN DNS and update upstream IPs. Set to `0` to disable. |
+| `UPSTREAM_KEEPALIVE_MAX_BASE_DOMAINS` | `3` | Caches with this many or more *distinct CDN base domains* (e.g. epicgames.com, akamaized.net, fastly-edge.com) are excluded from keepalive and use direct proxy. Multi-CDN setups often time out or redirect when using fixed upstream IPs ([lancachenet/monolithic#192](https://github.com/lancachenet/monolithic/issues/192)); nginx also closes keepalive when handling 302 via `proxy_intercept_errors` ([nginx #2388](https://trac.nginx.org/nginx/ticket/2388)). Lower = more caches excluded; higher = only very multi-CDN caches excluded. |
+| `UPSTREAM_KEEPALIVE_EXCLUDE` | *(empty)* | Optional comma-separated cache identifiers to always exclude from keepalive (e.g. `epic,origin`). Use when auto-detection is not enough. |
 
 By default, nginx opens a new TCP connection for every request to CDN servers. With keepalive enabled, connections are reused across multiple requests, eliminating TCP handshake and TLS negotiation overhead.
 
@@ -85,10 +87,11 @@ By default, nginx opens a new TCP connection for every request to CDN servers. W
 
 **How it works:**
 1. On startup, resolves all domains from cache_domains.json using `UPSTREAM_DNS`
-2. Creates nginx upstream pools with the resolved IPs
-3. Maps incoming requests to the appropriate upstream pool
-4. A background service re-resolves DNS hourly (configurable) and reloads nginx if IPs change
-5. Wildcard domains and unresolvable hosts fall back to direct proxy
+2. Caches that use many distinct CDN base domains (e.g. Epic: epicgames.com + akamaized.net + fastly-edge.com) are *auto-excluded* from keepalive and use direct proxy, since redirects between hosts often break fixed upstream IPs
+3. Creates nginx upstream pools with the resolved IPs for the remaining caches
+4. Maps incoming requests to the appropriate upstream pool
+5. A background service re-resolves DNS hourly (configurable) and reloads nginx if IPs change
+6. Wildcard domains and unresolvable hosts fall back to direct proxy
 
 ---
 

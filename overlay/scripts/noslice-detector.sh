@@ -46,11 +46,26 @@ get_failure_count() {
 }
 
 # Increment failure count for a host
-# Uses flock for atomic updates to prevent race conditions
+# Uses flock for atomic updates to prevent race conditions.
+# BusyBox flock does not support -w (wait timeout); use -n with retry loop instead.
 increment_failure_count() {
     local host="$1"
     (
-        flock -x -w 10 200 || { echo "0"; exit 1; }
+        exec 200>"${STATE_FILE}.lock"
+        local lock_acquired=0
+        local attempts=0
+        while [[ $attempts -lt 10 ]]; do
+            if flock -n 200 2>/dev/null; then
+                lock_acquired=1
+                break
+            fi
+            sleep 1
+            attempts=$((attempts + 1))
+        done
+        if [[ $lock_acquired -ne 1 ]]; then
+            echo "0"
+            exit 1
+        fi
         local current=$(jq -r --arg h "$host" '.[$h].count // .[$h] // 0' "$STATE_FILE" 2>/dev/null || echo "0")
         local new=$((current + 1))
         local now=$(date +%s)
@@ -58,7 +73,7 @@ increment_failure_count() {
         jq --arg h "$host" --argjson c "$new" --argjson t "$now" \
             '.[$h] = {"count": $c, "last_error": $t}' "$STATE_FILE" > "$tmp" && mv "$tmp" "$STATE_FILE"
         echo "$new"
-    ) 200>"${STATE_FILE}.lock"
+    )
 }
 
 # Decay old error counts over time

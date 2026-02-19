@@ -59,19 +59,34 @@ acquire_lock() {
 
 # Wait for nginx to be running before starting refresh loop
 wait_for_nginx() {
-    local max_wait=60
+    local max_wait="${UPSTREAM_REFRESH_NGINX_WAIT:-60}"
     local waited=0
-    
+
+    # Fallback to 60s if the env var is not a non-negative integer.
+    if ! [[ "$max_wait" =~ ^[0-9]+$ ]]; then
+        log "WARNING: Invalid UPSTREAM_REFRESH_NGINX_WAIT='$max_wait', using 60"
+        max_wait=60
+    fi
+
+    # Keep waiting until nginx appears so supervisor does not restart-loop this script.
+    # If max_wait > 0, emit a warning each window; if max_wait = 0, wait indefinitely.
     while ! pgrep -x "nginx" > /dev/null 2>&1; do
-        if [[ $waited -ge $max_wait ]]; then
-            log "ERROR: Nginx did not start within ${max_wait}s"
+        if [[ "$SHUTDOWN_REQUESTED" == "true" ]]; then
+            log "Shutdown requested while waiting for nginx"
             return 1
         fi
-        log "Waiting for nginx to start..."
+
+        if [[ "$max_wait" -gt 0 && $waited -ge $max_wait ]]; then
+            log "WARNING: Nginx did not start within ${max_wait}s; continuing to wait"
+            waited=0
+        else
+            log "Waiting for nginx to start..."
+        fi
+
         sleep 5
         waited=$((waited + 5))
     done
-    
+
     log "Nginx is running"
     return 0
 }
@@ -202,7 +217,7 @@ main() {
     log "DNS resolver: ${UPSTREAM_DNS}"
     
     # Wait for nginx before entering main loop
-    wait_for_nginx || exit 1
+    wait_for_nginx || exit 0
     
     # Main loop - sleep first since initial generation happens at startup
     while [[ "$SHUTDOWN_REQUESTED" != "true" ]]; do

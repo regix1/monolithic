@@ -196,6 +196,20 @@ log "Installing generated configuration..."
 cp "${MAPS_TMP_FILE}" /etc/nginx/conf.d/35_upstream_maps.conf
 cp "${POOLS_TMP_FILE}" /etc/nginx/conf.d/40_upstream_pools.conf
 
+# Ensure cache directory is owned by nginx user so nginx -t does not fail with chown(..., WEBUSER) Operation not permitted
+if [[ -d /data/cache/cache ]]; then
+    CURRENT_UID=$(stat -c '%u' /data/cache/cache 2>/dev/null || echo "")
+    WANTED_UID=$(id -u ${WEBUSER} 2>/dev/null || echo "")
+    if [[ -n "$WANTED_UID" && "$CURRENT_UID" != "$WANTED_UID" ]]; then
+        if ! chown ${WEBUSER}:${WEBUSER} /data/cache/cache /data/cache/CONFIGHASH 2>/dev/null; then
+            log_error "Cache directory /data/cache/cache must be owned by ${WEBUSER} (UID ${WANTED_UID}). chown failed."
+            log_error "On the host run: chown -R ${WANTED_UID}:$(id -g ${WEBUSER}) <path_to_cache_volume>"
+            rm -f /etc/nginx/conf.d/35_upstream_maps.conf /etc/nginx/conf.d/40_upstream_pools.conf
+            exit 1
+        fi
+    fi
+fi
+
 # Validate the complete nginx configuration
 log "Validating nginx configuration..."
 if nginx -t 2>&1; then

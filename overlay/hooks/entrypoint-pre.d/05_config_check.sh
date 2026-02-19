@@ -53,3 +53,15 @@ fi
 
 mkdir -p /data/cache/cache
 echo "${NEWHASH}" > /data/cache/CONFIGHASH
+
+# Nginx requires proxy_cache_path directory to be owned by the worker user (WEBUSER).
+# Set ownership now so later hooks (e.g. 16_generate_upstream_keepalive) can run nginx -t successfully.
+CURRENT_UID=$(stat -c '%u' /data/cache/cache 2>/dev/null || echo "")
+WANTED_UID=$(id -u ${WEBUSER} 2>/dev/null || echo "")
+if [[ -n "$WANTED_UID" && "$CURRENT_UID" != "$WANTED_UID" ]]; then
+    if ! chown ${WEBUSER}:${WEBUSER} /data/cache/cache /data/cache/CONFIGHASH 2>/dev/null; then
+        echo "ERROR: Cache directory /data/cache/cache must be owned by ${WEBUSER} (UID ${WANTED_UID}). chown failed (e.g. read-only or restricted mount)."
+        echo "On the host run: chown -R ${WANTED_UID}:$(id -g ${WEBUSER}) <path_to_cache_volume>"
+        exit 1
+    fi
+fi

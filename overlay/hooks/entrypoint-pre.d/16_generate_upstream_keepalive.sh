@@ -14,34 +14,9 @@ log_error() {
     echo "[upstream-keepalive] ERROR: $1" >&2
 }
 
-# Optional: comma-separated cache identifiers to always exclude (overrides auto-detection for those).
+# Optional: comma-separated cache identifiers to always exclude from keepalive.
+# These caches will use direct proxy instead. Manual escape hatch for problematic CDNs.
 UPSTREAM_KEEPALIVE_EXCLUDE="${UPSTREAM_KEEPALIVE_EXCLUDE:-}"
-
-# Auto-exclude caches that use many distinct CDN base domains (e.g. Epic: epicgames.com + akamaized.net +
-# fastly-edge.com). Such caches often fail with keepalive (lancachenet/monolithic#192; nginx #2388/#2033).
-UPSTREAM_KEEPALIVE_MAX_BASE_DOMAINS="${UPSTREAM_KEEPALIVE_MAX_BASE_DOMAINS:-3}"
-
-# Returns the "base domain" (last two dot-separated parts) for a hostname.
-get_base_domain() {
-    local host="$1"
-    echo "$host" | awk -F. '{ if (NF >= 2) print $(NF-1)"."$NF; else print $0 }'
-}
-
-# Count distinct base domains for a cache entry (by index).
-count_distinct_base_domains() {
-    local cache_entry="$1"
-    local bases=""
-    while read -r DOMAIN_FILE; do
-        [[ ! -f "${DOMAIN_FILE}" ]] && continue
-        while IFS= read -r domain || [[ -n "${domain}" ]]; do
-            domain=$(tr -d '[:space:]' <<< "${domain}")
-            [[ -z "${domain}" || "${domain}" == \#* || "${domain}" == \** ]] && continue
-            base=$(get_base_domain "$domain")
-            [[ -n "$base" ]] && bases="$bases $base"
-        done < "${DOMAIN_FILE}"
-    done < <(jq -r ".cache_domains[${cache_entry}].domain_files | to_entries[] | .value" cache_domains.json 2>/dev/null)
-    echo "$bases" | tr ' ' '\n' | sort -u | grep -c . 2>/dev/null || echo "0"
-}
 
 # Returns 0 if the given cache identifier is in the explicit exclude list (comma-separated)
 is_in_exclude_list() {
@@ -79,6 +54,9 @@ fi
 
 # Normalize DNS separator (allow semicolons like lancache-dns syntax)
 UPSTREAM_DNS="$(echo -n "${UPSTREAM_DNS}" | sed 's/[;]/ /g')"
+
+# Extract first DNS server for pre-flight domain checks
+DNS_SERVER="${UPSTREAM_DNS%% *}"
 log "Using DNS resolver(s): ${UPSTREAM_DNS}"
 
 # Setup temp files
@@ -97,6 +75,15 @@ trap cleanup EXIT
 KEEPALIVE_CONNECTIONS="${UPSTREAM_KEEPALIVE_CONNECTIONS:-16}"
 KEEPALIVE_TIMEOUT="${UPSTREAM_KEEPALIVE_TIMEOUT:-5m}"
 KEEPALIVE_REQUESTS="${UPSTREAM_KEEPALIVE_REQUESTS:-10000}"
+
+# Pre-flight check: verify a domain resolves before creating an upstream block.
+# This avoids noisy "could not be resolved" errors in nginx logs at startup.
+# nginx's resolve parameter handles re-resolution at runtime for domains that pass.
+domain_exists() {
+    local domain="$1"
+    dig +short +timeout=2 +tries=1 "@${DNS_SERVER}" "${domain}" A 2>/dev/null | \
+        grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'
+}
 
 # Function to sanitize domain name for use as upstream name
 sanitize_upstream_name() {
@@ -150,14 +137,6 @@ while read -r CACHE_ENTRY; do
         continue
     fi
 
-    # Auto-detect multi-CDN caches: many distinct base domains => redirects between hosts => keepalive often fails
-    distinct_bases=$(count_distinct_base_domains "$CACHE_ENTRY")
-    max_bases="${UPSTREAM_KEEPALIVE_MAX_BASE_DOMAINS:-3}"
-    if [[ -n "$distinct_bases" && "$distinct_bases" -ge "$max_bases" ]] 2>/dev/null; then
-        log "Skipping ${CACHE_IDENTIFIER} (${distinct_bases} distinct CDN base domains >= ${max_bases}; will use direct proxy)"
-        continue
-    fi
-
     log "Processing: ${CACHE_IDENTIFIER}"
 
     # Get all domain files for this cache entry
@@ -181,6 +160,14 @@ while read -r CACHE_ENTRY; do
 
             # Skip if we already created this upstream
             if grep -q "^${UPSTREAM_NAME}$" "${CREATED_UPSTREAMS_FILE}" 2>/dev/null; then
+                continue
+            fi
+
+            # Pre-flight DNS check: skip domains that don't resolve to avoid
+            # noisy "could not be resolved" errors in nginx logs at startup.
+            # Domains that resolve now get nginx's resolve parameter for runtime re-resolution.
+            if ! domain_exists "${DOMAIN}"; then
+                log "  Skipping unresolvable: ${DOMAIN}"
                 continue
             fi
 

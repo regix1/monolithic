@@ -74,8 +74,7 @@ Point your DNS at [lancache-dns](https://github.com/lancachenet/lancache-dns) or
 | `UPSTREAM_KEEPALIVE_CONNECTIONS` | `16` | Number of idle connections to keep open per upstream pool (per nginx worker). |
 | `UPSTREAM_KEEPALIVE_TIMEOUT` | `5m` | How long idle upstream connections stay open before closing. |
 | `UPSTREAM_KEEPALIVE_REQUESTS` | `10000` | Maximum requests per connection before recycling. Prevents memory leaks. |
-| `UPSTREAM_KEEPALIVE_MAX_BASE_DOMAINS` | `3` | Caches with this many or more *distinct CDN base domains* (e.g. epicgames.com, akamaized.net, fastly-edge.com) are excluded from keepalive and use direct proxy. Multi-CDN setups often time out or redirect when using fixed upstream IPs ([lancachenet/monolithic#192](https://github.com/lancachenet/monolithic/issues/192)); nginx also closes keepalive when handling 302 via `proxy_intercept_errors` ([nginx #2388](https://trac.nginx.org/nginx/ticket/2388)). Lower = more caches excluded; higher = only very multi-CDN caches excluded. |
-| `UPSTREAM_KEEPALIVE_EXCLUDE` | *(empty)* | Optional comma-separated cache identifiers to always exclude from keepalive (e.g. `epic,origin`). Use when auto-detection is not enough. |
+| `UPSTREAM_KEEPALIVE_EXCLUDE` | *(empty)* | Optional comma-separated cache identifiers to exclude from keepalive (e.g. `epic,origin`). Excluded caches use direct proxy. Rarely needed - cross-CDN redirects and upstream failures are handled automatically. |
 
 By default, nginx opens a new TCP connection for every request to CDN servers. With keepalive enabled, connections are reused across multiple requests, eliminating TCP handshake and TLS negotiation overhead.
 
@@ -85,11 +84,12 @@ By default, nginx opens a new TCP connection for every request to CDN servers. W
 - Reduced CPU usage from fewer TLS handshakes
 
 **How it works:**
-1. On startup, creates nginx upstream pools for each domain in cache_domains.json
-2. Caches that use many distinct CDN base domains (e.g. Epic: epicgames.com + akamaized.net + fastly-edge.com) are *auto-excluded* from keepalive and use direct proxy, since redirects between hosts often break fixed upstream IPs
-3. Each upstream pool uses nginx native DNS resolution (`resolve` parameter, nginx 1.27.3+) with shared memory zones - IPs are resolved and updated automatically without restarts
-4. Maps incoming requests to the appropriate upstream pool
-5. Wildcard domains fall back to direct proxy
+1. On startup, creates nginx upstream pools for each resolvable domain in cache_domains.json
+2. Each upstream pool uses nginx native DNS resolution (`resolve` parameter, nginx 1.27.3+) with shared memory zones - IPs are resolved and updated automatically without restarts
+3. Maps incoming requests to the appropriate upstream pool
+4. Cross-CDN redirects (302) are handled dynamically by `@upstream_redirect` - no static exclusion needed
+5. Upstream failures (502/504) trigger automatic retry with longer timeouts via `@upstream_long_timeout`
+6. Wildcard domains and unresolvable hosts fall back to direct proxy
 
 ---
 
@@ -161,7 +161,7 @@ If Epic Games or Riot launcher downloads start then repeatedly pause, show "Unab
 
 1. **Automatic retry** – The image automatically retries failed upstream requests (502/504) with longer timeouts (`NGINX_UPSTREAM_READ_TIMEOUT_LONG=600s`). No per-host configuration is needed. Check `/data/logs/upstream-retry.log` to see if retries are happening. Retried responses include the `X-LanCache-Retry: true` header.
 2. **Increase retry timeouts** – If retries also time out, increase `NGINX_UPSTREAM_READ_TIMEOUT_LONG` to `900s` or `1200s`.
-3. **Keepalive** – Epic (and similar multi-CDN caches) are auto-excluded from upstream keepalive and use direct proxy. Ensure you're on a build that includes this.
+3. **Keepalive** – Cross-CDN redirects are handled automatically. If a specific cache causes issues, exclude it manually with `UPSTREAM_KEEPALIVE_EXCLUDE=epic`.
 4. **Host network** – If the cache runs in Docker with port mapping and you see timeouts, try **host network** so the container has direct outbound access: `docker run --network host ...` and bind nginx to a specific IP (e.g. `listen 192.168.1.40:80`) so the cache is only on that IP. See [lancachenet/monolithic#80](https://github.com/lancachenet/monolithic/issues/80).
 5. **Prefill** – Use [epic-lancache-prefill](https://github.com/tpill90/epic-lancache-prefill) to pre-cache games; then client downloads serve from cache and avoid upstream flakiness.
 

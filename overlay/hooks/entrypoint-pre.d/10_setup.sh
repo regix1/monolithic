@@ -40,6 +40,7 @@ if [ -f /etc/nginx/conf.d/99_timeouts.conf.template ]; then
     sed -i "s/NGINX_SEND_TIMEOUT/${NGINX_SEND_TIMEOUT}/" /etc/nginx/conf.d/99_timeouts.conf
 fi
 
+
 # Handle ENABLE_UPSTREAM_KEEPALIVE - HTTP/1.1 connection pooling to upstream CDN servers
 if [ -f /etc/nginx/sites-available/upstream.conf.d/30_primary_proxy.conf.template ]; then
     cp /etc/nginx/sites-available/upstream.conf.d/30_primary_proxy.conf.template \
@@ -51,16 +52,33 @@ if [ -f /etc/nginx/sites-available/upstream.conf.d/30_primary_proxy.conf.templat
         sed -i "s/PROXY_PASS_TARGET/\$upstream_name/" \
             /etc/nginx/sites-available/upstream.conf.d/30_primary_proxy.conf
         
-        # Enable the upstream-refresh supervisor service
-        mv /etc/supervisor/conf.d/upstream_refresh.conf.disabled \
-           /etc/supervisor/conf.d/upstream_refresh.conf 2>/dev/null || true
-        
-        # Make refresh script executable
-        chmod +x /scripts/refresh_upstreams.sh 2>/dev/null || true
     else
         # Default behavior: direct pass using $host
         sed -i "s/PROXY_PASS_TARGET/\$host/" \
             /etc/nginx/sites-available/upstream.conf.d/30_primary_proxy.conf
+    fi
+fi
+
+# Process upstream retry template (automatic retry on 502/504 with longer timeouts)
+if [ -f /etc/nginx/sites-available/upstream.conf.d/35_upstream_retry.conf.template ]; then
+    cp /etc/nginx/sites-available/upstream.conf.d/35_upstream_retry.conf.template \
+       /etc/nginx/sites-available/upstream.conf.d/35_upstream_retry.conf
+
+    # Replace timeout placeholders with actual values
+    sed -i "s/NGINX_UPSTREAM_CONNECT_TIMEOUT_LONG/${NGINX_UPSTREAM_CONNECT_TIMEOUT_LONG}/" \
+        /etc/nginx/sites-available/upstream.conf.d/35_upstream_retry.conf
+    sed -i "s/NGINX_UPSTREAM_READ_TIMEOUT_LONG/${NGINX_UPSTREAM_READ_TIMEOUT_LONG}/" \
+        /etc/nginx/sites-available/upstream.conf.d/35_upstream_retry.conf
+    sed -i "s/NGINX_PROXY_SEND_TIMEOUT/${NGINX_PROXY_SEND_TIMEOUT}/" \
+        /etc/nginx/sites-available/upstream.conf.d/35_upstream_retry.conf
+
+    # Use same proxy pass target as the primary location
+    if [[ "${ENABLE_UPSTREAM_KEEPALIVE}" == "true" ]]; then
+        sed -i "s/PROXY_PASS_TARGET/\$upstream_name/" \
+            /etc/nginx/sites-available/upstream.conf.d/35_upstream_retry.conf
+    else
+        sed -i "s/PROXY_PASS_TARGET/\$host/" \
+            /etc/nginx/sites-available/upstream.conf.d/35_upstream_retry.conf
     fi
 fi
 

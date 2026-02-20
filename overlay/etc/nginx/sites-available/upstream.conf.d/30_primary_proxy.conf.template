@@ -4,7 +4,17 @@
     # Target is $host (default) or $upstream_name (when ENABLE_UPSTREAM_KEEPALIVE=true)
     proxy_pass http://PROXY_PASS_TARGET$request_uri;
 
+    # Retry on failure when using keepalive upstreams (multiple servers)
+    proxy_next_upstream error timeout;
+    proxy_next_upstream_tries 2;
+    proxy_next_upstream_timeout 60s;
+
     # Catch the errors to process the redirects
     proxy_intercept_errors on;
     error_page 301 302 307 = @upstream_redirect;
+
+    # Automatic retry with longer timeouts on upstream failure (502/504)
+    # If the first attempt times out or upstream closes connection, retry through
+    # @upstream_long_timeout which has longer connect/read timeouts
+    error_page 502 504 = @upstream_long_timeout;
   }

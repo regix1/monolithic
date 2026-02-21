@@ -12,9 +12,4 @@
     # Catch the errors to process the redirects
     proxy_intercept_errors on;
     error_page 301 302 307 = @upstream_redirect;
-
-    # Automatic retry with longer timeouts on upstream failure (502/504)
-    # If the first attempt times out or upstream closes connection, retry through
-    # @upstream_long_timeout which has longer connect/read timeouts
-    error_page 502 504 = @upstream_long_timeout;
   }

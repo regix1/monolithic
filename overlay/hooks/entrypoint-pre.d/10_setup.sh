@@ -59,29 +59,6 @@ if [ -f /etc/nginx/sites-available/upstream.conf.d/30_primary_proxy.conf.templat
     fi
 fi
 
-# Process upstream retry template (automatic retry on 502/504 with longer timeouts)
-if [ -f /etc/nginx/sites-available/upstream.conf.d/35_upstream_retry.conf.template ]; then
-    cp /etc/nginx/sites-available/upstream.conf.d/35_upstream_retry.conf.template \
-       /etc/nginx/sites-available/upstream.conf.d/35_upstream_retry.conf
-
-    # Replace timeout placeholders with actual values
-    sed -i "s/NGINX_UPSTREAM_CONNECT_TIMEOUT_LONG/${NGINX_UPSTREAM_CONNECT_TIMEOUT_LONG}/" \
-        /etc/nginx/sites-available/upstream.conf.d/35_upstream_retry.conf
-    sed -i "s/NGINX_UPSTREAM_READ_TIMEOUT_LONG/${NGINX_UPSTREAM_READ_TIMEOUT_LONG}/" \
-        /etc/nginx/sites-available/upstream.conf.d/35_upstream_retry.conf
-    sed -i "s/NGINX_PROXY_SEND_TIMEOUT/${NGINX_PROXY_SEND_TIMEOUT}/" \
-        /etc/nginx/sites-available/upstream.conf.d/35_upstream_retry.conf
-
-    # Use same proxy pass target as the primary location
-    if [[ "${ENABLE_UPSTREAM_KEEPALIVE}" == "true" ]]; then
-        sed -i "s/PROXY_PASS_TARGET/\$upstream_name/" \
-            /etc/nginx/sites-available/upstream.conf.d/35_upstream_retry.conf
-    else
-        sed -i "s/PROXY_PASS_TARGET/\$host/" \
-            /etc/nginx/sites-available/upstream.conf.d/35_upstream_retry.conf
-    fi
-fi
-
 # Handle NOSLICE_FALLBACK - automatic detection and routing of hosts that don't support Range requests
 if [[ "${NOSLICE_FALLBACK}" == "true" ]]; then
     echo "Enabling automatic no-slice fallback (threshold: ${NOSLICE_THRESHOLD} failures)"

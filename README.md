@@ -88,8 +88,7 @@ By default, nginx opens a new TCP connection for every request to CDN servers. W
 2. Each upstream pool uses nginx native DNS resolution (`resolve` parameter, nginx 1.27.3+) with shared memory zones - IPs are resolved and updated automatically without restarts
 3. Maps incoming requests to the appropriate upstream pool
 4. Cross-CDN redirects (302) are handled dynamically by `@upstream_redirect` - no static exclusion needed
-5. Upstream failures (502/504) trigger automatic retry with longer timeouts via `@upstream_long_timeout`
-6. Wildcard domains and unresolvable hosts fall back to direct proxy
+5. Wildcard domains and unresolvable hosts fall back to direct proxy
 
 ---
 
@@ -150,8 +149,6 @@ docker exec lancache-monolithic-1 /scripts/reset-noslice.sh
 | `NGINX_PROXY_READ_TIMEOUT` | `300s` | Timeout for reading response from upstream. Increase for slow CDNs. |
 | `NGINX_PROXY_SEND_TIMEOUT` | `300s` | Timeout for sending request to upstream. |
 | `NGINX_SEND_TIMEOUT` | `300s` | Timeout for sending response to client. |
-| `NGINX_UPSTREAM_READ_TIMEOUT_LONG` | `600s` | Read timeout used when automatically retrying a failed upstream request (502/504). If the first attempt times out, the request is retried internally with this longer timeout. Reduces "upstream timed out" ([#192](https://github.com/lancachenet/monolithic/issues/192)). |
-| `NGINX_UPSTREAM_CONNECT_TIMEOUT_LONG` | `120s` | Connect timeout used for the automatic retry attempt. |
 
 ---
 
@@ -159,11 +156,9 @@ docker exec lancache-monolithic-1 /scripts/reset-noslice.sh
 
 If Epic Games or Riot launcher downloads start then repeatedly pause, show "Unable to connect", or log "upstream timed out" / "prematurely closed connection":
 
-1. **Automatic retry** – The image automatically retries failed upstream requests (502/504) with longer timeouts (`NGINX_UPSTREAM_READ_TIMEOUT_LONG=600s`). No per-host configuration is needed. Check `/data/logs/upstream-retry.log` to see if retries are happening. Retried responses include the `X-LanCache-Retry: true` header.
-2. **Increase retry timeouts** – If retries also time out, increase `NGINX_UPSTREAM_READ_TIMEOUT_LONG` to `900s` or `1200s`.
-3. **Keepalive** – Cross-CDN redirects are handled automatically. If a specific cache causes issues, exclude it manually with `UPSTREAM_KEEPALIVE_EXCLUDE=epic`.
-4. **Host network** – If the cache runs in Docker with port mapping and you see timeouts, try **host network** so the container has direct outbound access: `docker run --network host ...` and bind nginx to a specific IP (e.g. `listen 192.168.1.40:80`) so the cache is only on that IP. See [lancachenet/monolithic#80](https://github.com/lancachenet/monolithic/issues/80).
-5. **Prefill** – Use [epic-lancache-prefill](https://github.com/tpill90/epic-lancache-prefill) to pre-cache games; then client downloads serve from cache and avoid upstream flakiness.
+1. **Keepalive** – Cross-CDN redirects are handled automatically. If a specific cache causes issues, exclude it manually with `UPSTREAM_KEEPALIVE_EXCLUDE=epic`.
+2. **Host network** – If the cache runs in Docker with port mapping and you see timeouts, try **host network** so the container has direct outbound access: `docker run --network host ...` and bind nginx to a specific IP (e.g. `listen 192.168.1.40:80`) so the cache is only on that IP. See [lancachenet/monolithic#80](https://github.com/lancachenet/monolithic/issues/80).
+3. **Prefill** – Use [epic-lancache-prefill](https://github.com/tpill90/epic-lancache-prefill) to pre-cache games; then client downloads serve from cache and avoid upstream flakiness.
 
 ---
 

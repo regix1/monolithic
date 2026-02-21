@@ -5,10 +5,10 @@
     proxy_pass http://PROXY_PASS_TARGET$request_uri;
 
     # Fast-fail timeouts for the primary path (overrides global 300s)
-    # If the upstream doesn't respond quickly, fall through to @direct_fallback
-    # Epic Games Launcher has a 30s client timeout, so we must fail + retry within that window
-    proxy_connect_timeout 10s;
-    proxy_read_timeout 15s;
+    # CDN headers arrive in 1-2s normally. If nothing in 5s, connection is stale/dead.
+    # Must fail + fallback fast enough for clients with short timeouts (Epic=30s)
+    proxy_connect_timeout 5s;
+    proxy_read_timeout 5s;
 
     # Retry on failure when using keepalive upstreams (multiple servers)
     proxy_next_upstream error timeout;
@@ -20,7 +20,7 @@
     error_page 301 302 307 = @upstream_redirect;
 
     # Fallback to direct proxy on upstream failure (stale keepalive, DNS issues, timeouts)
-    # Triggers within ~15s so clients with short timeouts (Epic=30s) don't stall
+    # Triggers within ~5s so clients with short timeouts (Epic=30s) don't stall
     error_page 502 504 = @direct_fallback;
   }
 

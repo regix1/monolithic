@@ -73,7 +73,7 @@ trap cleanup EXIT
 
 # Keepalive pool settings
 KEEPALIVE_CONNECTIONS="${UPSTREAM_KEEPALIVE_CONNECTIONS:-16}"
-KEEPALIVE_TIMEOUT="${UPSTREAM_KEEPALIVE_TIMEOUT:-5m}"
+KEEPALIVE_TIMEOUT="${UPSTREAM_KEEPALIVE_TIMEOUT:-4s}"
 KEEPALIVE_REQUESTS="${UPSTREAM_KEEPALIVE_REQUESTS:-10000}"
 
 # Pre-flight check: verify a domain resolves before creating an upstream block.
@@ -181,7 +181,7 @@ while read -r CACHE_ENTRY; do
                 echo "    zone ${UPSTREAM_NAME} 64k;"
                 echo "    resolver ${UPSTREAM_DNS} valid=300s ipv6=off;"
                 echo "    resolver_timeout 5s;"
-                echo "    server ${DOMAIN} resolve max_fails=3 fail_timeout=30s;"
+                echo "    server ${DOMAIN} resolve;"
                 echo "    keepalive ${KEEPALIVE_CONNECTIONS};"
                 echo "    keepalive_requests ${KEEPALIVE_REQUESTS};"
                 echo "    keepalive_timeout ${KEEPALIVE_TIMEOUT};"

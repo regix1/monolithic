@@ -72,7 +72,7 @@ Point your DNS at [lancache-dns](https://github.com/lancachenet/lancache-dns) or
 |----------|---------|-------------|
 | `ENABLE_UPSTREAM_KEEPALIVE` | `false` | Enable HTTP/1.1 persistent connections to CDN servers for faster downloads. |
 | `UPSTREAM_KEEPALIVE_CONNECTIONS` | `16` | Number of idle connections to keep open per upstream pool (per nginx worker). |
-| `UPSTREAM_KEEPALIVE_TIMEOUT` | `5m` | How long idle upstream connections stay open before closing. |
+| `UPSTREAM_KEEPALIVE_TIMEOUT` | `4s` | How long idle upstream connections stay open before closing. Should be set lower than your CDN's idle timeout — Cloudflare typically drops idle connections after 5–15s, so values above that will cause stalled downloads. |
 | `UPSTREAM_KEEPALIVE_REQUESTS` | `10000` | Maximum requests per connection before recycling. Prevents memory leaks. |
 | `UPSTREAM_KEEPALIVE_EXCLUDE` | *(empty)* | Optional comma-separated cache identifiers to exclude from keepalive (e.g. `epic,origin`). Excluded caches use direct proxy. Rarely needed - cross-CDN redirects and upstream failures are handled automatically. |
 
@@ -156,9 +156,10 @@ docker exec lancache-monolithic-1 /scripts/reset-noslice.sh
 
 If Epic Games or Riot launcher downloads start then repeatedly pause, show "Unable to connect", or log "upstream timed out" / "prematurely closed connection":
 
-1. **Keepalive** – Cross-CDN redirects are handled automatically. If a specific cache causes issues, exclude it manually with `UPSTREAM_KEEPALIVE_EXCLUDE=epic`.
-2. **Host network** – If the cache runs in Docker with port mapping and you see timeouts, try **host network** so the container has direct outbound access: `docker run --network host ...` and bind nginx to a specific IP (e.g. `listen 192.168.1.40:80`) so the cache is only on that IP. See [lancachenet/monolithic#80](https://github.com/lancachenet/monolithic/issues/80).
-3. **Prefill** – Use [epic-lancache-prefill](https://github.com/tpill90/epic-lancache-prefill) to pre-cache games; then client downloads serve from cache and avoid upstream flakiness.
+1. **Cloudflare CDN stalling (0 B/s)** – Epic Games and other Cloudflare-backed services can stall at 0 B/s if `UPSTREAM_KEEPALIVE_TIMEOUT` is set higher than Cloudflare's idle connection timeout (5–15s). The `@direct_fallback` location will automatically detect these stalls and bypass the keepalive upstream, falling back to a direct proxy for affected requests. Check `/data/logs/upstream-fallback.log` for fallback activity. If stalls are frequent, lower `UPSTREAM_KEEPALIVE_TIMEOUT` (e.g. `4s`) to stay under Cloudflare's idle threshold.
+2. **Keepalive** – Cross-CDN redirects are handled automatically. If a specific cache causes issues, exclude it manually with `UPSTREAM_KEEPALIVE_EXCLUDE=epic`.
+3. **Host network** – If the cache runs in Docker with port mapping and you see timeouts, try **host network** so the container has direct outbound access: `docker run --network host ...` and bind nginx to a specific IP (e.g. `listen 192.168.1.40:80`) so the cache is only on that IP. See [lancachenet/monolithic#80](https://github.com/lancachenet/monolithic/issues/80).
+4. **Prefill** – Use [epic-lancache-prefill](https://github.com/tpill90/epic-lancache-prefill) to pre-cache games; then client downloads serve from cache and avoid upstream flakiness.
 
 ---
 

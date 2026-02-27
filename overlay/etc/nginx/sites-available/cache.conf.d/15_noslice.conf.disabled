@@ -11,6 +11,8 @@
     proxy_set_header X-LanCache-Processed-By $hostname;
     add_header X-LanCache-Processed-By $hostname,$http_X_LanCache_Processed_By;
 
+    include /etc/nginx/sites-available/cache.conf.d/root/14_pna_headers.conf.inc;
+
     # DISABLED slicing - this is the key difference
     slice 0;
 

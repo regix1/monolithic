@@ -26,3 +26,6 @@ http:
     no-follow-redirects: false
     timeout: 0
     body: []
+    headers:
+    - "Access-Control-Allow-Origin: *"
+    - "Access-Control-Allow-Private-Network: true"

@@ -4,6 +4,11 @@
     # Target is $host (default) or $upstream_name (when ENABLE_UPSTREAM_KEEPALIVE=true)
     proxy_pass http://PROXY_PASS_TARGET$request_uri;
 
+    # Ensure the original CDN hostname is forwarded, not the upstream block name
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
     # Fast-fail timeouts for the primary path (overrides global 300s)
     # CDN headers arrive in 1-2s normally. If nothing in 5s, connection is stale/dead.
     # Must fail + fallback fast enough for clients with short timeouts (Epic=30s)

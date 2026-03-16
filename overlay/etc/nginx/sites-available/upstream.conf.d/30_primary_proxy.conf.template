@@ -15,10 +15,11 @@
     proxy_connect_timeout 5s;
     proxy_read_timeout 5s;
 
-    # Retry on failure when using keepalive upstreams (multiple servers)
-    proxy_next_upstream error timeout;
+    # Retry on failure — handles stale keepalive (near-instant) and CDN errors
+    # Do NOT add http_404 here — it's already in Layer 1 (90_upstream.conf)
+    proxy_next_upstream error timeout http_502 http_504;
     proxy_next_upstream_tries 2;
-    proxy_next_upstream_timeout 60s;
+    proxy_next_upstream_timeout 10s;   # was 60s — caps total retry within Epic's 30s budget
 
     # Catch the errors to process the redirects
     proxy_intercept_errors on;
@@ -36,8 +37,10 @@
     proxy_pass http://$host$request_uri;
 
     # More patient timeouts for the retry path (fresh connection)
-    proxy_connect_timeout 30s;
-    proxy_read_timeout 60s;
+    # 10s connect is generous for CDN TCP handshake (P95 <420ms)
+    proxy_connect_timeout 10s;
+    # Align with global NGINX_PROXY_READ_TIMEOUT default (300s)
+    proxy_read_timeout 300s;
 
     proxy_http_version 1.1;
     proxy_set_header Connection "";

@@ -54,6 +54,15 @@ case ${1} in
   run)
     check_depending_env
     [[ -f "/hooks/entrypoint-run" ]] && /hooks/entrypoint-run
+    # Aggressive TCP keepalive for stale connection detection (~5s detection time)
+    # Requires --net=host or CAP_NET_ADMIN; fails gracefully if denied
+    if sysctl -w net.ipv4.tcp_keepalive_time=3 2>/dev/null && \
+       sysctl -w net.ipv4.tcp_keepalive_intvl=1 2>/dev/null && \
+       sysctl -w net.ipv4.tcp_keepalive_probes=2 2>/dev/null; then
+      echo "[entrypoint] TCP keepalive tuned (time=3s, intvl=1s, probes=2)"
+    else
+      echo "[entrypoint] WARNING: Could not set TCP keepalive parameters (need --net=host or CAP_NET_ADMIN)"
+    fi
     if [[ -e /init/supervisord && -d /etc/supervisor ]]; then
       # Use exec so we replace our current process so signals can get through
       exec /bin/bash /init/supervisord

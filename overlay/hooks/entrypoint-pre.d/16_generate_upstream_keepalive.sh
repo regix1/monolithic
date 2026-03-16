@@ -75,6 +75,7 @@ trap cleanup EXIT
 KEEPALIVE_CONNECTIONS="${UPSTREAM_KEEPALIVE_CONNECTIONS:-16}"
 KEEPALIVE_TIMEOUT="${UPSTREAM_KEEPALIVE_TIMEOUT:-4s}"
 KEEPALIVE_REQUESTS="${UPSTREAM_KEEPALIVE_REQUESTS:-10000}"
+KEEPALIVE_TIME="${UPSTREAM_KEEPALIVE_TIME:-60s}"
 
 # Pre-flight check: verify a domain resolves before creating an upstream block.
 # This avoids noisy "could not be resolved" errors in nginx logs at startup.
@@ -179,12 +180,13 @@ while read -r CACHE_ENTRY; do
             {
                 echo "upstream ${UPSTREAM_NAME} {"
                 echo "    zone ${UPSTREAM_NAME} 64k;"
-                echo "    resolver ${UPSTREAM_DNS} valid=300s ipv6=off;"
+                echo "    resolver ${UPSTREAM_DNS} valid=60s ipv6=off;"
                 echo "    resolver_timeout 5s;"
                 echo "    server ${DOMAIN} resolve;"
                 echo "    keepalive ${KEEPALIVE_CONNECTIONS};"
                 echo "    keepalive_requests ${KEEPALIVE_REQUESTS};"
                 echo "    keepalive_timeout ${KEEPALIVE_TIMEOUT};"
+                echo "    keepalive_time ${KEEPALIVE_TIME};"
                 echo "}"
                 echo ""
             } >> "${POOLS_TMP_FILE}"

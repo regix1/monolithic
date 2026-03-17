@@ -1,0 +1,228 @@
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* ── Panda palette (warmer, WCAG-compliant) ──────────────────── */
+  --color-panda-bg:        #1c1c1e;
+  --color-panda-surface:   #2a2a2c;
+  --color-panda-elevated:  #363638;
+  --color-panda-border:    #45454a;
+  --color-panda-text:      #f0f0f2;
+  --color-panda-muted:     #9e9ea6;
+  --color-panda-dim:       #8a8a8e;
+
+  /* ── Bamboo accent ───────────────────────────────────────────── */
+  --color-bamboo:          #4ade80;
+  --color-bamboo-hover:    #22c55e;
+  --color-bamboo-deep:     #16a34a;
+  --color-bamboo-glow:     rgba(74, 222, 128, 0.12);
+  --color-bamboo-soft:     rgba(74, 222, 128, 0.06);
+
+  /* ── Status colors (softer) ──────────────────────────────────── */
+  --color-warn:            #f9a825;
+  --color-err:             #ef5350;
+  --color-info:            #42a5f5;
+
+  /* ── Fonts ───────────────────────────────────────────────────── */
+  --font-sans:    'Sora', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+  --font-display: 'Quicksand', 'Sora', system-ui, sans-serif;
+}
+
+/* ── Reset ─────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--color-panda-bg);
+  color: var(--color-panda-text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Noise texture overlay ─────────────────────────────────────── */
+.noise-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E");
+  opacity: 1;
+}
+
+.noise-bg > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Card hover effect ─────────────────────────────────────────── */
+.card-hover {
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.card-hover:hover {
+  border-color: rgba(74, 222, 128, 0.25);
+  box-shadow:
+    0 0 0 1px rgba(74, 222, 128, 0.08),
+    0 0 20px rgba(74, 222, 128, 0.06),
+    0 8px 32px rgba(0, 0, 0, 0.35);
+  transform: translateY(-2px);
+}
+
+/* ── Glassmorphism card ────────────────────────────────────────── */
+.glass-card {
+  background: rgba(42, 42, 44, 0.6);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid rgba(74, 222, 128, 0.1);
+}
+
+.glass-card:hover {
+  border-color: rgba(74, 222, 128, 0.2);
+  box-shadow:
+    0 0 24px rgba(74, 222, 128, 0.08),
+    0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Breathing pulse animations (softer) ───────────────────────── */
+@keyframes breathe-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.35); }
+  50% { box-shadow: 0 0 0 5px rgba(74, 222, 128, 0); }
+}
+
+@keyframes breathe-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 83, 80, 0.35); }
+  50% { box-shadow: 0 0 0 5px rgba(239, 83, 80, 0); }
+}
+
+@keyframes breathe-amber {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(249, 168, 37, 0.35); }
+  50% { box-shadow: 0 0 0 5px rgba(249, 168, 37, 0); }
+}
+
+.breathe-green { animation: breathe-green 2.5s ease-in-out infinite; }
+.breathe-red { animation: breathe-red 2.5s ease-in-out infinite; }
+.breathe-amber { animation: breathe-amber 2.5s ease-in-out infinite; }
+
+/* Legacy names */
+.pulse-green { animation: breathe-green 2.5s ease-in-out infinite; }
+.pulse-red { animation: breathe-red 2.5s ease-in-out infinite; }
+.pulse-amber { animation: breathe-amber 2.5s ease-in-out infinite; }
+
+/* ── Wave progress bar ─────────────────────────────────────────── */
+@keyframes wave-fill {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.wave-progress {
+  background: linear-gradient(
+    90deg,
+    var(--color-bamboo-deep) 0%,
+    var(--color-bamboo) 25%,
+    #86efac 50%,
+    var(--color-bamboo) 75%,
+    var(--color-bamboo-deep) 100%
+  );
+  background-size: 200% 100%;
+  animation: wave-fill 3s ease-in-out infinite;
+}
+
+/* ── Floating animation ────────────────────────────────────────── */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* ── Soft glow keyframe ────────────────────────────────────────── */
+@keyframes soft-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.animate-glow {
+  animation: soft-glow 2s ease-in-out infinite;
+}
+
+/* ── Dropdown slide animations ─────────────────────────────────── */
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Focus styles (global) ─────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid rgba(74, 222, 128, 0.5);
+  outline-offset: 2px;
+}
+
+/* ── Scrollbar styling ─────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track { background: var(--color-panda-bg); }
+::-webkit-scrollbar-thumb {
+  background: var(--color-panda-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-panda-dim); }
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-panda-border) var(--color-panda-bg);
+}
+
+/* ── Display font utility ──────────────────────────────────────── */
+.font-display {
+  font-family: 'Quicksand', 'Sora', system-ui, sans-serif;
+}
+
+/* ── Panda paw cursor for interactive elements ─────────────────── */
+.paw-cursor {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Ctext y='20' font-size='18'%3E🐾%3C/text%3E%3C/svg%3E") 12 12, pointer;
+}
+
+/* ── Table row hover (green glow) ──────────────────────────────── */
+.table-row-hover:hover {
+  background: rgba(74, 222, 128, 0.04) !important;
+}
+
+/* ── Shimmer loading skeleton ──────────────────────────────────── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-panda-surface) 25%,
+    var(--color-panda-elevated) 50%,
+    var(--color-panda-surface) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 8px;
+}

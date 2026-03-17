@@ -1,4 +1,12 @@
-# Multi-arch Alpine base with nginx included
+# ── Stage 1: Build admin frontend ──────────────────────────────────────────────
+FROM node:20-alpine AS frontend-build
+WORKDIR /app
+COPY admin/frontend/package*.json ./
+RUN npm ci
+COPY admin/frontend/ ./
+RUN npm run build
+
+# ── Stage 2: Final image ──────────────────────────────────────────────────────
 FROM nginx:alpine
 LABEL version=3
 LABEL description="Single caching container for caching game content at LAN parties."
@@ -59,6 +67,9 @@ RUN mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled \
 
 COPY overlay/ /
 
+# Copy built admin frontend
+COPY --from=frontend-build /app/dist /var/www/admin
+
 RUN rm -f /etc/nginx/sites-enabled/* /etc/nginx/stream-enabled/* 2>/dev/null || true; \
     rm -f /etc/nginx/conf.d/gzip.conf 2>/dev/null || true; \
     chmod 755 /scripts/* 2>/dev/null || true; \
@@ -73,6 +84,7 @@ RUN rm -f /etc/nginx/sites-enabled/* /etc/nginx/stream-enabled/* 2>/dev/null || 
     ln -sf /etc/nginx/sites-available/10_cache.conf /etc/nginx/sites-enabled/10_generic.conf; \
     ln -sf /etc/nginx/sites-available/20_upstream.conf /etc/nginx/sites-enabled/20_upstream.conf; \
     ln -sf /etc/nginx/sites-available/30_metrics.conf /etc/nginx/sites-enabled/30_metrics.conf; \
+    ln -sf /etc/nginx/sites-available/40_admin.conf /etc/nginx/sites-enabled/40_admin.conf; \
     ln -sf /etc/nginx/stream-available/10_sni.conf /etc/nginx/stream-enabled/10_sni.conf; \
     mkdir -m 755 -p /data/cachedomains; \
     mkdir -m 755 -p /tmp/nginx
@@ -81,7 +93,7 @@ RUN git clone --depth=1 --no-single-branch https://github.com/uklans/cache-domai
 
 VOLUME ["/data/logs", "/data/cache", "/data/cachedomains", "/var/www"]
 
-EXPOSE 80 443 8080
+EXPOSE 80 443 8080 8081
 WORKDIR /scripts
 
 HEALTHCHECK --interval=1m --timeout=10s --start-period=120s --retries=3 \

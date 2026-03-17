@@ -4,6 +4,11 @@ mkdir -p /data/cachedomains
 echo "Bootstrapping Monolithic from ${CACHE_DOMAINS_REPO}"
 
 export GIT_SSH_COMMAND="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
+
+# Mark cachedomains directory as safe to avoid "dubious ownership" errors
+# This happens when PUID/PGID differs from the directory owner
+git config --global --add safe.directory /data/cachedomains 2>/dev/null || true
+
 cd /data/cachedomains
 if [[ ! -d .git ]]; then
 	git clone "${CACHE_DOMAINS_REPO}" .

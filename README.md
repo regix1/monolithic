@@ -26,6 +26,7 @@ services:
       - ./logs:/data/logs
     ports:
       - "80:80"
+      - "8081:8081"  # Admin panel
     restart: unless-stopped
 ```
 
@@ -189,6 +190,33 @@ For NFS/SMB shares where file ownership matters:
 
 ---
 
+## Admin Panel
+
+A built-in web dashboard is available on **port 8081** for monitoring and configuration.
+
+- **Dashboard** — Active connections, service health, cache volume, filesystem detection
+- **Configuration** — Edit environment variables with live mismatch warnings
+- **Upstream** — Keepalive pool status, fallback events, cache domains tree
+- **Logs** — Cache hit/miss distribution, error rate, response times
+
+Access it at `http://<cache-ip>:8081`. No authentication required (internal network only).
+
+> [!NOTE]
+> The admin panel currently displays mock data. A Go backend that provides live data from nginx, supervisor, and log files is planned.
+
+---
+
+## Ports
+
+| Port | Description |
+|------|-------------|
+| `80` | HTTP cache proxy (required) |
+| `443` | HTTPS SNI proxy for HTTPS-only CDNs |
+| `8080` | nginx stub_status metrics endpoint |
+| `8081` | Admin panel web UI |
+
+---
+
 ## Volumes
 
 | Path | Description |
@@ -232,6 +260,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "8081:8081"  # Admin panel
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/lancache-heartbeat"]

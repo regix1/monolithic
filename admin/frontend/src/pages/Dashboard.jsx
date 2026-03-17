@@ -12,8 +12,6 @@ import {
 } from '../lib/mockData'
 import { getGreeting, getHealthMessage } from '../lib/greetings'
 
-const CONFIGHASH = 'a3f9b2c1d4e5f6a7b8c9d0e1f2a3b4c5'
-
 const stagger = {
   hidden: { opacity: 0, y: 10 },
   show: (i) => ({ opacity: 1, y: 0, transition: { delay: i * 0.04, duration: 0.25, ease: 'easeOut' } }),
@@ -43,16 +41,18 @@ export default function Dashboard() {
   const { data: apiFs } = usePolling(api.getFilesystem, 30000)
   const { data: apiNoslice } = usePolling(api.getNoslice, 10000)
 
+  const isLive = apiHealth !== null
   const health = apiHealth ?? mockHealth
   const rawStats = apiStats ?? mockStats
   const { nginx, disk } = rawStats
+  const configHash = rawStats.config_hash || ''
   const fs = apiFs ?? mockFilesystem
   const ns = apiNoslice ?? mockNoslice
   const greeting = getGreeting()
   const allRunning = health.processes.every(p => p.status === 'RUNNING')
 
   function handleCopy() {
-    navigator.clipboard.writeText(CONFIGHASH).catch(() => {})
+    navigator.clipboard.writeText(configHash).catch(() => {})
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -61,7 +61,14 @@ export default function Dashboard() {
     <div className="flex flex-col gap-4">
       {/* Header with greeting */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="shrink-0">
-        <h1 className="text-2xl font-bold text-panda-text">{greeting.greeting} {greeting.emoji}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-panda-text">{greeting.greeting} {greeting.emoji}</h1>
+          {!isLive && (
+            <span className="text-xs text-warn bg-warn/10 border border-warn/25 px-2.5 py-1 rounded-full">
+              Mock Data
+            </span>
+          )}
+        </div>
         <p className="text-sm text-panda-dim mt-0.5">{getHealthMessage(allRunning)}</p>
       </motion.div>
 
@@ -233,7 +240,7 @@ export default function Dashboard() {
             </div>
 
             <div className="rounded-lg bg-panda-bg px-3 py-2.5 flex items-center justify-between gap-2 mb-3">
-              <span className="text-xs text-panda-muted truncate font-mono">{CONFIGHASH}</span>
+              <span className="text-xs text-panda-muted truncate font-mono">{configHash || 'unavailable'}</span>
               <button onClick={handleCopy}
                 className="shrink-0 rounded-md p-1.5 text-panda-dim hover:text-bamboo hover:bg-panda-surface transition-colors">
                 {copied ? <Check size={13} className="text-bamboo" /> : <Copy size={13} />}

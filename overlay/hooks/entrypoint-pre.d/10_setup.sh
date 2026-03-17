@@ -25,8 +25,16 @@ sed -i "s/UPSTREAM_DNS/${UPSTREAM_DNS}/"    /etc/nginx/sites-available/15_ssl_ca
 sed -i "s/LOG_FORMAT/${NGINX_LOG_FORMAT}/"  /etc/nginx/sites-available/10_cache.conf
 sed -i "s/LOG_FORMAT/${NGINX_LOG_FORMAT}/"  /etc/nginx/sites-available/20_upstream.conf
 
-# Admin panel port (default: 8181)
-sed -i "s/ADMIN_PORT/${ADMIN_PORT:-8181}/"  /etc/nginx/sites-available/40_admin.conf
+# Admin panel — disabled by default, enable with ENABLE_ADMIN_UI=true
+if [[ "${ENABLE_ADMIN_UI}" == "true" ]]; then
+    echo "Enabling admin UI on port ${ADMIN_PORT:-8181}"
+    sed -i "s/ADMIN_PORT/${ADMIN_PORT:-8181}/" /etc/nginx/sites-available/40_admin.conf
+    ln -sf /etc/nginx/sites-available/40_admin.conf /etc/nginx/sites-enabled/40_admin.conf
+    mv /etc/supervisor/conf.d/admin.conf.disabled \
+       /etc/supervisor/conf.d/admin.conf 2>/dev/null || true
+else
+    rm -f /etc/nginx/sites-enabled/40_admin.conf
+fi
 
 # Configure nginx stdout logging (for debugging)
 if [[ "${NGINX_LOG_TO_STDOUT}" == "true" ]]; then

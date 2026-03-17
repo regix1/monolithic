@@ -102,6 +102,7 @@ async function fetchUpstream() {
 
 export default function Upstream() {
   const { data: apiData } = usePolling(fetchUpstream, 10000)
+  const isLive = apiData?.stats?.upstream != null
   const upstream = apiData ? {
     ...mockUpstream,
     pool_count: apiData.stats?.upstream?.pool_count ?? mockUpstream.pool_count,
@@ -121,7 +122,14 @@ export default function Upstream() {
     >
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-panda-text">Upstream</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-panda-text">Upstream</h1>
+          {!isLive && (
+            <span className="ml-2 text-xs text-warn bg-warn/10 border border-warn/25 px-2.5 py-1 rounded-full">
+              Mock Data
+            </span>
+          )}
+        </div>
         <p className="mt-0.5 text-sm text-panda-dim">
           Keepalive connection pools &amp; CDN routing
         </p>

@@ -225,8 +225,13 @@ export default function Config() {
     if (result !== null) {
       await api.reloadNginx()
     }
-    // Update original values to match what we just saved
-    setOriginalValues(vars)
+    const freshConfig = await api.getConfig()
+    if (freshConfig?.groups) {
+      setGroups(freshConfig.groups)
+      const vals = {}
+      freshConfig.groups.forEach(g => g.vars.forEach(v => { vals[v.key] = v.value }))
+      setOriginalValues(vals)
+    }
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
   }

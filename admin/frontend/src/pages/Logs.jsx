@@ -5,6 +5,7 @@ import {
   TrendingUp,
   AlertCircle,
   Ban,
+  CheckCircle,
 } from 'lucide-react'
 import {
   PieChart,
@@ -88,6 +89,7 @@ export default function Logs() {
   const { data: apiLogStats } = usePolling(api.getLogStats, 10000)
   const logStats = apiLogStats ?? mockLogStats
   const totalRequests = logStats.cache_status.reduce((sum, item) => sum + item.count, 0)
+  const hasErrors = logStats.error_rate.some(b => b.errors > 0)
 
   return (
     <motion.div
@@ -192,43 +194,50 @@ export default function Logs() {
             <h2 className="text-sm font-semibold text-panda-text">Error Rate (Last Hour)</h2>
           </div>
 
-          <div style={{ height: '180px', minHeight: '180px' }}>
-            <ResponsiveContainer width="100%" height="100%" minHeight={180}>
-              <LineChart
-                data={logStats.error_rate}
-                margin={{ top: 5, right: 10, left: -20, bottom: 5 }}
-              >
-                <defs>
-                  <linearGradient id="errorGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef5350" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#ef5350" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#45454a" vertical={false} />
-                <XAxis
-                  dataKey="time"
-                  tick={{ fill: '#8a8a8e', fontSize: 11, fontFamily: 'JetBrains Mono' }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fill: '#8a8a8e', fontSize: 11, fontFamily: 'JetBrains Mono' }}
-                  axisLine={false}
-                  tickLine={false}
-                  allowDecimals={false}
-                />
-                <Tooltip content={<CustomLineTooltip />} cursor={{ stroke: '#45454a', strokeWidth: 1 }} />
-                <Line
-                  type="monotone"
-                  dataKey="errors"
-                  stroke="#ef5350"
-                  strokeWidth={2}
-                  dot={{ fill: '#ef5350', r: 3, strokeWidth: 0 }}
-                  activeDot={{ fill: '#ef5350', r: 5, strokeWidth: 2, stroke: '#1c1c1e' }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          {hasErrors ? (
+            <div style={{ height: '180px', minHeight: '180px' }}>
+              <ResponsiveContainer width="100%" height="100%" minHeight={180}>
+                <LineChart
+                  data={logStats.error_rate}
+                  margin={{ top: 5, right: 10, left: -20, bottom: 5 }}
+                >
+                  <defs>
+                    <linearGradient id="errorGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef5350" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#ef5350" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#45454a" vertical={false} />
+                  <XAxis
+                    dataKey="time"
+                    tick={{ fill: '#8a8a8e', fontSize: 11, fontFamily: 'JetBrains Mono' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fill: '#8a8a8e', fontSize: 11, fontFamily: 'JetBrains Mono' }}
+                    axisLine={false}
+                    tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip content={<CustomLineTooltip />} cursor={{ stroke: '#45454a', strokeWidth: 1 }} />
+                  <Line
+                    type="monotone"
+                    dataKey="errors"
+                    stroke="#ef5350"
+                    strokeWidth={2}
+                    dot={{ fill: '#ef5350', r: 3, strokeWidth: 0 }}
+                    activeDot={{ fill: '#ef5350', r: 5, strokeWidth: 2, stroke: '#1c1c1e' }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2 rounded-lg px-4 py-8 bg-bamboo/5 border border-bamboo/20">
+              <CheckCircle size={15} className="text-bamboo" />
+              <span className="text-sm text-bamboo">No errors in the last hour</span>
+            </div>
+          )}
         </Card>
       </motion.div>
 

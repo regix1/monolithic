@@ -6,9 +6,13 @@ import (
 	"os"
 
 	"github.com/lancachenet/monolithic/admin/handlers"
+	"github.com/lancachenet/monolithic/admin/middleware"
+	"github.com/lancachenet/monolithic/admin/services"
 )
 
 func main() {
+	services.LoadAdminOverrides()
+
 	port := os.Getenv("ADMIN_API_PORT")
 	if port == "" {
 		port = "8082"
@@ -16,11 +20,9 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	// Health & stats
 	mux.HandleFunc("/api/health", handlers.HealthHandler)
 	mux.HandleFunc("/api/stats", handlers.StatsHandler)
 
-	// Config (GET and PUT distinguished inside handler)
 	mux.HandleFunc("/api/config", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -32,10 +34,8 @@ func main() {
 		}
 	})
 
-	// Filesystem
-	mux.HandleFunc("/api/filesystem", handlers.Filesystem)
+	mux.HandleFunc("/api/filesystem", handlers.FilesystemHandler)
 
-	// Nginx
 	mux.HandleFunc("/api/nginx/status", handlers.NginxStatus)
 	mux.HandleFunc("/api/nginx/reload", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -45,15 +45,12 @@ func main() {
 		handlers.NginxReload(w, r)
 	})
 
-	// Supervisor (reuse health handler's supervisor parsing)
 	mux.HandleFunc("/api/supervisor", handlers.HealthHandler)
 
-	// Logs
 	mux.HandleFunc("/api/logs/errors", handlers.LogErrors)
 	mux.HandleFunc("/api/logs/upstream", handlers.LogUpstream)
 	mux.HandleFunc("/api/logs/stats", handlers.LogStats)
 
-	// Noslice
 	mux.HandleFunc("/api/noslice", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -69,29 +66,12 @@ func main() {
 		handlers.NosliceHandler(w, r)
 	})
 
-	// Domains
 	mux.HandleFunc("/api/domains", handlers.DomainsHandler)
 
-	handler := corsMiddleware(mux)
+	handler := middleware.CORS(mux)
 
 	log.Printf("Lancache Admin API listening on :%s", port)
 	if err := http.ListenAndServe(":"+port, handler); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
-}
-
-// corsMiddleware adds CORS headers for development (allow all origins).
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
 }

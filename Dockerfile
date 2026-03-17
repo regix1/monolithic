@@ -65,7 +65,8 @@ ENV GENERICCACHE_VERSION=2 \
     UPSTREAM_KEEPALIVE_REQUESTS=10000 \
     UPSTREAM_KEEPALIVE_TIMEOUT=4s \
     UPSTREAM_KEEPALIVE_TIME=60s \
-    ADMIN_PORT=8181
+    ADMIN_PORT=8181 \
+    ENABLE_ADMIN_UI=false
 
 # Setup directories
 RUN mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled \
@@ -94,7 +95,6 @@ RUN rm -f /etc/nginx/sites-enabled/* /etc/nginx/stream-enabled/* 2>/dev/null || 
     ln -sf /etc/nginx/sites-available/10_cache.conf /etc/nginx/sites-enabled/10_generic.conf; \
     ln -sf /etc/nginx/sites-available/20_upstream.conf /etc/nginx/sites-enabled/20_upstream.conf; \
     ln -sf /etc/nginx/sites-available/30_metrics.conf /etc/nginx/sites-enabled/30_metrics.conf; \
-    ln -sf /etc/nginx/sites-available/40_admin.conf /etc/nginx/sites-enabled/40_admin.conf; \
     ln -sf /etc/nginx/stream-available/10_sni.conf /etc/nginx/stream-enabled/10_sni.conf; \
     mkdir -m 755 -p /data/cachedomains; \
     mkdir -m 755 -p /tmp/nginx

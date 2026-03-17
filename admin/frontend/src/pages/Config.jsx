@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Save,
@@ -28,15 +28,16 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: 'easeOut' } },
 }
 
-function VarRow({ varDef, onChange }) {
+function VarRow({ varDef, originalValue, onChange }) {
   const { key, value, default: defaultVal, description, type, options } = varDef
-  const isDirty = value !== defaultVal
+  const isEdited = value !== originalValue  // user changed it in this session
+  const isCustomized = originalValue !== defaultVal  // differs from default (informational)
 
   return (
     <div
       className={[
         'grid grid-cols-1 gap-2 rounded-lg px-4 py-2.5 sm:grid-cols-[1fr_1.2fr_auto] transition-colors',
-        isDirty ? 'bg-warn/5 border border-warn/15' : 'bg-panda-bg',
+        isEdited ? 'bg-warn/5 border border-warn/15' : 'bg-panda-bg',
       ].join(' ')}
     >
       <div className="flex flex-col gap-0.5 min-w-0">
@@ -44,7 +45,7 @@ function VarRow({ varDef, onChange }) {
           {key}
         </span>
         <span className="text-xs text-panda-muted leading-snug">{description}</span>
-        {isDirty && (
+        {value !== defaultVal && (
           <span className="text-[10px] text-panda-dim font-mono mt-0.5">
             default: <span className="text-panda-muted">{defaultVal === '' ? '(empty)' : defaultVal}</span>
           </span>
@@ -77,10 +78,15 @@ function VarRow({ varDef, onChange }) {
       </div>
 
       <div className="flex items-center justify-end">
-        {isDirty ? (
+        {isEdited ? (
           <span className="inline-flex items-center gap-1 text-xs text-warn font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-warn inline-block" />
-            modified
+            unsaved
+          </span>
+        ) : isCustomized ? (
+          <span className="inline-flex items-center gap-1 text-xs text-panda-muted">
+            <span className="w-1.5 h-1.5 rounded-full bg-panda-dim inline-block" />
+            customized
           </span>
         ) : (
           <span className="text-xs text-panda-dim">default</span>
@@ -90,9 +96,9 @@ function VarRow({ varDef, onChange }) {
   )
 }
 
-function ConfigGroup({ group, onChangeVar }) {
+function ConfigGroup({ group, originalValues, onChangeVar }) {
   const [open, setOpen] = useState(true)
-  const modifiedCount = group.vars.filter((v) => v.value !== v.default).length
+  const editedCount = group.vars.filter((v) => v.value !== (originalValues[v.key] ?? v.default)).length
 
   return (
     <motion.div variants={itemVariants}>
@@ -105,9 +111,9 @@ function ConfigGroup({ group, onChangeVar }) {
           <div className="flex items-center gap-2.5">
             <span className="inline-block h-4 w-1 rounded-full bg-bamboo shrink-0" />
             <span className="text-sm font-semibold text-panda-text">{group.name}</span>
-            {modifiedCount > 0 && (
+            {editedCount > 0 && (
               <span className="rounded-full bg-warn/10 border border-warn/25 text-warn text-xs px-2 py-0.5 font-medium">
-                {modifiedCount} modified
+                {editedCount} unsaved
               </span>
             )}
           </div>
@@ -129,7 +135,12 @@ function ConfigGroup({ group, onChangeVar }) {
             >
               <div className="border-t border-panda-border px-4 py-3 flex flex-col gap-2">
                 {group.vars.map((v) => (
-                  <VarRow key={v.key} varDef={v} onChange={onChangeVar} />
+                  <VarRow
+                    key={v.key}
+                    varDef={v}
+                    originalValue={originalValues[v.key] ?? v.default}
+                    onChange={onChangeVar}
+                  />
                 ))}
               </div>
             </motion.div>
@@ -148,20 +159,33 @@ export default function Config() {
   const [saved, setSaved] = useState(false)
   const initializedRef = useRef(false)
 
+  // Track the original values as they came from the API (or mock)
+  const [originalValues, setOriginalValues] = useState(() => {
+    const vals = {}
+    mockConfig.groups.forEach(g => g.vars.forEach(v => { vals[v.key] = v.value }))
+    return vals
+  })
+
   // When real API data arrives for the first time, use it
   useEffect(() => {
     if (apiConfig?.groups && !initializedRef.current) {
       setGroups(apiConfig.groups)
+      const vals = {}
+      apiConfig.groups.forEach(g => g.vars.forEach(v => { vals[v.key] = v.value }))
+      setOriginalValues(vals)
       initializedRef.current = true
     }
   }, [apiConfig])
 
   const fs = apiFs ?? mockFilesystem
 
-  const dirtyCount = groups.reduce(
-    (acc, g) => acc + g.vars.filter((v) => v.value !== v.default).length,
-    0
-  )
+  // Count vars the user has actually edited (different from what came from the server)
+  const dirtyCount = useMemo(() => {
+    return groups.reduce(
+      (acc, g) => acc + g.vars.filter((v) => v.value !== (originalValues[v.key] ?? v.default)).length,
+      0
+    )
+  }, [groups, originalValues])
 
   const currentSendfile = groups
     .flatMap((g) => g.vars)
@@ -184,24 +208,25 @@ export default function Config() {
   }
 
   function handleReset() {
-    const source = apiConfig?.groups ?? mockConfig.groups
-    setGroups(
-      source.map((g) => ({
+    // Reset to original server values, not defaults
+    setGroups((prev) =>
+      prev.map((g) => ({
         ...g,
-        vars: g.vars.map((v) => ({ ...v, value: v.default })),
+        vars: g.vars.map((v) => ({ ...v, value: originalValues[v.key] ?? v.default })),
       }))
     )
     setSaved(false)
   }
 
   async function handleSave() {
-    // Build a flat map of key→value for the API
     const vars = {}
     groups.forEach(g => g.vars.forEach(v => { vars[v.key] = v.value }))
     const result = await api.updateConfig(vars)
     if (result !== null) {
       await api.reloadNginx()
     }
+    // Update original values to match what we just saved
+    setOriginalValues(vars)
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
   }
@@ -237,7 +262,8 @@ export default function Config() {
           )}
           <button
             onClick={handleReset}
-            className="flex items-center gap-1.5 rounded-lg border border-panda-border px-3 py-2 text-sm text-panda-muted hover:text-panda-text hover:border-panda-elevated transition-colors"
+            disabled={dirtyCount === 0}
+            className="flex items-center gap-1.5 rounded-lg border border-panda-border px-3 py-2 text-sm text-panda-muted hover:text-panda-text hover:border-panda-elevated transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <RotateCcw size={13} />
             Reset
@@ -288,7 +314,7 @@ export default function Config() {
         )}
       </AnimatePresence>
 
-      {/* Changes banner */}
+      {/* Unsaved changes banner */}
       <AnimatePresence>
         {dirtyCount > 0 && !saved && (
           <motion.div
@@ -302,7 +328,7 @@ export default function Config() {
             <div className="flex items-center gap-2.5">
               <AlertTriangle size={14} className="text-warn shrink-0" />
               <p className="text-sm font-semibold text-warn">
-                Changes detected — restart required to apply
+                {dirtyCount} unsaved {dirtyCount === 1 ? 'change' : 'changes'} — restart required to apply
               </p>
             </div>
             <button
@@ -319,7 +345,12 @@ export default function Config() {
 
       {/* Config groups */}
       {groups.map((group) => (
-        <ConfigGroup key={group.name} group={group} onChangeVar={handleChangeVar} />
+        <ConfigGroup
+          key={group.name}
+          group={group}
+          originalValues={originalValues}
+          onChangeVar={handleChangeVar}
+        />
       ))}
     </motion.div>
   )

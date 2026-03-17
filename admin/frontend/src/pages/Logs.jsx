@@ -105,59 +105,67 @@ export default function Logs() {
       </motion.div>
 
       {/* Top row: Cache status donut + Response times */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 auto-rows-fr">
         {/* Cache Status Distribution */}
         <motion.div variants={itemVariants}>
-          <Card className="flex flex-col">
+          <Card className="flex flex-col h-full">
             <div className="mb-3 flex items-center gap-2">
               <PieChartIcon size={15} className="text-bamboo" />
               <h2 className="text-sm font-semibold text-panda-text">Cache Status Distribution</h2>
             </div>
 
-            <div className="relative flex items-center justify-center" style={{ height: '180px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={logStats.cache_status}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={80}
-                    paddingAngle={2}
-                    dataKey="value"
-                    strokeWidth={0}
-                  >
-                    {logStats.cache_status.map((entry) => (
-                      <Cell key={entry.name} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<CustomPieTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
+            {logStats.cache_status.length > 0 && totalRequests > 0 ? (
+              <>
+                <div className="relative flex items-center justify-center" style={{ height: '180px', minWidth: '200px' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={logStats.cache_status}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={80}
+                        paddingAngle={2}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        {logStats.cache_status.map((entry) => (
+                          <Cell key={entry.name} fill={entry.color} stroke="none" />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomPieTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
 
-              <div className="pointer-events-none absolute flex flex-col items-center" style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
-                <span className="font-mono text-lg font-semibold text-panda-text">
-                  {(totalRequests / 1000).toFixed(0)}k
-                </span>
-                <span className="text-xs text-panda-dim">requests</span>
-              </div>
-            </div>
-
-            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5">
-              {logStats.cache_status.map((item) => (
-                <div key={item.name} className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ background: item.color }} />
-                  <span className="text-xs font-mono font-medium text-panda-muted">{item.name}</span>
-                  <span className="ml-auto text-xs font-mono text-panda-text">{item.value.toFixed(1)}%</span>
+                  <div className="pointer-events-none absolute flex flex-col items-center" style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
+                    <span className="font-mono text-lg font-semibold text-panda-text">
+                      {totalRequests >= 1000 ? `${(totalRequests / 1000).toFixed(0)}k` : totalRequests}
+                    </span>
+                    <span className="text-xs text-panda-dim">requests</span>
+                  </div>
                 </div>
-              ))}
-            </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5">
+                  {logStats.cache_status.map((item) => (
+                    <div key={item.name} className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ background: item.color }} />
+                      <span className="text-xs font-mono font-medium text-panda-muted">{item.name}</span>
+                      <span className="ml-auto text-xs font-mono text-panda-text">{item.value.toFixed(1)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-sm text-panda-dim">
+                No cache data available yet
+              </div>
+            )}
           </Card>
         </motion.div>
 
         {/* Response Times */}
         <motion.div variants={itemVariants}>
-          <Card className="flex flex-col">
+          <Card className="flex flex-col h-full">
             <div className="mb-3 flex items-center gap-2">
               <Clock size={15} className="text-bamboo" />
               <h2 className="text-sm font-semibold text-panda-text">Upstream Response Times</h2>
@@ -237,7 +245,7 @@ export default function Logs() {
               </span>
             </div>
 
-            <div className="overflow-y-auto rounded-lg border border-panda-border" style={{ maxHeight: '240px' }}>
+            <div className="overflow-y-auto rounded-lg border border-panda-border" style={{ maxHeight: '280px' }}>
               <table className="w-full text-sm">
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-panda-elevated border-b border-panda-border">
@@ -252,8 +260,8 @@ export default function Logs() {
                       key={`${err.time}-${index}`}
                       className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
                     >
-                      <td className="px-4 py-2 text-xs whitespace-nowrap text-panda-dim">
-                        {err.time.split(' ')[1]}
+                      <td className="px-4 py-2 text-xs whitespace-nowrap text-panda-dim font-mono">
+                        {err.time}
                       </td>
                       <td className="px-4 py-2"><LevelBadge level={err.level} /></td>
                       <td className="px-4 py-2 font-mono text-xs text-panda-muted max-w-[260px] overflow-hidden text-ellipsis whitespace-nowrap" title={err.message}>
@@ -285,9 +293,9 @@ export default function Logs() {
                 No slice failures detected
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-lg border border-panda-border">
+              <div className="overflow-y-auto rounded-lg border border-panda-border" style={{ maxHeight: '280px' }}>
                 <table className="w-full text-sm">
-                  <thead>
+                  <thead className="sticky top-0 z-10">
                     <tr className="bg-panda-elevated border-b border-panda-border">
                       <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-panda-dim">Host</th>
                       <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-panda-dim">Error</th>
@@ -299,7 +307,7 @@ export default function Logs() {
                         key={`${event.host}-${index}`}
                         className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
                       >
-                        <td className="px-4 py-2 font-mono text-sm text-bamboo">{event.host}</td>
+                        <td className="px-4 py-2 font-mono text-xs text-bamboo whitespace-nowrap">{event.host}</td>
                         <td className="px-4 py-2 font-mono text-xs text-warn max-w-[260px] overflow-hidden text-ellipsis whitespace-nowrap" title={event.error}>
                           {event.error}
                         </td>

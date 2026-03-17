@@ -20,19 +20,41 @@ func LoadDomains(baseDir string) map[string]models.DomainService {
 
 	result := make(map[string]models.DomainService)
 
-	// Format 1: { "cache_domains": { "service": { "domain_files": [...] } } }
+	// Format 1 (upstream default): { "cache_domains": [ { "name": "steam", "domain_files": ["steam.txt"] }, ... ] }
 	var format1 struct {
-		CacheDomains map[string]struct {
+		CacheDomains []struct {
+			Name        string   `json:"name"`
 			DomainFiles []string `json:"domain_files"`
 		} `json:"cache_domains"`
 	}
 	if err := json.Unmarshal(data, &format1); err == nil && len(format1.CacheDomains) > 0 {
-		for name, svc := range format1.CacheDomains {
-			totalCount := 0
+		for _, svc := range format1.CacheDomains {
 			files := svc.DomainFiles
 			if files == nil {
 				files = []string{}
 			}
+			totalCount := 0
+			for _, file := range files {
+				totalCount += countDomainsInFile(filepath.Join(baseDir, file))
+			}
+			result[svc.Name] = models.DomainService{Files: files, DomainCount: totalCount}
+		}
+		return result
+	}
+
+	// Format 2: { "cache_domains": { "service": { "domain_files": [...] } } }  (map variant)
+	var format2 struct {
+		CacheDomains map[string]struct {
+			DomainFiles []string `json:"domain_files"`
+		} `json:"cache_domains"`
+	}
+	if err := json.Unmarshal(data, &format2); err == nil && len(format2.CacheDomains) > 0 {
+		for name, svc := range format2.CacheDomains {
+			files := svc.DomainFiles
+			if files == nil {
+				files = []string{}
+			}
+			totalCount := 0
 			for _, file := range files {
 				totalCount += countDomainsInFile(filepath.Join(baseDir, file))
 			}
@@ -41,17 +63,17 @@ func LoadDomains(baseDir string) map[string]models.DomainService {
 		return result
 	}
 
-	// Format 2: { "service": { "domain_files": [...] } }
-	var format2 map[string]struct {
+	// Format 3: { "service": { "domain_files": [...] } }  (no wrapper key)
+	var format3 map[string]struct {
 		DomainFiles []string `json:"domain_files"`
 	}
-	if err := json.Unmarshal(data, &format2); err == nil && len(format2) > 0 {
-		for name, svc := range format2 {
-			totalCount := 0
+	if err := json.Unmarshal(data, &format3); err == nil && len(format3) > 0 {
+		for name, svc := range format3 {
 			files := svc.DomainFiles
 			if files == nil {
 				files = []string{}
 			}
+			totalCount := 0
 			for _, file := range files {
 				totalCount += countDomainsInFile(filepath.Join(baseDir, file))
 			}
@@ -60,10 +82,10 @@ func LoadDomains(baseDir string) map[string]models.DomainService {
 		return result
 	}
 
-	// Format 3: { "service": ["file1.txt", "file2.txt"] }
-	var format3 map[string][]string
-	if err := json.Unmarshal(data, &format3); err == nil && len(format3) > 0 {
-		for name, files := range format3 {
+	// Format 4: { "service": ["file1.txt", "file2.txt"] }
+	var format4 map[string][]string
+	if err := json.Unmarshal(data, &format4); err == nil && len(format4) > 0 {
+		for name, files := range format4 {
 			if files == nil {
 				files = []string{}
 			}

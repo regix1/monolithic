@@ -15,19 +15,6 @@ import { mockConfig, mockFilesystem } from '../lib/mockData'
 import { usePolling } from '../hooks/usePolling'
 import { api } from '../lib/api'
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.05 },
-  },
-}
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 10 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: 'easeOut' } },
-}
-
 function VarRow({ varDef, originalValue, onChange }) {
   const { key, value, default: defaultVal, description, type, options } = varDef
   const isEdited = value !== originalValue  // user changed it in this session
@@ -101,7 +88,7 @@ function ConfigGroup({ group, originalValues, onChangeVar }) {
   const editedCount = group.vars.filter((v) => v.value !== (originalValues[v.key] ?? v.default)).length
 
   return (
-    <motion.div variants={itemVariants}>
+    <div>
       <Card className="p-0 overflow-hidden">
         <button
           type="button"
@@ -147,7 +134,7 @@ function ConfigGroup({ group, originalValues, onChangeVar }) {
           )}
         </AnimatePresence>
       </Card>
-    </motion.div>
+    </div>
   )
 }
 
@@ -222,9 +209,9 @@ export default function Config() {
     const vars = {}
     groups.forEach(g => g.vars.forEach(v => { vars[v.key] = v.value }))
     const result = await api.updateConfig(vars)
-    if (result !== null) {
-      await api.reloadNginx()
-    }
+    if (result === null) return
+
+    // Re-fetch BEFORE nginx reload so the proxy is still stable
     const freshConfig = await api.getConfig()
     if (freshConfig?.groups) {
       setGroups(freshConfig.groups)
@@ -232,19 +219,18 @@ export default function Config() {
       freshConfig.groups.forEach(g => g.vars.forEach(v => { vals[v.key] = v.value }))
       setOriginalValues(vals)
     }
+
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
+
+    // Reload nginx in the background — don't block UI or disrupt the proxy mid-fetch
+    api.reloadNginx()
   }
 
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="flex flex-col gap-4"
-    >
+    <div className="flex flex-col gap-4 animate-fade-in">
       {/* Page header */}
-      <motion.div variants={itemVariants} className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-panda-text">Configuration</h1>
           <p className="mt-0.5 text-sm text-panda-dim">
@@ -282,71 +268,52 @@ export default function Config() {
             Save &amp; Restart
           </button>
         </div>
-      </motion.div>
+      </div>
 
       {/* Filesystem mismatch banner */}
-      <AnimatePresence>
-        {showFsMismatch && (
-          <motion.div
-            key="fs-banner"
-            variants={itemVariants}
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.2 }}
-            className="rounded-xl border border-warn/30 bg-warn/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
-          >
-            <div className="flex items-start gap-2.5">
-              <AlertTriangle size={15} className="text-warn mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-warn">
-                  Filesystem Mismatch: {fs.type} on {fs.mount_point}
-                </p>
-                <p className="text-xs text-warn/80 mt-0.5">
-                  Set <span className="font-mono">NGINX_SENDFILE={fs.sendfile_recommended}</span> to prevent I/O errors.
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleFixNow}
-              className="shrink-0 flex items-center gap-1.5 rounded-lg bg-warn px-4 py-2 text-sm font-semibold text-panda-bg hover:bg-amber-400 transition-colors"
-            >
-              <Zap size={13} />
-              Fix Now
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Unsaved changes banner */}
-      <AnimatePresence>
-        {dirtyCount > 0 && !saved && (
-          <motion.div
-            key="changes-banner"
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.2 }}
-            className="rounded-xl border border-warn/30 bg-warn/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
-          >
-            <div className="flex items-center gap-2.5">
-              <AlertTriangle size={14} className="text-warn shrink-0" />
+      {showFsMismatch && (
+        <div className="rounded-xl border border-warn/30 bg-warn/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle size={15} className="text-warn mt-0.5 shrink-0" />
+            <div>
               <p className="text-sm font-semibold text-warn">
-                {dirtyCount} unsaved {dirtyCount === 1 ? 'change' : 'changes'} — restart required to apply
+                Filesystem Mismatch: {fs.type} on {fs.mount_point}
+              </p>
+              <p className="text-xs text-warn/80 mt-0.5">
+                Set <span className="font-mono">NGINX_SENDFILE={fs.sendfile_recommended}</span> to prevent I/O errors.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleSave}
-              className="shrink-0 flex items-center gap-1.5 rounded-lg bg-bamboo px-4 py-2 text-sm font-semibold text-panda-bg hover:bg-bamboo-hover transition-colors"
-            >
-              <Save size={13} />
-              Save &amp; Restart
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+          <button
+            type="button"
+            onClick={handleFixNow}
+            className="shrink-0 flex items-center gap-1.5 rounded-lg bg-warn px-4 py-2 text-sm font-semibold text-panda-bg hover:bg-amber-400 transition-colors"
+          >
+            <Zap size={13} />
+            Fix Now
+          </button>
+        </div>
+      )}
+
+      {/* Unsaved changes banner */}
+      {dirtyCount > 0 && !saved && (
+        <div className="rounded-xl border border-warn/30 bg-warn/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle size={14} className="text-warn shrink-0" />
+            <p className="text-sm font-semibold text-warn">
+              {dirtyCount} unsaved {dirtyCount === 1 ? 'change' : 'changes'} — restart required to apply
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSave}
+            className="shrink-0 flex items-center gap-1.5 rounded-lg bg-bamboo px-4 py-2 text-sm font-semibold text-panda-bg hover:bg-bamboo-hover transition-colors"
+          >
+            <Save size={13} />
+            Save &amp; Restart
+          </button>
+        </div>
+      )}
 
       {/* Config groups */}
       {groups.map((group) => (
@@ -357,6 +324,6 @@ export default function Config() {
           onChangeVar={handleChangeVar}
         />
       ))}
-    </motion.div>
+    </div>
   )
 }

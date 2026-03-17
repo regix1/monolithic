@@ -1,23 +1,9 @@
 import { useState } from 'react'
-import { motion } from 'framer-motion'
 import { Network, AlertTriangle, FolderTree, ChevronDown, ChevronRight, Wifi, WifiOff } from 'lucide-react'
 import { Card, StatCard } from '../components'
 import { mockUpstream } from '../lib/mockData'
 import { usePolling } from '../hooks/usePolling'
 import { api } from '../lib/api'
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.06 },
-  },
-}
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 10 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
-}
 
 function IpBadge({ ip }) {
   return (
@@ -68,13 +54,7 @@ function DomainTreeItem({ service, data }) {
       </button>
 
       {expanded && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          exit={{ opacity: 0, height: 0 }}
-          transition={{ duration: 0.2 }}
-          className="bg-panda-bg border-t border-panda-border"
-        >
+        <div className="bg-panda-bg border-t border-panda-border">
           {data.files.map((file) => (
             <div
               key={file}
@@ -84,7 +64,7 @@ function DomainTreeItem({ service, data }) {
               <span className="font-mono text-sm text-bamboo">{file}</span>
             </div>
           ))}
-        </motion.div>
+        </div>
       )}
     </div>
   )
@@ -114,14 +94,9 @@ export default function Upstream() {
   } : mockUpstream
 
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="flex flex-col gap-4"
-    >
+    <div className="flex flex-col gap-4 animate-fade-in">
       {/* Header */}
-      <motion.div variants={itemVariants}>
+      <div>
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-bold text-panda-text">Upstream</h1>
           {!isLive && (
@@ -133,11 +108,11 @@ export default function Upstream() {
         <p className="mt-0.5 text-sm text-panda-dim">
           Keepalive connection pools &amp; CDN routing
         </p>
-      </motion.div>
+      </div>
 
       {/* Status row */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <motion.div variants={itemVariants}>
+        <div>
           <Card className="flex flex-col gap-1.5 card-hover">
             <span className="text-xs font-medium uppercase tracking-wider text-panda-dim">
               Keepalive
@@ -154,7 +129,7 @@ export default function Upstream() {
               </span>
             )}
           </Card>
-        </motion.div>
+        </div>
 
         <StatCard label="Pools" value={upstream.pool_count} />
         <StatCard label="Excluded" value={upstream.excluded.length} />
@@ -162,7 +137,7 @@ export default function Upstream() {
       </div>
 
       {/* Upstream Pools Table */}
-      <motion.div variants={itemVariants}>
+      <div>
         <Card>
           <div className="mb-3 flex items-center gap-2">
             <Network size={15} className="text-bamboo" />
@@ -204,10 +179,10 @@ export default function Upstream() {
             </table>
           </div>
         </Card>
-      </motion.div>
+      </div>
 
       {/* Fallback Events */}
-      <motion.div variants={itemVariants}>
+      <div>
         <Card>
           <div className="mb-3 flex items-center gap-2">
             <AlertTriangle size={15} className="text-warn" />
@@ -244,10 +219,10 @@ export default function Upstream() {
             </div>
           )}
         </Card>
-      </motion.div>
+      </div>
 
       {/* Cache Domains Tree */}
-      <motion.div variants={itemVariants}>
+      <div>
         <Card>
           <div className="mb-3 flex items-center gap-2">
             <FolderTree size={15} className="text-bamboo" />
@@ -263,7 +238,7 @@ export default function Upstream() {
             ))}
           </div>
         </Card>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   )
 }

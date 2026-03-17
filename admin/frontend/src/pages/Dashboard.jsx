@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { motion } from 'framer-motion'
 import {
   Server, Activity, HardDrive, Database, Fingerprint, Shield,
   CheckCircle, AlertTriangle, Copy, Check,
@@ -11,18 +10,6 @@ import {
   mockHealth, mockStats, mockFilesystem, mockNoslice,
 } from '../lib/mockData'
 import { getGreeting, getHealthMessage } from '../lib/greetings'
-
-const stagger = {
-  hidden: { opacity: 0, y: 10 },
-  show: (i) => ({ opacity: 1, y: 0, transition: { delay: i * 0.04, duration: 0.25, ease: 'easeOut' } }),
-}
-function S({ i, children, className = '' }) {
-  return (
-    <motion.div custom={i} initial="hidden" animate="show" variants={stagger} className={className}>
-      {children}
-    </motion.div>
-  )
-}
 
 function SIcon({ icon: Icon, color = '#4ade80' }) {
   return (
@@ -58,9 +45,9 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 animate-fade-in">
       {/* Header with greeting */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="shrink-0">
+      <div className="shrink-0">
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-bold text-panda-text">{greeting.greeting} {greeting.emoji}</h1>
           {!isLive && (
@@ -70,10 +57,10 @@ export default function Dashboard() {
           )}
         </div>
         <p className="text-sm text-panda-dim mt-0.5">{getHealthMessage(allRunning)}</p>
-      </motion.div>
+      </div>
 
       {/* Row 1: Quick stats */}
-      <S i={0}>
+      <div>
         <div className="grid grid-cols-6 gap-3">
           {/* Active connections — hero */}
           <div className="col-span-2 rounded-xl bg-panda-surface border border-panda-border p-4 flex items-center gap-4">
@@ -106,12 +93,12 @@ export default function Dashboard() {
             <p className="text-base font-bold text-panda-text font-mono">{nginx.requests.toLocaleString()}</p>
           </div>
         </div>
-      </S>
+      </div>
 
       {/* Row 2: Service Health + Cache Volume */}
       <div className="grid grid-cols-5 gap-4">
         {/* Service Health */}
-        <S i={1} className="col-span-3 flex">
+        <div className="col-span-3 flex">
           <div className="rounded-xl bg-panda-surface border border-panda-border p-4 flex-1 flex flex-col">
             <div className="flex items-center gap-2.5 mb-3">
               <SIcon icon={Server} />
@@ -139,10 +126,10 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-        </S>
+        </div>
 
         {/* Cache Volume */}
-        <S i={2} className="col-span-2 flex">
+        <div className="col-span-2 flex">
           <div className="rounded-xl bg-panda-surface border border-panda-border p-4 flex-1 flex flex-col">
             <div className="flex items-center gap-2.5 mb-3">
               <SIcon icon={HardDrive} />
@@ -177,13 +164,13 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-        </S>
+        </div>
       </div>
 
       {/* Row 3: Filesystem + Config Hash + Noslice */}
       <div className="grid grid-cols-3 gap-4">
         {/* Filesystem */}
-        <S i={3} className="flex">
+        <div className="flex">
           <div className="rounded-xl bg-panda-surface border border-panda-border p-4 flex-1 flex flex-col">
             <div className="flex items-center gap-2.5 mb-3">
               <SIcon icon={Database} />
@@ -229,10 +216,10 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-        </S>
+        </div>
 
         {/* Config Hash */}
-        <S i={4} className="flex">
+        <div className="flex">
           <div className="rounded-xl bg-panda-surface border border-panda-border p-4 flex-1 flex flex-col">
             <div className="flex items-center gap-2.5 mb-3">
               <SIcon icon={Fingerprint} />
@@ -254,10 +241,10 @@ export default function Dashboard() {
               <p className="text-xs text-bamboo">Configuration consistent</p>
             </div>
           </div>
-        </S>
+        </div>
 
         {/* Noslice */}
-        <S i={5} className="flex">
+        <div className="flex">
           <div className="rounded-xl bg-panda-surface border border-panda-border p-4 flex-1 flex flex-col">
             <div className="flex items-center gap-2.5 mb-3">
               <SIcon icon={Shield} />
@@ -291,7 +278,7 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-        </S>
+        </div>
       </div>
     </div>
   )

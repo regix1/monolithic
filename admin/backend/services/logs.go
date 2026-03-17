@@ -57,11 +57,13 @@ var errorLogRegex = regexp.MustCompile(
 	`^(\d{4}/\d{2}/\d{2}\s+\d{2}:\d{2}:\d{2})\s+\[(\w+)\]\s+\d+#\d+:\s+(?:\*\d+\s+)?(.*)`,
 )
 
-// Matches text-format access log lines:
+// Matches text-format access log lines (lancache cachelog format):
 //
-//	[steam] 192.168.1.100 HIT "GET /depot/123/chunk/abc" 200 1048576 "Mozilla/5.0" 0.142
+//	[steam] 192.168.1.100 / - - [17/Mar/2026:14:22:01 +0000] "GET /path HTTP/1.1" 200 1048576 "-" "User-Agent" "HIT" "host" "-"
+//
+// Groups: 1=cache_id, 2=status_code, 3=bytes, 4=cache_status
 var textAccessLogRegex = regexp.MustCompile(
-	`^\[([^\]]*)\]\s+(\S+)\s+(\S+)\s+"([^"]*)"\s+(\d+)\s+(\d+)\s+"([^"]*)"\s+(\S+)`,
+	`^\[([^\]]*)\]\s+.*?"[A-Z]+\s+\S+.*?"\s+(\d+)\s+(\d+)\s+"[^"]*"\s+"[^"]*"\s+"([^"]*)"`,
 )
 
 // ---------- tailFile helper ----------
@@ -297,7 +299,7 @@ func extractCacheStatus(line string) string {
 	// JSON format: first char is '{'
 	if line[0] == '{' {
 		var entry struct {
-			CacheStatus string `json:"cache_status"`
+			CacheStatus string `json:"upstream_cache_status"`
 		}
 		if err := json.Unmarshal([]byte(line), &entry); err == nil && entry.CacheStatus != "" {
 			return strings.ToUpper(entry.CacheStatus)
@@ -305,11 +307,14 @@ func extractCacheStatus(line string) string {
 		return ""
 	}
 
-	// Text format: [cache_id] client_ip cache_status "request" ...
+	// Text format: cache_status is in quotes near end of line (group 4)
 	if line[0] == '[' {
 		match := textAccessLogRegex.FindStringSubmatch(line)
-		if match != nil {
-			return strings.ToUpper(match[3])
+		if match != nil && len(match) > 4 {
+			status := strings.TrimSpace(match[4])
+			if status != "" && status != "-" {
+				return strings.ToUpper(status)
+			}
 		}
 	}
 

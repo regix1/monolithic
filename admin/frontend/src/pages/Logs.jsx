@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion'
 import {
   PieChart as PieChartIcon,
   Clock,
@@ -23,19 +22,6 @@ import Card from '../components/Card'
 import { usePolling } from '../hooks/usePolling'
 import { api } from '../lib/api'
 import { mockLogStats } from '../lib/mockData'
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.06 },
-  },
-}
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 10 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
-}
 
 function CustomPieTooltip({ active, payload }) {
   if (!active || !payload || !payload.length) return null
@@ -92,24 +78,19 @@ export default function Logs() {
   const hasErrors = logStats.error_rate.some(b => b.errors > 0)
 
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="flex flex-col gap-4"
-    >
+    <div className="flex flex-col gap-4 animate-fade-in">
       {/* Header */}
-      <motion.div variants={itemVariants}>
+      <div>
         <h1 className="text-2xl font-bold text-panda-text">Logs</h1>
         <p className="mt-0.5 text-sm text-panda-dim">
           Operational analytics — upstream performance &amp; error monitoring
         </p>
-      </motion.div>
+      </div>
 
       {/* Top row: Cache status donut + Response times */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 auto-rows-fr">
         {/* Cache Status Distribution */}
-        <motion.div variants={itemVariants}>
+        <div>
           <Card className="flex flex-col h-full">
             <div className="mb-3 flex items-center gap-2">
               <PieChartIcon size={15} className="text-bamboo" />
@@ -163,10 +144,10 @@ export default function Logs() {
               </div>
             )}
           </Card>
-        </motion.div>
+        </div>
 
         {/* Response Times */}
-        <motion.div variants={itemVariants}>
+        <div>
           <Card className="flex flex-col h-full">
             <div className="mb-3 flex items-center gap-2">
               <Clock size={15} className="text-bamboo" />
@@ -183,11 +164,11 @@ export default function Logs() {
               Measured over last 1,000 upstream requests
             </p>
           </Card>
-        </motion.div>
+        </div>
       </div>
 
       {/* Error Rate Chart */}
-      <motion.div variants={itemVariants}>
+      <div>
         <Card>
           <div className="mb-3 flex items-center gap-2">
             <TrendingUp size={15} className="text-err" />
@@ -239,12 +220,12 @@ export default function Logs() {
             </div>
           )}
         </Card>
-      </motion.div>
+      </div>
 
       {/* Bottom row */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Recent Errors */}
-        <motion.div variants={itemVariants}>
+        <div>
           <Card className="flex flex-col">
             <div className="mb-3 flex items-center gap-2">
               <AlertCircle size={15} className="text-err" />
@@ -282,10 +263,10 @@ export default function Logs() {
               </table>
             </div>
           </Card>
-        </motion.div>
+        </div>
 
         {/* No-Slice Events */}
-        <motion.div variants={itemVariants}>
+        <div>
           <Card className="flex flex-col">
             <div className="mb-3 flex items-center gap-2">
               <Ban size={15} className="text-warn" />
@@ -327,8 +308,8 @@ export default function Logs() {
               </div>
             )}
           </Card>
-        </motion.div>
+        </div>
       </div>
-    </motion.div>
+    </div>
   )
 }

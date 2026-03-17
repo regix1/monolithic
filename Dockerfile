@@ -56,7 +56,8 @@ ENV GENERICCACHE_VERSION=2 \
     UPSTREAM_KEEPALIVE_CONNECTIONS=16 \
     UPSTREAM_KEEPALIVE_REQUESTS=10000 \
     UPSTREAM_KEEPALIVE_TIMEOUT=4s \
-    UPSTREAM_KEEPALIVE_TIME=60s
+    UPSTREAM_KEEPALIVE_TIME=60s \
+    ADMIN_PORT=8181
 
 # Setup directories
 RUN mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled \
@@ -93,7 +94,7 @@ RUN git clone --depth=1 --no-single-branch https://github.com/uklans/cache-domai
 
 VOLUME ["/data/logs", "/data/cache", "/data/cachedomains", "/var/www"]
 
-EXPOSE 80 443 8080 8081
+EXPOSE 80 443 8080 8181
 WORKDIR /scripts
 
 HEALTHCHECK --interval=1m --timeout=10s --start-period=120s --retries=3 \

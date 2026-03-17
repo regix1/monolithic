@@ -55,14 +55,15 @@ func LogStats(w http.ResponseWriter, r *http.Request) {
 		recentErrors = []models.ErrorLogEntry{}
 	}
 	nosliceEvents := services.FindNosliceEvents(services.ErrorLogPath)
-	responseTimes := services.ComputeResponseTimes(services.AccessLogPath, 1000)
+	upstreamHealth := services.ComputeUpstreamHealth(services.UpstreamErrorLogPath, 5000)
 
 	resp := models.LogStatsResponse{
-		CacheStatus:   cacheStatus,
-		ErrorRate:     errorRate,
-		RecentErrors:  recentErrors,
-		NosliceEvents: nosliceEvents,
-		ResponseTimes: responseTimes,
+		CacheStatus:    cacheStatus,
+		ErrorRate:      errorRate,
+		RecentErrors:   recentErrors,
+		NosliceEvents:  nosliceEvents,
+		ResponseTimes:  models.ResponseTimes{Avg: "-", P95: "-", P99: "-"},
+		UpstreamHealth: upstreamHealth,
 	}
 
 	services.CacheLogStats(&resp)

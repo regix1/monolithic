@@ -87,6 +87,7 @@ RUN rm -f /etc/nginx/sites-enabled/* /etc/nginx/stream-enabled/* 2>/dev/null || 
     chmod 755 /hooks/entrypoint-pre.d/*.sh 2>/dev/null || true; \
     chmod -R 755 /init /hooks 2>/dev/null || true; \
     mkdir -m 755 -p /data/cache; \
+    mkdir -m 755 -p /data/config; \
     mkdir -m 755 -p /data/info; \
     mkdir -m 755 -p /data/logs; \
     mkdir -m 755 -p /tmp/nginx/; \
@@ -101,7 +102,7 @@ RUN rm -f /etc/nginx/sites-enabled/* /etc/nginx/stream-enabled/* 2>/dev/null || 
 
 RUN git clone --depth=1 --no-single-branch https://github.com/uklans/cache-domains/ /data/cachedomains
 
-VOLUME ["/data/logs", "/data/cache", "/data/cachedomains", "/var/www"]
+VOLUME ["/data/logs", "/data/cache", "/data/cachedomains", "/data/config", "/var/www"]
 
 EXPOSE 80 443 8080 8181
 WORKDIR /scripts

@@ -9,7 +9,7 @@ import (
 	"github.com/lancachenet/monolithic/admin/models"
 )
 
-const AdminOverridesPath = "/data/admin-overrides.env"
+const AdminOverridesPath = "/data/config/admin-overrides.env"
 
 var EnvVarGroups = []models.ConfigGroup{
 	{Name: "Cache Settings", Vars: []models.EnvVar{

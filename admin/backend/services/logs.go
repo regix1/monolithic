@@ -8,7 +8,6 @@ import (
 	"os"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +20,7 @@ const (
 	ErrorLogPath            = "/data/logs/error.log"
 	UpstreamFallbackLogPath = "/data/logs/upstream-fallback.log"
 	AccessLogPath           = "/data/logs/access.log"
+	UpstreamErrorLogPath    = "/data/logs/upstream-error.log"
 )
 
 // ---------- log stats cache ----------
@@ -59,11 +59,11 @@ var errorLogRegex = regexp.MustCompile(
 
 // Matches text-format access log lines (lancache cachelog format):
 //
-//	[steam] 192.168.1.100 / - - [17/Mar/2026:14:22:01 +0000] "GET /path HTTP/1.1" 200 1048576 "-" "User-Agent" "HIT" "host" "-"
+//	[steam] 192.168.1.100 / - - [17/Mar/2026:14:22:01 +0000] "GET /path HTTP/1.1" 200 1048576 "-" "User-Agent" "HIT" "host" "-" 0.123
 //
-// Groups: 1=cache_id, 2=status_code, 3=bytes, 4=cache_status
+// Groups: 1=cache_id, 2=status_code, 3=bytes, 4=cache_status, 5=host, 6=range, 7=response_time
 var textAccessLogRegex = regexp.MustCompile(
-	`^\[([^\]]*)\]\s+.*?"[A-Z]+\s+\S+.*?"\s+(\d+)\s+(\d+)\s+"[^"]*"\s+"[^"]*"\s+"([^"]*)"`,
+	`^\[([^\]]*)\]\s+.*?"[A-Z]+\s+\S+.*?"\s+(\d+)\s+(\d+)\s+"[^"]*"\s+"[^"]*"\s+"([^"]*)"\s+"([^"]*)"\s+"([^"]*)"\s*(\S*)`,
 )
 
 // ---------- tailFile helper ----------
@@ -187,48 +187,51 @@ func ParseUpstreamLog(path string, n int) ([]models.UpstreamLogEntry, error) {
 	return entries, nil
 }
 
-// parseUpstreamLine extracts timestamp, host, and reason from an upstream fallback log line.
-// Expected format variants:
+// upstreamCombinedRegex matches nginx combined log format used by upstream-fallback.log:
 //
-//	2026/03/16 14:22:01 steampipe.akamaized.net stale_keepalive
-//	[2026-03-16T14:22:01+00:00] steampipe.akamaized.net stale_keepalive
-func parseUpstreamLine(line string) models.UpstreamLogEntry {
-	fields := strings.Fields(line)
-	if len(fields) < 3 {
-		return models.UpstreamLogEntry{}
-	}
+//	127.0.0.1 - - [17/Mar/2026:15:43:43 -0500] "GET /depot/2807966/chunk/... HTTP/1.0" 200 262208 "-" "Valve/Steam HTTP Client 1.0"
+var upstreamCombinedRegex = regexp.MustCompile(
+	`^(\S+)\s+\S+\s+\S+\s+\[([^\]]+)\]\s+"([A-Z]+)\s+(\S+)\s+[^"]*"\s+(\d+)\s+(\d+)`,
+)
 
-	// Try to detect format: if first field looks like a date YYYY/MM/DD
-	if len(fields) >= 4 && len(fields[0]) == 10 && (fields[0][4] == '/' || fields[0][4] == '-') {
-		ts := convertErrorTimestamp(fields[0]) + " " + fields[1]
-		host := fields[2]
-		status := ""
-		if len(fields) >= 4 {
-			status = fields[3]
+// parseUpstreamLine extracts timestamp, host/path, and status from an upstream fallback log line.
+func parseUpstreamLine(line string) models.UpstreamLogEntry {
+	// Try nginx combined format (actual upstream-fallback.log format)
+	if m := upstreamCombinedRegex.FindStringSubmatch(line); m != nil {
+		ts := parseNginxTimestamp(m[2])
+		path := m[4]
+		status := "fallback"
+		httpStatus := m[5]
+		if httpStatus == "200" || httpStatus == "206" {
+			status = "fallback_ok"
+		} else if httpStatus == "502" || httpStatus == "504" {
+			status = "upstream_error"
+		}
+		// Extract a short path segment for display
+		host := path
+		if len(path) > 40 {
+			host = path[:40] + "..."
 		}
 		return models.UpstreamLogEntry{Time: ts, Host: host, Status: status}
 	}
 
-	// Bracketed timestamp format
-	if strings.HasPrefix(fields[0], "[") {
-		tsRaw := strings.Trim(fields[0], "[]")
-		if t, err := time.Parse(time.RFC3339, tsRaw); err == nil {
-			ts := t.Format("2006-01-02 15:04:05")
-			host := fields[1]
-			status := ""
-			if len(fields) >= 3 {
-				status = strings.Trim(fields[2], "[]")
-			}
-			return models.UpstreamLogEntry{Time: ts, Host: host, Status: status}
-		}
+	// Legacy format: YYYY/MM/DD HH:MM:SS hostname status
+	fields := strings.Fields(line)
+	if len(fields) >= 4 && len(fields[0]) == 10 && (fields[0][4] == '/' || fields[0][4] == '-') {
+		ts := convertErrorTimestamp(fields[0]) + " " + fields[1]
+		return models.UpstreamLogEntry{Time: ts, Host: fields[2], Status: fields[3]}
 	}
 
-	// Fallback: best effort
-	return models.UpstreamLogEntry{
-		Time:   fields[0],
-		Host:   fields[1],
-		Status: strings.Join(fields[2:], " "),
+	return models.UpstreamLogEntry{}
+}
+
+// parseNginxTimestamp converts "17/Mar/2026:15:43:43 -0500" to "2026-03-17 15:43:43".
+func parseNginxTimestamp(raw string) string {
+	t, err := time.Parse("02/Jan/2006:15:04:05 -0700", raw)
+	if err != nil {
+		return raw
 	}
+	return t.Format("2006-01-02 15:04:05")
 }
 
 // ---------- cache status ----------
@@ -432,95 +435,74 @@ func extractHostFromMessage(msg string) string {
 	return ""
 }
 
-// ---------- response times ----------
+// ---------- upstream health ----------
 
-func ComputeResponseTimes(path string, n int) models.ResponseTimes {
+func ComputeUpstreamHealth(path string, n int) models.UpstreamHealthSummary {
 	lines, err := tailFile(path, n)
 	if err != nil {
-		return models.ResponseTimes{Avg: "-", P95: "-", P99: "-"}
+		return models.UpstreamHealthSummary{TopHosts: []models.UpstreamErrorHost{}}
 	}
 
-	times := make([]float64, 0, len(lines))
+	summary := models.UpstreamHealthSummary{TopHosts: []models.UpstreamErrorHost{}}
+	hostCounts := make(map[string]int)
 
 	for _, line := range lines {
-		rt := extractResponseTime(line)
-		if rt >= 0 {
-			times = append(times, rt)
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		match := errorLogRegex.FindStringSubmatch(line)
+		if match == nil {
+			continue
+		}
+
+		msg := match[3]
+		summary.TotalErrors++
+
+		// Classify error type
+		lower := strings.ToLower(msg)
+		if strings.Contains(lower, "timed out") {
+			summary.Timeouts++
+		} else if strings.Contains(lower, "connection refused") {
+			summary.ConnRefused++
+		} else if strings.Contains(lower, "could not be resolved") || strings.Contains(lower, "resolver") {
+			summary.DnsFailures++
+		} else {
+			summary.Other++
+		}
+
+		// Extract host from message
+		host := extractHostFromMessage(msg)
+		if host != "" {
+			hostCounts[host]++
 		}
 	}
 
-	if len(times) == 0 {
-		return models.ResponseTimes{Avg: "-", P95: "-", P99: "-"}
+	// Build top hosts list sorted by count
+	type hostCount struct {
+		host  string
+		count int
+	}
+	var sorted []hostCount
+	for h, c := range hostCounts {
+		sorted = append(sorted, hostCount{h, c})
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].count > sorted[j].count
+	})
+
+	limit := 5
+	if len(sorted) < limit {
+		limit = len(sorted)
+	}
+	for i := 0; i < limit; i++ {
+		summary.TopHosts = append(summary.TopHosts, models.UpstreamErrorHost{
+			Host:  sorted[i].host,
+			Count: sorted[i].count,
+		})
 	}
 
-	sort.Float64s(times)
-
-	avg := mean(times)
-	p95 := percentile(times, 95)
-	p99 := percentile(times, 99)
-
-	return models.ResponseTimes{
-		Avg: fmt.Sprintf("%.3fs", avg),
-		P95: fmt.Sprintf("%.3fs", p95),
-		P99: fmt.Sprintf("%.3fs", p99),
-	}
+	return summary
 }
 
-// extractResponseTime returns the upstream response time from an access log line.
-// Returns -1 if not found or not parseable.
-func extractResponseTime(line string) float64 {
-	line = strings.TrimSpace(line)
-	if line == "" {
-		return -1
-	}
-
-	// JSON format
-	if line[0] == '{' {
-		var entry struct {
-			UpstreamResponseTime string `json:"upstream_response_time"`
-		}
-		if err := json.Unmarshal([]byte(line), &entry); err == nil && entry.UpstreamResponseTime != "" {
-			if v, err := strconv.ParseFloat(entry.UpstreamResponseTime, 64); err == nil {
-				return v
-			}
-		}
-		return -1
-	}
-
-	// Text format: last field is the upstream_response_time
-	if line[0] == '[' {
-		match := textAccessLogRegex.FindStringSubmatch(line)
-		if len(match) > 8 {
-			if v, err := strconv.ParseFloat(match[8], 64); err == nil {
-				return v
-			}
-		}
-	}
-
-	return -1
-}
-
-func mean(vals []float64) float64 {
-	if len(vals) == 0 {
-		return 0
-	}
-	sum := 0.0
-	for _, v := range vals {
-		sum += v
-	}
-	return sum / float64(len(vals))
-}
-
-func percentile(sorted []float64, pct float64) float64 {
-	if len(sorted) == 0 {
-		return 0
-	}
-	idx := int(math.Ceil(pct/100*float64(len(sorted)))) - 1
-	if idx < 0 {
-		idx = 0
-	}
-	if idx >= len(sorted) {
-		idx = len(sorted) - 1
-	}
-	return sorted[idx]
-}

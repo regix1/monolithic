@@ -177,7 +177,16 @@ export const mockLogStats = {
   noslice_events: [
     { time: '2026-03-16 10:33:12', host: 'cdn.example.com', error: 'unexpected status code 200 in slice response' },
   ],
-  response_times: { avg: '0.142s', p95: '0.890s', p99: '2.340s' },
+  response_times: { avg: '-', p95: '-', p99: '-' },
+  upstream_health: {
+    total_errors: 0,
+    timeouts: 0,
+    conn_refused: 0,
+    dns_failures: 0,
+    other: 0,
+    top_hosts: [],
+  },
+  fallback_count: 0,
 }
 
 export const mockNoslice = {

@@ -5,14 +5,6 @@ import { mockUpstream } from '../lib/mockData'
 import { usePolling } from '../hooks/usePolling'
 import { api } from '../lib/api'
 
-function IpBadge({ ip }) {
-  return (
-    <span className="inline-block rounded px-1.5 py-0.5 text-xs font-mono bg-panda-elevated text-panda-muted border border-panda-border">
-      {ip}
-    </span>
-  )
-}
-
 function FallbackStatusBadge({ status }) {
   const map = {
     stale_keepalive: { bg: 'bg-warn/10', text: 'text-warn', label: 'stale_keepalive' },
@@ -152,7 +144,6 @@ export default function Upstream() {
               <thead>
                 <tr className="bg-panda-elevated border-b border-panda-border">
                   <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-panda-dim">Domain</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-panda-dim">Resolved IPs</th>
                   <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-panda-dim">Keepalive</th>
                   <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-panda-dim">Timeout</th>
                   <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-panda-dim">Time</th>
@@ -165,11 +156,6 @@ export default function Upstream() {
                     className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
                   >
                     <td className="px-4 py-2 font-mono text-sm text-bamboo">{pool.domain}</td>
-                    <td className="px-4 py-2">
-                      <div className="flex flex-wrap gap-1">
-                        {pool.ips.map((ip) => <IpBadge key={ip} ip={ip} />)}
-                      </div>
-                    </td>
                     <td className="px-4 py-2 font-mono text-sm text-panda-text">{pool.keepalive}</td>
                     <td className="px-4 py-2 font-mono text-sm text-panda-text">{pool.timeout}</td>
                     <td className="px-4 py-2 font-mono text-sm text-panda-text">{pool.time}</td>

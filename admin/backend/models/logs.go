@@ -36,10 +36,34 @@ type ResponseTimes struct {
 	P99 string `json:"p99"`
 }
 
+type UpstreamErrorEntry struct {
+	Time      string `json:"time"`
+	Level     string `json:"level"`
+	ErrorType string `json:"error_type"` // "timeout", "connection_refused", "dns_failure", "other"
+	Host      string `json:"host"`
+	Message   string `json:"message"`
+}
+
+type UpstreamHealthSummary struct {
+	TotalErrors int                 `json:"total_errors"`
+	Timeouts    int                 `json:"timeouts"`
+	ConnRefused int                 `json:"conn_refused"`
+	DnsFailures int                 `json:"dns_failures"`
+	Other       int                 `json:"other"`
+	TopHosts    []UpstreamErrorHost `json:"top_hosts"`
+}
+
+type UpstreamErrorHost struct {
+	Host  string `json:"host"`
+	Count int    `json:"count"`
+}
+
 type LogStatsResponse struct {
-	CacheStatus   []CacheStatusEntry `json:"cache_status"`
-	ErrorRate     []ErrorRateBucket  `json:"error_rate"`
-	RecentErrors  []ErrorLogEntry    `json:"recent_errors"`
-	NosliceEvents []NosliceEvent     `json:"noslice_events"`
-	ResponseTimes ResponseTimes      `json:"response_times"`
+	CacheStatus    []CacheStatusEntry    `json:"cache_status"`
+	ErrorRate      []ErrorRateBucket     `json:"error_rate"`
+	RecentErrors   []ErrorLogEntry       `json:"recent_errors"`
+	NosliceEvents  []NosliceEvent        `json:"noslice_events"`
+	ResponseTimes  ResponseTimes         `json:"response_times"`
+	UpstreamHealth UpstreamHealthSummary `json:"upstream_health"`
+	FallbackCount  int                   `json:"fallback_count"`
 }

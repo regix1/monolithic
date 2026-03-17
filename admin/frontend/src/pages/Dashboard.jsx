@@ -236,10 +236,17 @@ export default function Dashboard() {
 
             <div className="flex-1" />
 
-            <div className="rounded-lg bg-bamboo/5 border border-bamboo/20 px-3 py-2.5 flex items-center gap-2">
-              <CheckCircle size={13} className="text-bamboo" />
-              <p className="text-xs text-bamboo">Configuration consistent</p>
-            </div>
+            {configHash ? (
+              <div className="rounded-lg bg-bamboo/5 border border-bamboo/20 px-3 py-2.5 flex items-center gap-2">
+                <CheckCircle size={13} className="text-bamboo" />
+                <p className="text-xs text-bamboo">Configuration consistent</p>
+              </div>
+            ) : (
+              <div className="rounded-lg bg-panda-bg border border-panda-border px-3 py-2.5 flex items-center gap-2">
+                <AlertTriangle size={13} className="text-panda-dim" />
+                <p className="text-xs text-panda-dim">Hash unavailable</p>
+              </div>
+            )}
           </div>
         </div>
 

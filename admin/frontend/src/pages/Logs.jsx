@@ -1,10 +1,14 @@
 import {
   PieChart as PieChartIcon,
-  Clock,
   TrendingUp,
   AlertCircle,
   Ban,
   CheckCircle,
+  AlertTriangle,
+  Wifi,
+  Globe,
+  HelpCircle,
+  Server,
 } from 'lucide-react'
 import {
   PieChart,
@@ -62,11 +66,12 @@ function LevelBadge({ level }) {
   )
 }
 
-function ResponseTimeStat({ label, value, color }) {
+function UpstreamStatCard({ icon: Icon, count, label, colorClass }) {
   return (
-    <div className="flex flex-col gap-1 rounded-lg p-3 bg-panda-bg border border-panda-border">
-      <span className="text-xs uppercase tracking-wider font-medium text-panda-dim">{label}</span>
-      <span className="font-mono text-xl font-semibold" style={{ color }}>{value}</span>
+    <div className={`flex flex-col items-center gap-1 rounded-lg p-3 bg-panda-bg border border-panda-border`}>
+      <Icon size={14} className={colorClass} />
+      <span className={`font-mono text-xl font-semibold ${colorClass}`}>{count}</span>
+      <span className="text-xs text-panda-dim">{label}</span>
     </div>
   )
 }
@@ -76,6 +81,7 @@ export default function Logs() {
   const logStats = apiLogStats ?? mockLogStats
   const totalRequests = logStats.cache_status.reduce((sum, item) => sum + item.count, 0)
   const hasErrors = logStats.error_rate.some(b => b.errors > 0)
+  const uh = logStats.upstream_health ?? { total_errors: 0, timeouts: 0, conn_refused: 0, dns_failures: 0, other: 0, top_hosts: [] }
 
   return (
     <div className="flex flex-col gap-4 animate-fade-in">
@@ -87,7 +93,7 @@ export default function Logs() {
         </p>
       </div>
 
-      {/* Top row: Cache status donut + Response times */}
+      {/* Row 1: Cache status donut + Upstream Health */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 auto-rows-fr">
         {/* Cache Status Distribution */}
         <div>
@@ -146,28 +152,58 @@ export default function Logs() {
           </Card>
         </div>
 
-        {/* Response Times */}
+        {/* Upstream Health */}
         <div>
           <Card className="flex flex-col h-full">
             <div className="mb-3 flex items-center gap-2">
-              <Clock size={15} className="text-bamboo" />
-              <h2 className="text-sm font-semibold text-panda-text">Upstream Response Times</h2>
+              <Server size={15} className="text-bamboo" />
+              <h2 className="text-sm font-semibold text-panda-text">Upstream Health</h2>
             </div>
 
-            <div className="flex flex-col gap-3 flex-1 justify-center">
-              <ResponseTimeStat label="Average" value={logStats.response_times.avg} color="#4ade80" />
-              <ResponseTimeStat label="P95" value={logStats.response_times.p95} color="#f9a825" />
-              <ResponseTimeStat label="P99" value={logStats.response_times.p99} color="#ef5350" />
-            </div>
+            {uh.total_errors === 0 ? (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm bg-bamboo/5 border border-bamboo/20 text-bamboo">
+                  <CheckCircle size={15} />
+                  No upstream errors
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 flex-1">
+                {/* Summary line */}
+                <p className="text-sm text-panda-muted">
+                  <span className="font-mono font-semibold text-err">{uh.total_errors}</span>{' '}
+                  errors in <span className="font-mono text-panda-text">upstream-error.log</span>
+                </p>
 
-            <p className="mt-3 text-xs text-panda-dim">
-              Measured over last 1,000 upstream requests
-            </p>
+                {/* 2x2 breakdown grid */}
+                <div className="grid grid-cols-2 gap-2">
+                  <UpstreamStatCard icon={AlertTriangle} count={uh.timeouts} label="Timeouts" colorClass="text-warn" />
+                  <UpstreamStatCard icon={Wifi} count={uh.conn_refused} label="Connection Refused" colorClass="text-err" />
+                  <UpstreamStatCard icon={Globe} count={uh.dns_failures} label="DNS Failures" colorClass="text-info" />
+                  <UpstreamStatCard icon={HelpCircle} count={uh.other} label="Other" colorClass="text-panda-muted" />
+                </div>
+
+                {/* Top Failing Hosts */}
+                {uh.top_hosts && uh.top_hosts.length > 0 && (
+                  <div className="mt-1">
+                    <h3 className="text-xs font-medium uppercase tracking-wider text-panda-dim mb-2">Top Failing Hosts</h3>
+                    <div className="flex flex-col gap-1">
+                      {uh.top_hosts.slice(0, 5).map((h, i) => (
+                        <div key={h.host} className="flex items-center justify-between rounded-md px-3 py-1.5 bg-panda-bg border border-panda-border">
+                          <span className="font-mono text-xs text-panda-muted truncate mr-2">{h.host}</span>
+                          <span className="font-mono text-xs font-semibold text-err flex-shrink-0">{h.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </Card>
         </div>
       </div>
 
-      {/* Error Rate Chart */}
+      {/* Row 2: Error Rate Chart */}
       <div>
         <Card>
           <div className="mb-3 flex items-center gap-2">
@@ -222,7 +258,7 @@ export default function Logs() {
         </Card>
       </div>
 
-      {/* Bottom row */}
+      {/* Row 3: Recent Errors + No-Slice Events */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Recent Errors */}
         <div>

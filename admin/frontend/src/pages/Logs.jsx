@@ -116,8 +116,8 @@ export default function Logs() {
 
             {logStats.cache_status.length > 0 && totalRequests > 0 ? (
               <>
-                <div className="relative flex items-center justify-center" style={{ height: '180px', minWidth: '200px' }}>
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="relative flex items-center justify-center" style={{ height: '180px', minWidth: '200px', minHeight: '180px' }}>
+                  <ResponsiveContainer width="100%" height="100%" minWidth={200} minHeight={180}>
                     <PieChart>
                       <Pie
                         data={logStats.cache_status}
@@ -192,8 +192,8 @@ export default function Logs() {
             <h2 className="text-sm font-semibold text-panda-text">Error Rate (Last Hour)</h2>
           </div>
 
-          <div style={{ height: '180px' }}>
-            <ResponsiveContainer width="100%" height="100%">
+          <div style={{ height: '180px', minHeight: '180px' }}>
+            <ResponsiveContainer width="100%" height="100%" minHeight={180}>
               <LineChart
                 data={logStats.error_rate}
                 margin={{ top: 5, right: 10, left: -20, bottom: 5 }}

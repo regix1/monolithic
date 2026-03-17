@@ -72,7 +72,7 @@ func main() {
 	// Domains
 	mux.HandleFunc("/api/domains", handlers.DomainsHandler)
 
-	handler := corsMiddleware(jsonMiddleware(mux))
+	handler := corsMiddleware(mux)
 
 	log.Printf("Lancache Admin API listening on :%s", port)
 	if err := http.ListenAndServe(":"+port, handler); err != nil {
@@ -92,14 +92,6 @@ func corsMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		next.ServeHTTP(w, r)
-	})
-}
-
-// jsonMiddleware sets the Content-Type header to application/json for all responses.
-func jsonMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
 		next.ServeHTTP(w, r)
 	})
 }

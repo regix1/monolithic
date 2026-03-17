@@ -6,7 +6,15 @@ RUN npm ci
 COPY admin/frontend/ ./
 RUN npm run build
 
-# ── Stage 2: Final image ──────────────────────────────────────────────────────
+# ── Stage 2: Build admin backend ──────────────────────────────────────────────
+FROM golang:1.22-alpine AS backend-build
+WORKDIR /app
+COPY admin/backend/go.mod ./
+RUN go mod download
+COPY admin/backend/ ./
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o lancache-admin .
+
+# ── Stage 3: Final image ──────────────────────────────────────────────────────
 FROM nginx:alpine
 LABEL version=3
 LABEL description="Single caching container for caching game content at LAN parties."
@@ -70,6 +78,7 @@ COPY overlay/ /
 
 # Copy built admin frontend
 COPY --from=frontend-build /app/dist /var/www/admin
+COPY --from=backend-build /app/lancache-admin /usr/local/bin/lancache-admin
 
 RUN rm -f /etc/nginx/sites-enabled/* /etc/nginx/stream-enabled/* 2>/dev/null || true; \
     rm -f /etc/nginx/conf.d/gzip.conf 2>/dev/null || true; \

@@ -6,9 +6,6 @@ import {
 import { StatusBadge, AnimatedCounter } from '../components'
 import { useSSE } from '../hooks/useSSE'
 import { api } from '../lib/api'
-import {
-  mockHealth, mockStats, mockFilesystem, mockNoslice,
-} from '../lib/mockData'
 import { getGreeting, getHealthMessage } from '../lib/greetings'
 
 function SIcon({ icon: Icon, color = '#4ade80' }) {
@@ -30,12 +27,12 @@ export default function Dashboard() {
 
   const initialLoading = loadingHealth || loadingStats
   const isLive = apiHealth !== null
-  const health = apiHealth ?? mockHealth
-  const rawStats = apiStats ?? mockStats
+  const health = apiHealth ?? { uptime: '', version: '', processes: [] }
+  const rawStats = apiStats ?? { nginx: { active_connections: 0, reading: 0, writing: 0, waiting: 0, accepts: 0, handled: 0, requests: 0 }, disk: { path: '', used: '', total: '', free: '', used_bytes: 0, total_bytes: 0, percent: 0 } }
   const { nginx, disk } = rawStats
   const configHash = rawStats.config_hash || ''
-  const fs = apiFs ?? mockFilesystem
-  const ns = apiNoslice ?? mockNoslice
+  const fs = apiFs ?? { type: '', mount_point: '', device: '', sendfile_current: '', sendfile_recommended: '', mismatch: false, warning: '' }
+  const ns = apiNoslice ?? { enabled: false, blocked_count: 0, blocked_hosts: [], state: {} }
   const greeting = getGreeting()
   const allRunning = health.processes.every(p => p.status === 'RUNNING')
   const healthCheck = rawStats.health ?? { status: 'ok', warnings: [], disk_warning: false, disk_critical: false, errors_recent: 0, upstream_errors: 0 }

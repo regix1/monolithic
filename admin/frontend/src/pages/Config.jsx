@@ -11,7 +11,6 @@ import {
 } from 'lucide-react'
 import { Card, Toggle } from '../components'
 import Dropdown from '../components/Dropdown'
-import { mockConfig, mockFilesystem } from '../lib/mockData'
 import { useSSE } from '../hooks/useSSE'
 import { api } from '../lib/api'
 
@@ -142,17 +141,13 @@ export default function Config() {
   const { data: apiConfig } = useSSE('config', api.getConfig)
   const { data: apiFs } = useSSE('filesystem', api.getFilesystem, 60000)
 
-  const [groups, setGroups] = useState(mockConfig.groups)
+  const [groups, setGroups] = useState([])
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const initializedRef = useRef(false)
 
   // Track the original values as they came from the API (or mock)
-  const [originalValues, setOriginalValues] = useState(() => {
-    const vals = {}
-    mockConfig.groups.forEach(g => g.vars.forEach(v => { vals[v.key] = v.value }))
-    return vals
-  })
+  const [originalValues, setOriginalValues] = useState({})
 
   // When real API data arrives for the first time, use it
   useEffect(() => {
@@ -165,7 +160,7 @@ export default function Config() {
     }
   }, [apiConfig])
 
-  const fs = apiFs ?? mockFilesystem
+  const fs = apiFs ?? { type: '', mount_point: '', device: '', sendfile_current: '', sendfile_recommended: '', mismatch: false, warning: '' }
 
   // Count vars the user has actually edited (different from what came from the server)
   const dirtyCount = useMemo(() => {

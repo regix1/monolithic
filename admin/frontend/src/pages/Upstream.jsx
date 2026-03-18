@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Network, AlertTriangle, FolderTree, ChevronDown, ChevronRight, Wifi, WifiOff } from 'lucide-react'
 import { Card, StatCard } from '../components'
-import { mockUpstream } from '../lib/mockData'
 import { useSSE } from '../hooks/useSSE'
 import { api } from '../lib/api'
 
@@ -111,15 +110,15 @@ export default function Upstream() {
   }
 
   const isLive = apiData?.stats?.upstream != null
+  const emptyUpstream = { keepalive_enabled: false, pool_count: 0, pools: [], excluded: [], fallback_events: [], domains: {} }
   const upstream = apiData ? {
-    ...mockUpstream,
-    pool_count: apiData.stats?.upstream?.pool_count ?? mockUpstream.pool_count,
-    keepalive_enabled: apiData.stats?.upstream?.keepalive_enabled ?? mockUpstream.keepalive_enabled,
-    pools: apiData.stats?.upstream?.pools ?? mockUpstream.pools,
-    excluded: apiData.stats?.upstream?.excluded ?? mockUpstream.excluded,
-    fallback_events: apiData.stats?.upstream?.fallback_events ?? mockUpstream.fallback_events,
-    domains: apiData.domains ?? mockUpstream.domains,
-  } : mockUpstream
+    keepalive_enabled: apiData.stats?.upstream?.keepalive_enabled ?? false,
+    pool_count: apiData.stats?.upstream?.pool_count ?? 0,
+    pools: apiData.stats?.upstream?.pools ?? [],
+    excluded: apiData.stats?.upstream?.excluded ?? [],
+    fallback_events: apiData.stats?.upstream?.fallback_events ?? [],
+    domains: apiData.domains ?? {},
+  } : emptyUpstream
 
   return (
     <div className="flex flex-col gap-5 animate-fade-in">

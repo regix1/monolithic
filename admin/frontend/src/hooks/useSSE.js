@@ -63,12 +63,13 @@ export function useSSE(topic, fetchFn, fallbackInterval = 30000) {
   const [loading, setLoading] = useState(true)
   const fallbackRef = useRef(null)
   const receivedRef = useRef(false)
+  const fetchFnRef = useRef(fetchFn)
+  fetchFnRef.current = fetchFn
 
   const handleData = useCallback((newData) => {
     setData(newData)
     setLoading(false)
     receivedRef.current = true
-    // Clear fallback polling if SSE is working
     if (fallbackRef.current) {
       clearInterval(fallbackRef.current)
       fallbackRef.current = null
@@ -78,12 +79,11 @@ export function useSSE(topic, fetchFn, fallbackInterval = 30000) {
   useEffect(() => {
     const unsubscribe = subscribe(topic, handleData)
 
-    // Fallback: if no SSE data received within 10s, start polling
     const fallbackTimeout = setTimeout(() => {
       if (!receivedRef.current) {
         console.warn(`[SSE] No data for "${topic}" after 10s, falling back to polling`)
         const poll = async () => {
-          const result = await fetchFn()
+          const result = await fetchFnRef.current()
           if (result !== null) {
             setData(result)
             setLoading(false)
@@ -101,7 +101,7 @@ export function useSSE(topic, fetchFn, fallbackInterval = 30000) {
         clearInterval(fallbackRef.current)
       }
     }
-  }, [topic, handleData, fetchFn, fallbackInterval])
+  }, [topic, handleData, fallbackInterval])
 
   return { data, loading }
 }

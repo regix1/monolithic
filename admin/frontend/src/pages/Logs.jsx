@@ -32,7 +32,6 @@ import {
 } from 'recharts'
 import { useSSE } from '../hooks/useSSE'
 import { api } from '../lib/api'
-import { mockLogStats } from '../lib/mockData'
 
 /* ── Helpers ──────────────────────────────────────────────────── */
 
@@ -120,6 +119,14 @@ function UpstreamStatCard({ icon: Icon, count, label, colorClass }) {
 export default function Logs() {
   const { data: apiLogStats, loading } = useSSE('logstats', api.getLogStats)
 
+  /* All hooks MUST be called before any early return */
+  const [serviceSortKey, setServiceSortKey] = useState('bytes')
+  const [serviceSortDir, setServiceSortDir] = useState('desc')
+  const [errorSortKey, setErrorSortKey] = useState('time')
+  const [errorSortDir, setErrorSortDir] = useState('desc')
+  const [nosliceSortKey, setNosliceSortKey] = useState('time')
+  const [nosliceSortDir, setNosliceSortDir] = useState('desc')
+
   if (loading) {
     return (
       <div className="flex flex-col gap-5 animate-fade-in">
@@ -131,16 +138,12 @@ export default function Logs() {
     )
   }
 
-  const logStats = apiLogStats ?? mockLogStats
+  const logStats = apiLogStats ?? { cache_status: [], error_rate: [], recent_errors: [], noslice_events: [], upstream_health: { total_errors: 0, timeouts: 0, conn_refused: 0, dns_failures: 0, other: 0, top_hosts: [] }, bandwidth: { total_served: 0, bandwidth_saved: 0, hit_rate_bytes: 0, unique_clients: 0 }, services: [] }
 
   const totalRequests = logStats.cache_status.reduce((sum, item) => sum + item.count, 0)
   const hasErrors = logStats.error_rate.some(b => b.errors > 0)
   const uh = logStats.upstream_health ?? { total_errors: 0, timeouts: 0, conn_refused: 0, dns_failures: 0, other: 0, top_hosts: [] }
   const bw = logStats.bandwidth ?? { total_served: 0, bandwidth_saved: 0, hit_rate_bytes: 0, unique_clients: 0 }
-
-  /* Service table sort state */
-  const [serviceSortKey, setServiceSortKey] = useState('bytes')
-  const [serviceSortDir, setServiceSortDir] = useState('desc')
 
   const sortedServices = [...(logStats.services ?? [])].sort((a, b) => {
     const dir = serviceSortDir === 'asc' ? 1 : -1
@@ -156,10 +159,6 @@ export default function Logs() {
     }
   }
 
-  /* Recent errors sort state */
-  const [errorSortKey, setErrorSortKey] = useState('time')
-  const [errorSortDir, setErrorSortDir] = useState('desc')
-
   const sortedErrors = [...(logStats.recent_errors ?? [])].sort((a, b) => {
     const dir = errorSortDir === 'asc' ? 1 : -1
     return (a[errorSortKey] > b[errorSortKey] ? 1 : -1) * dir
@@ -173,10 +172,6 @@ export default function Logs() {
       setErrorSortDir('desc')
     }
   }
-
-  /* Noslice sort state */
-  const [nosliceSortKey, setNosliceSortKey] = useState('time')
-  const [nosliceSortDir, setNosliceSortDir] = useState('desc')
 
   const sortedNoslice = [...(logStats.noslice_events ?? [])].sort((a, b) => {
     const dir = nosliceSortDir === 'asc' ? 1 : -1
@@ -192,7 +187,6 @@ export default function Logs() {
     }
   }
 
-  /* Sort arrow helper */
   function SortArrow({ sortKey, currentKey, currentDir }) {
     if (currentKey !== sortKey) return null
     return currentDir === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />

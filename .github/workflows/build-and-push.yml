@@ -82,8 +82,7 @@ jobs:
             PUID=${{ steps.ids.outputs.puid }}
             PGID=${{ steps.ids.outputs.pgid }}
           outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=${{ github.event_name != 'pull_request' }}
-          cache-from: type=gha,scope=${{ matrix.platform }}
-          cache-to: type=gha,scope=${{ matrix.platform }},mode=min
+          no-cache: true
 
       - name: Export digest
         if: github.event_name != 'pull_request'

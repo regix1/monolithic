@@ -1,6 +1,7 @@
 # ── Stage 1: Build admin frontend ──────────────────────────────────────────────
 FROM node:20-alpine AS frontend-build
 WORKDIR /app
+ARG CACHE_BUST
 COPY admin/frontend/package*.json ./
 RUN npm ci
 COPY admin/frontend/ ./

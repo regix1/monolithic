@@ -81,6 +81,7 @@ jobs:
           build-args: |
             PUID=${{ steps.ids.outputs.puid }}
             PGID=${{ steps.ids.outputs.pgid }}
+            CACHE_BUST=${{ github.sha }}
           outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=${{ github.event_name != 'pull_request' }}
           no-cache: true
 

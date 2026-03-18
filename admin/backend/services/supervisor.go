@@ -76,7 +76,7 @@ func FallbackProcessList() []models.ProcessInfo {
 	expected := []string{"nginx", "heartbeat", "log-watcher", "noslice-detector", "lancache-admin"}
 	processes := []models.ProcessInfo{}
 
-	psOutput, _ := RunCommand("sh", "-c", "ps -eo comm")
+	psOutput, _ := RunCommand("sh", "-c", "ps -eo args")
 	running := strings.ToLower(psOutput)
 
 	for _, name := range expected {

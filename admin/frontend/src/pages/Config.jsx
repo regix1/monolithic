@@ -144,6 +144,7 @@ export default function Config() {
 
   const [groups, setGroups] = useState(mockConfig.groups)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState(null)
   const initializedRef = useRef(false)
 
   // Track the original values as they came from the API (or mock)
@@ -206,10 +207,14 @@ export default function Config() {
   }
 
   async function handleSave() {
+    setSaveError(null)
     const vars = {}
     groups.forEach(g => g.vars.forEach(v => { vars[v.key] = v.value }))
     const result = await api.updateConfig(vars)
-    if (result === null) return
+    if (result === null) {
+      setSaveError('Failed to save — check browser console (F12) for details')
+      return
+    }
 
     // Re-fetch BEFORE nginx reload so the proxy is still stable
     const freshConfig = await api.getConfig()
@@ -269,6 +274,14 @@ export default function Config() {
           </button>
         </div>
       </div>
+
+      {/* Save error banner */}
+      {saveError && (
+        <div className="rounded-xl border border-err/30 bg-err/10 px-4 py-3 flex items-center gap-2.5">
+          <AlertTriangle size={15} className="text-err shrink-0" />
+          <p className="text-sm font-semibold text-err">{saveError}</p>
+        </div>
+      )}
 
       {/* Filesystem mismatch banner */}
       {showFsMismatch && (

@@ -1,41 +1,41 @@
 const BASE = '/api'
 
 async function fetchJson(path) {
-  try {
-    const res = await fetch(`${BASE}${path}`)
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-    return await res.json()
-  } catch {
+  const res = await fetch(`${BASE}${path}`)
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error(`[API] GET ${path}:`, res.status, res.statusText, text)
     return null
   }
+  return await res.json()
 }
 
 async function postJson(path, body) {
-  try {
-    const res = await fetch(`${BASE}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    })
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-    return await res.json()
-  } catch {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error(`[API] POST ${path}:`, res.status, res.statusText, text)
     return null
   }
+  return await res.json()
 }
 
 async function putJson(path, body) {
-  try {
-    const res = await fetch(`${BASE}${path}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    })
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-    return await res.json()
-  } catch {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error(`[API] PUT ${path}:`, res.status, res.statusText, text)
     return null
   }
+  return await res.json()
 }
 
 export const api = {

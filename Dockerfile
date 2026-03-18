@@ -103,7 +103,7 @@ RUN rm -f /etc/nginx/sites-enabled/* /etc/nginx/stream-enabled/* 2>/dev/null || 
 
 RUN git clone --depth=1 --no-single-branch https://github.com/uklans/cache-domains/ /data/cachedomains
 
-VOLUME ["/data/logs", "/data/cache", "/data/cachedomains", "/data/config", "/var/www"]
+VOLUME ["/data/logs", "/data/cache", "/data/cachedomains", "/data/config"]
 
 EXPOSE 80 443 8080 8181
 WORKDIR /scripts

@@ -2,7 +2,7 @@ package models
 
 type EnvVar struct {
 	Key         string   `json:"key"`
-	Value       string   `json:"value,omitempty"`
+	Value       string   `json:"value"`
 	Default     string   `json:"default"`
 	Description string   `json:"description"`
 	Type        string   `json:"type"`

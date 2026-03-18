@@ -23,11 +23,12 @@ function SIcon({ icon: Icon, color = '#4ade80' }) {
 export default function Dashboard() {
   const [copied, setCopied] = useState(false)
 
-  const { data: apiHealth } = usePolling(api.getHealth, 10000)
-  const { data: apiStats } = usePolling(api.getStats, 5000)
+  const { data: apiHealth, loading: loadingHealth } = usePolling(api.getHealth, 10000)
+  const { data: apiStats, loading: loadingStats } = usePolling(api.getStats, 5000)
   const { data: apiFs } = usePolling(api.getFilesystem, 30000)
   const { data: apiNoslice } = usePolling(api.getNoslice, 10000)
 
+  const initialLoading = loadingHealth || loadingStats
   const isLive = apiHealth !== null
   const health = apiHealth ?? mockHealth
   const rawStats = apiStats ?? mockStats
@@ -50,6 +51,17 @@ export default function Dashboard() {
     navigator.clipboard.writeText(configHash).catch(() => {})
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  if (initialLoading) {
+    return (
+      <div className="flex flex-col gap-5 animate-fade-in">
+        <div className="shrink-0">
+          <h1 className="text-3xl font-bold text-panda-text">{greeting.greeting} {greeting.emoji}</h1>
+          <p className="text-base text-panda-dim mt-1">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

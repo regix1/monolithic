@@ -437,7 +437,7 @@ func extractHostFromMessage(msg string) string {
 
 // ---------- upstream health ----------
 
-func ComputeUpstreamHealth(path string, n int) models.UpstreamHealthSummary {
+func ComputeUpstreamHealth(path string, n int, since time.Time) models.UpstreamHealthSummary {
 	lines, err := tailFile(path, n)
 	if err != nil {
 		return models.UpstreamHealthSummary{TopHosts: []models.UpstreamErrorHost{}}
@@ -455,6 +455,15 @@ func ComputeUpstreamHealth(path string, n int) models.UpstreamHealthSummary {
 		match := errorLogRegex.FindStringSubmatch(line)
 		if match == nil {
 			continue
+		}
+
+		// Filter by time window (skip if since is zero — no filter)
+		if !since.IsZero() {
+			if t, err := time.ParseInLocation("2006/01/02 15:04:05", match[1], time.Local); err == nil {
+				if t.Before(since) {
+					continue
+				}
+			}
 		}
 
 		msg := match[3]

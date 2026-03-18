@@ -60,12 +60,12 @@ func StatsHandler(w http.ResponseWriter, r *http.Request) {
 		warnings = append(warnings, fmt.Sprintf("Elevated errors: %d in last hour", errorsLastHour))
 	}
 
-	// Upstream health check
-	upstreamHealth := services.ComputeUpstreamHealth(services.UpstreamErrorLogPath, 5000)
-	if upstreamHealth.TotalErrors > 100 {
-		warnings = append(warnings, fmt.Sprintf("Many upstream errors: %d total", upstreamHealth.TotalErrors))
-	} else if upstreamHealth.TotalErrors > 20 {
-		warnings = append(warnings, fmt.Sprintf("Upstream errors detected: %d total", upstreamHealth.TotalErrors))
+	// Upstream health check (last hour only)
+	upstreamHealth := services.ComputeUpstreamHealth(services.UpstreamErrorLogPath, 5000, oneHourAgo)
+	if upstreamHealth.TotalErrors > 50 {
+		warnings = append(warnings, fmt.Sprintf("High upstream errors: %d in last hour", upstreamHealth.TotalErrors))
+	} else if upstreamHealth.TotalErrors > 10 {
+		warnings = append(warnings, fmt.Sprintf("Upstream errors: %d in last hour", upstreamHealth.TotalErrors))
 	}
 
 	status := "ok"

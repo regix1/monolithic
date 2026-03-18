@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/lancachenet/monolithic/admin/models"
 	"github.com/lancachenet/monolithic/admin/services"
@@ -55,7 +56,7 @@ func LogStats(w http.ResponseWriter, r *http.Request) {
 		recentErrors = []models.ErrorLogEntry{}
 	}
 	nosliceEvents := services.FindNosliceEvents(services.ErrorLogPath)
-	upstreamHealth := services.ComputeUpstreamHealth(services.UpstreamErrorLogPath, 5000)
+	upstreamHealth := services.ComputeUpstreamHealth(services.UpstreamErrorLogPath, 5000, time.Time{})
 
 	resp := models.LogStatsResponse{
 		CacheStatus:    cacheStatus,

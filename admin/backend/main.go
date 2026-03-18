@@ -68,6 +68,8 @@ func main() {
 
 	mux.HandleFunc("/api/domains", handlers.DomainsHandler)
 
+	mux.HandleFunc("/api/events", handlers.SSEHandler)
+
 	handler := middleware.CORS(mux)
 
 	log.Printf("Lancache Admin API listening on :%s", port)

@@ -30,7 +30,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from 'recharts'
-import { usePolling } from '../hooks/usePolling'
+import { useSSE } from '../hooks/useSSE'
 import { api } from '../lib/api'
 import { mockLogStats } from '../lib/mockData'
 
@@ -118,7 +118,19 @@ function UpstreamStatCard({ icon: Icon, count, label, colorClass }) {
 /* ── Main Component ───────────────────────────────────────────── */
 
 export default function Logs() {
-  const { data: apiLogStats } = usePolling(api.getLogStats, 10000)
+  const { data: apiLogStats, loading } = useSSE('logstats', api.getLogStats)
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-5 animate-fade-in">
+        <div>
+          <h1 className="text-3xl font-bold text-panda-text">Logs</h1>
+          <p className="mt-1 text-base text-panda-dim">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
   const logStats = apiLogStats ?? mockLogStats
 
   const totalRequests = logStats.cache_status.reduce((sum, item) => sum + item.count, 0)
@@ -163,8 +175,8 @@ export default function Logs() {
   }
 
   /* Noslice sort state */
-  const [nosliceSortKey, setNosliceSortKey] = useState('host')
-  const [nosliceSortDir, setNosliceSortDir] = useState('asc')
+  const [nosliceSortKey, setNosliceSortKey] = useState('time')
+  const [nosliceSortDir, setNosliceSortDir] = useState('desc')
 
   const sortedNoslice = [...(logStats.noslice_events ?? [])].sort((a, b) => {
     const dir = nosliceSortDir === 'asc' ? 1 : -1
@@ -532,6 +544,14 @@ export default function Logs() {
               <thead className="sticky top-0 z-10">
                 <tr className="bg-panda-elevated border-b border-panda-border">
                   <th
+                    onClick={() => toggleNosliceSort('time')}
+                    className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider whitespace-nowrap text-panda-dim hover:text-panda-text transition-colors"
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      Time <SortArrow sortKey="time" currentKey={nosliceSortKey} currentDir={nosliceSortDir} />
+                    </span>
+                  </th>
+                  <th
                     onClick={() => toggleNosliceSort('host')}
                     className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim hover:text-panda-text transition-colors"
                   >
@@ -555,6 +575,7 @@ export default function Logs() {
                     key={`${event.host}-${index}`}
                     className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
                   >
+                    <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-dim font-mono">{event.time}</td>
                     <td className="px-5 py-3 font-mono text-sm text-bamboo whitespace-nowrap">{event.host}</td>
                     <td className="px-5 py-3 font-mono text-sm text-warn max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={event.error}>
                       {event.error}

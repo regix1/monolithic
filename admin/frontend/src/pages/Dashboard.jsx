@@ -4,7 +4,7 @@ import {
   CheckCircle, AlertTriangle, Copy, Check,
 } from 'lucide-react'
 import { StatusBadge, AnimatedCounter } from '../components'
-import { usePolling } from '../hooks/usePolling'
+import { useSSE } from '../hooks/useSSE'
 import { api } from '../lib/api'
 import {
   mockHealth, mockStats, mockFilesystem, mockNoslice,
@@ -23,10 +23,10 @@ function SIcon({ icon: Icon, color = '#4ade80' }) {
 export default function Dashboard() {
   const [copied, setCopied] = useState(false)
 
-  const { data: apiHealth, loading: loadingHealth } = usePolling(api.getHealth, 10000)
-  const { data: apiStats, loading: loadingStats } = usePolling(api.getStats, 5000)
-  const { data: apiFs } = usePolling(api.getFilesystem, 30000)
-  const { data: apiNoslice } = usePolling(api.getNoslice, 10000)
+  const { data: apiHealth, loading: loadingHealth } = useSSE('health', api.getHealth)
+  const { data: apiStats, loading: loadingStats } = useSSE('stats', api.getStats)
+  const { data: apiFs } = useSSE('filesystem', api.getFilesystem, 60000)
+  const { data: apiNoslice } = useSSE('noslice', api.getNoslice)
 
   const initialLoading = loadingHealth || loadingStats
   const isLive = apiHealth !== null

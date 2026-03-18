@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Network, AlertTriangle, FolderTree, ChevronDown, ChevronRight, Wifi, WifiOff } from 'lucide-react'
 import { Card, StatCard } from '../components'
 import { mockUpstream } from '../lib/mockData'
-import { usePolling } from '../hooks/usePolling'
+import { useSSE } from '../hooks/useSSE'
 import { api } from '../lib/api'
 
 function FallbackStatusBadge({ status }) {
@@ -93,18 +93,23 @@ function DomainTreeItem({ service, data }) {
   )
 }
 
-async function fetchUpstream() {
-  const [stats, domains, noslice] = await Promise.all([
-    api.getStats(),
-    api.getDomains(),
-    api.getNoslice(),
-  ])
-  if (!stats && !domains) return null
-  return { stats, domains, noslice }
-}
-
 export default function Upstream() {
-  const { data: apiData } = usePolling(fetchUpstream, 10000)
+  const { data: apiStats, loading: loadingStats } = useSSE('stats', api.getStats)
+  const { data: apiDomains } = useSSE('domains', api.getDomains, 60000)
+  const loading = loadingStats
+  const apiData = apiStats ? { stats: apiStats, domains: apiDomains } : null
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-5 animate-fade-in">
+        <div>
+          <h1 className="text-3xl font-bold text-panda-text">Upstream</h1>
+          <p className="mt-1 text-base text-panda-dim">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
   const isLive = apiData?.stats?.upstream != null
   const upstream = apiData ? {
     ...mockUpstream,

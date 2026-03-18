@@ -12,7 +12,7 @@ import {
 import { Card, Toggle } from '../components'
 import Dropdown from '../components/Dropdown'
 import { mockConfig, mockFilesystem } from '../lib/mockData'
-import { usePolling } from '../hooks/usePolling'
+import { useSSE } from '../hooks/useSSE'
 import { api } from '../lib/api'
 
 function VarRow({ varDef, originalValue, onChange }) {
@@ -139,8 +139,8 @@ function ConfigGroup({ group, originalValues, onChangeVar }) {
 }
 
 export default function Config() {
-  const { data: apiConfig } = usePolling(api.getConfig, 30000)
-  const { data: apiFs } = usePolling(api.getFilesystem, 30000)
+  const { data: apiConfig } = useSSE('config', api.getConfig)
+  const { data: apiFs } = useSSE('filesystem', api.getFilesystem, 60000)
 
   const [groups, setGroups] = useState(mockConfig.groups)
   const [saved, setSaved] = useState(false)

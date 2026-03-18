@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -64,6 +65,11 @@ var errorLogRegex = regexp.MustCompile(
 // Groups: 1=cache_id, 2=status_code, 3=bytes, 4=cache_status, 5=host, 6=range, 7=response_time
 var textAccessLogRegex = regexp.MustCompile(
 	`^\[([^\]]*)\]\s+.*?"[A-Z]+\s+\S+.*?"\s+(\d+)\s+(\d+)\s+"[^"]*"\s+"[^"]*"\s+"([^"]*)"\s+"([^"]*)"\s+"([^"]*)"\s*(\S*)`,
+)
+
+// bandwidthLogRegex captures: 1=cache_id, 2=client_ip, 3=bytes_sent, 4=cache_status
+var bandwidthLogRegex = regexp.MustCompile(
+	`^\[([^\]]*)\]\s+(\S+)\s+.*?"[A-Z]+\s+\S+.*?"\s+\d+\s+(\d+)\s+"[^"]*"\s+"[^"]*"\s+"([^"]*)"`,
 )
 
 // ---------- tailFile helper ----------
@@ -513,5 +519,142 @@ func ComputeUpstreamHealth(path string, n int, since time.Time) models.UpstreamH
 	}
 
 	return summary
+}
+
+// ---------- bandwidth stats ----------
+
+func ComputeBandwidthStats(path string, n int) (models.BandwidthSummary, []models.ServiceStats) {
+	lines, err := tailFile(path, n)
+	if err != nil {
+		return models.BandwidthSummary{}, []models.ServiceStats{}
+	}
+
+	var totalBytes, hitBytes uint64
+	clients := make(map[string]bool)
+
+	type svcAccum struct {
+		requests int
+		bytes    uint64
+		bytesHit uint64
+	}
+	services := make(map[string]*svcAccum)
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Try text format
+		if line[0] == '[' {
+			match := bandwidthLogRegex.FindStringSubmatch(line)
+			if match == nil {
+				continue
+			}
+
+			cacheID := match[1]
+			clientIP := match[2]
+			bytesStr := match[3]
+			cacheStatus := strings.ToUpper(strings.TrimSpace(match[4]))
+
+			bytes, err := strconv.ParseUint(bytesStr, 10, 64)
+			if err != nil {
+				continue
+			}
+
+			totalBytes += bytes
+			if cacheStatus == "HIT" {
+				hitBytes += bytes
+			}
+			clients[clientIP] = true
+
+			svc, ok := services[cacheID]
+			if !ok {
+				svc = &svcAccum{}
+				services[cacheID] = svc
+			}
+			svc.requests++
+			svc.bytes += bytes
+			if cacheStatus == "HIT" {
+				svc.bytesHit += bytes
+			}
+			continue
+		}
+
+		// Try JSON format
+		if line[0] == '{' {
+			var entry struct {
+				CacheIdentifier string `json:"cache_identifier"`
+				RemoteAddr      string `json:"remote_addr"`
+				BytesSent       uint64 `json:"bytes_sent"`
+				CacheStatus     string `json:"upstream_cache_status"`
+			}
+			if err := json.Unmarshal([]byte(line), &entry); err != nil {
+				continue
+			}
+
+			totalBytes += entry.BytesSent
+			status := strings.ToUpper(entry.CacheStatus)
+			if status == "HIT" {
+				hitBytes += entry.BytesSent
+			}
+			if entry.RemoteAddr != "" {
+				clients[entry.RemoteAddr] = true
+			}
+
+			cacheID := entry.CacheIdentifier
+			if cacheID == "" {
+				cacheID = "unknown"
+			}
+			svc, ok := services[cacheID]
+			if !ok {
+				svc = &svcAccum{}
+				services[cacheID] = svc
+			}
+			svc.requests++
+			svc.bytes += entry.BytesSent
+			if status == "HIT" {
+				svc.bytesHit += entry.BytesSent
+			}
+		}
+	}
+
+	// Compute hit rate
+	var hitRate float64
+	if totalBytes > 0 {
+		hitRate = float64(hitBytes) / float64(totalBytes) * 100
+		hitRate = math.Round(hitRate*10) / 10
+	}
+
+	bandwidth := models.BandwidthSummary{
+		TotalServed:    totalBytes,
+		BandwidthSaved: hitBytes,
+		HitRateBytes:   hitRate,
+		UniqueClients:  len(clients),
+	}
+
+	// Convert services map to sorted slice
+	svcList := make([]models.ServiceStats, 0, len(services))
+	for name, acc := range services {
+		var hr float64
+		if acc.bytes > 0 {
+			hr = float64(acc.bytesHit) / float64(acc.bytes) * 100
+			hr = math.Round(hr*10) / 10
+		}
+		svcList = append(svcList, models.ServiceStats{
+			Service:  name,
+			Requests: acc.requests,
+			Bytes:    acc.bytes,
+			BytesHit: acc.bytesHit,
+			HitRate:  hr,
+		})
+	}
+
+	// Sort by bytes descending
+	sort.Slice(svcList, func(i, j int) bool {
+		return svcList[i].Bytes > svcList[j].Bytes
+	})
+
+	return bandwidth, svcList
 }
 

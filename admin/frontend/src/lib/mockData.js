@@ -195,6 +195,19 @@ export const mockLogStats = {
     top_hosts: [],
   },
   fallback_count: 0,
+  bandwidth: {
+    total_served: 1503238553600,
+    bandwidth_saved: 1312345678900,
+    hit_rate_bytes: 87.3,
+    unique_clients: 12,
+  },
+  services: [
+    { service: 'steam', requests: 8421, bytes: 956217753600, bytes_hit: 899564851200, hit_rate: 94.1 },
+    { service: 'epicgames', requests: 1205, bytes: 365072220160, bytes_hit: 263252078592, hit_rate: 72.1 },
+    { service: 'blizzard', requests: 412, bytes: 193273528320, bytes_hit: 87473099776, hit_rate: 45.3 },
+    { service: 'wsus', requests: 890, bytes: 42949672960, bytes_hit: 40802189312, hit_rate: 95.0 },
+    { service: 'riot', requests: 234, bytes: 12884901888, bytes_hit: 11596211699, hit_rate: 90.0 },
+  ],
 }
 
 export const mockNoslice = {

@@ -57,6 +57,7 @@ func LogStats(w http.ResponseWriter, r *http.Request) {
 	}
 	nosliceEvents := services.FindNosliceEvents(services.ErrorLogPath)
 	upstreamHealth := services.ComputeUpstreamHealth(services.UpstreamErrorLogPath, 5000, time.Time{})
+	bandwidth, svcStats := services.ComputeBandwidthStats(services.AccessLogPath, 10000)
 
 	resp := models.LogStatsResponse{
 		CacheStatus:    cacheStatus,
@@ -65,6 +66,8 @@ func LogStats(w http.ResponseWriter, r *http.Request) {
 		NosliceEvents:  nosliceEvents,
 		ResponseTimes:  models.ResponseTimes{Avg: "-", P95: "-", P99: "-"},
 		UpstreamHealth: upstreamHealth,
+		Bandwidth:      bandwidth,
+		Services:       svcStats,
 	}
 
 	services.CacheLogStats(&resp)

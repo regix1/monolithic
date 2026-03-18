@@ -186,6 +186,12 @@ body,
   outline-offset: 2px;
 }
 
+/* ── Recharts focus outline fix ──────────────────────────────── */
+.recharts-wrapper:focus,
+.recharts-wrapper *:focus {
+  outline: none;
+}
+
 /* ── Scrollbar styling ─────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 6px;

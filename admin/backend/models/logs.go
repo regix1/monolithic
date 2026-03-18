@@ -58,6 +58,21 @@ type UpstreamErrorHost struct {
 	Count int    `json:"count"`
 }
 
+type ServiceStats struct {
+	Service  string  `json:"service"`
+	Requests int     `json:"requests"`
+	Bytes    uint64  `json:"bytes"`
+	BytesHit uint64  `json:"bytes_hit"`
+	HitRate  float64 `json:"hit_rate"`
+}
+
+type BandwidthSummary struct {
+	TotalServed    uint64  `json:"total_served"`
+	BandwidthSaved uint64  `json:"bandwidth_saved"`
+	HitRateBytes   float64 `json:"hit_rate_bytes"`
+	UniqueClients  int     `json:"unique_clients"`
+}
+
 type LogStatsResponse struct {
 	CacheStatus    []CacheStatusEntry    `json:"cache_status"`
 	ErrorRate      []ErrorRateBucket     `json:"error_rate"`
@@ -66,4 +81,6 @@ type LogStatsResponse struct {
 	ResponseTimes  ResponseTimes         `json:"response_times"`
 	UpstreamHealth UpstreamHealthSummary `json:"upstream_health"`
 	FallbackCount  int                   `json:"fallback_count"`
+	Bandwidth      BandwidthSummary      `json:"bandwidth"`
+	Services       []ServiceStats        `json:"services"`
 }

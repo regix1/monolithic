@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   PieChart as PieChartIcon,
   TrendingUp,
@@ -9,13 +10,20 @@ import {
   Globe,
   HelpCircle,
   Server,
+  Database,
+  Users,
+  ArrowUpDown,
+  ChevronUp,
+  ChevronDown,
+  Download,
+  Shield,
 } from 'lucide-react'
 import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
@@ -26,11 +34,38 @@ import { usePolling } from '../hooks/usePolling'
 import { api } from '../lib/api'
 import { mockLogStats } from '../lib/mockData'
 
+/* ── Helpers ──────────────────────────────────────────────────── */
+
+function formatBytes(bytes) {
+  if (bytes >= 1099511627776) return `${(bytes / 1099511627776).toFixed(1)} TB`
+  if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(1)} GB`
+  if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${bytes} B`
+}
+
+function hitRateColor(rate) {
+  if (rate >= 80) return 'text-bamboo'
+  if (rate >= 60) return 'text-warn'
+  return 'text-err'
+}
+
+function hitRateDot(rate) {
+  if (rate >= 80) return 'bg-bamboo'
+  if (rate >= 60) return 'bg-warn'
+  return 'bg-err'
+}
+
+/* ── Custom Tooltips ──────────────────────────────────────────── */
+
 function CustomPieTooltip({ active, payload }) {
   if (!active || !payload || !payload.length) return null
   const entry = payload[0].payload
   return (
-    <div className="rounded-lg px-4 py-3 text-sm shadow-xl bg-panda-elevated border border-panda-border text-panda-text">
+    <div
+      className="rounded-lg px-4 py-3 text-sm shadow-xl border border-white/10 backdrop-blur-sm"
+      style={{ backgroundColor: 'rgba(42, 42, 44, 0.92)' }}
+    >
       <div className="font-semibold text-base" style={{ color: entry.color }}>{entry.name}</div>
       <div className="text-panda-muted mt-0.5">
         {entry.value.toFixed(1)}% &mdash; {entry.count.toLocaleString()} requests
@@ -42,7 +77,10 @@ function CustomPieTooltip({ active, payload }) {
 function CustomLineTooltip({ active, payload, label }) {
   if (!active || !payload || !payload.length) return null
   return (
-    <div className="rounded-lg px-4 py-3 text-sm shadow-xl bg-panda-elevated border border-panda-border text-panda-text">
+    <div
+      className="rounded-lg px-4 py-3 text-sm shadow-xl border border-white/10 backdrop-blur-sm"
+      style={{ backgroundColor: 'rgba(42, 42, 44, 0.92)' }}
+    >
       <div className="font-mono text-sm text-panda-dim">{label}</div>
       <div className="font-semibold text-base text-err mt-0.5">
         {payload[0].value} {payload[0].value === 1 ? 'error' : 'errors'}
@@ -50,6 +88,8 @@ function CustomLineTooltip({ active, payload, label }) {
     </div>
   )
 }
+
+/* ── Sub-components ───────────────────────────────────────────── */
 
 function LevelBadge({ level }) {
   const map = {
@@ -75,12 +115,76 @@ function UpstreamStatCard({ icon: Icon, count, label, colorClass }) {
   )
 }
 
+/* ── Main Component ───────────────────────────────────────────── */
+
 export default function Logs() {
   const { data: apiLogStats } = usePolling(api.getLogStats, 10000)
   const logStats = apiLogStats ?? mockLogStats
+
   const totalRequests = logStats.cache_status.reduce((sum, item) => sum + item.count, 0)
   const hasErrors = logStats.error_rate.some(b => b.errors > 0)
   const uh = logStats.upstream_health ?? { total_errors: 0, timeouts: 0, conn_refused: 0, dns_failures: 0, other: 0, top_hosts: [] }
+  const bw = logStats.bandwidth ?? { total_served: 0, bandwidth_saved: 0, hit_rate_bytes: 0, unique_clients: 0 }
+
+  /* Service table sort state */
+  const [serviceSortKey, setServiceSortKey] = useState('bytes')
+  const [serviceSortDir, setServiceSortDir] = useState('desc')
+
+  const sortedServices = [...(logStats.services ?? [])].sort((a, b) => {
+    const dir = serviceSortDir === 'asc' ? 1 : -1
+    return (a[serviceSortKey] > b[serviceSortKey] ? 1 : -1) * dir
+  })
+
+  function toggleServiceSort(key) {
+    if (serviceSortKey === key) {
+      setServiceSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setServiceSortKey(key)
+      setServiceSortDir('desc')
+    }
+  }
+
+  /* Recent errors sort state */
+  const [errorSortKey, setErrorSortKey] = useState('time')
+  const [errorSortDir, setErrorSortDir] = useState('desc')
+
+  const sortedErrors = [...(logStats.recent_errors ?? [])].sort((a, b) => {
+    const dir = errorSortDir === 'asc' ? 1 : -1
+    return (a[errorSortKey] > b[errorSortKey] ? 1 : -1) * dir
+  })
+
+  function toggleErrorSort(key) {
+    if (errorSortKey === key) {
+      setErrorSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setErrorSortKey(key)
+      setErrorSortDir('desc')
+    }
+  }
+
+  /* Noslice sort state */
+  const [nosliceSortKey, setNosliceSortKey] = useState('host')
+  const [nosliceSortDir, setNosliceSortDir] = useState('asc')
+
+  const sortedNoslice = [...(logStats.noslice_events ?? [])].sort((a, b) => {
+    const dir = nosliceSortDir === 'asc' ? 1 : -1
+    return (a[nosliceSortKey] > b[nosliceSortKey] ? 1 : -1) * dir
+  })
+
+  function toggleNosliceSort(key) {
+    if (nosliceSortKey === key) {
+      setNosliceSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setNosliceSortKey(key)
+      setNosliceSortDir('asc')
+    }
+  }
+
+  /* Sort arrow helper */
+  function SortArrow({ sortKey, currentKey, currentDir }) {
+    if (currentKey !== sortKey) return null
+    return currentDir === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+  }
 
   return (
     <div className="flex flex-col gap-5 animate-fade-in">
@@ -92,10 +196,90 @@ export default function Logs() {
         </p>
       </div>
 
-      {/* Row 1: Cache status donut + Upstream Health */}
+      {/* ── Row 1: KPI Cards ──────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {/* Bandwidth Saved */}
+        <div className="rounded-xl bg-panda-surface border border-panda-border p-5">
+          <div className="flex items-center gap-2 text-sm uppercase tracking-wider text-panda-dim mb-2">
+            <Download size={16} className="text-bamboo" />
+            Bandwidth Saved
+          </div>
+          <div className="text-3xl font-bold font-mono text-bamboo">
+            {formatBytes(bw.bandwidth_saved)}
+          </div>
+        </div>
+
+        {/* Cache Hit Rate */}
+        <div className="rounded-xl bg-panda-surface border border-panda-border p-5">
+          <div className="flex items-center gap-2 text-sm uppercase tracking-wider text-panda-dim mb-2">
+            <Shield size={16} className={hitRateColor(bw.hit_rate_bytes)} />
+            Cache Hit Rate
+          </div>
+          <div className={`text-3xl font-bold font-mono ${hitRateColor(bw.hit_rate_bytes)}`}>
+            {bw.hit_rate_bytes.toFixed(1)}%
+          </div>
+        </div>
+
+        {/* Total Served */}
+        <div className="rounded-xl bg-panda-surface border border-panda-border p-5">
+          <div className="flex items-center gap-2 text-sm uppercase tracking-wider text-panda-dim mb-2">
+            <Database size={16} className="text-panda-text" />
+            Total Served
+          </div>
+          <div className="text-3xl font-bold font-mono text-panda-text">
+            {formatBytes(bw.total_served)}
+          </div>
+        </div>
+
+        {/* Active Clients */}
+        <div className="rounded-xl bg-panda-surface border border-panda-border p-5">
+          <div className="flex items-center gap-2 text-sm uppercase tracking-wider text-panda-dim mb-2">
+            <Users size={16} className="text-panda-text" />
+            Active Clients
+          </div>
+          <div className="text-3xl font-bold font-mono text-panda-text">
+            {bw.unique_clients}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Row 2: Error Rate Chart ───────────────────────────────── */}
+      <div className="rounded-xl bg-panda-surface border border-panda-border p-5 [&_.recharts-wrapper]:outline-none">
+        <div className="mb-4 flex items-center gap-3">
+          <TrendingUp size={18} className="text-err" />
+          <h2 className="text-base font-semibold text-panda-text">Error Rate (Last Hour)</h2>
+        </div>
+
+        {hasErrors ? (
+          <div style={{ height: '200px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={logStats.error_rate} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="errorGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef5350" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#ef5350" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fill: '#8a8a8e', fontSize: 12 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#8a8a8e', fontSize: 12 }} allowDecimals={false} />
+                <Tooltip content={<CustomLineTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }} />
+                <Area type="monotone" dataKey="errors" stroke="#ef5350" strokeWidth={2.5} fill="url(#errorGrad)" dot={{ fill: '#ef5350', r: 4, strokeWidth: 0 }} activeDot={{ fill: '#ef5350', r: 6, strokeWidth: 2, stroke: '#1c1c1e' }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-2.5 rounded-lg px-5 py-10 bg-bamboo/5 border border-bamboo/20">
+            <CheckCircle size={18} className="text-bamboo" />
+            <span className="text-base text-bamboo">No errors in the last hour</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── Row 3: Cache Donut + Upstream Health ──────────────────── */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 auto-rows-fr">
         {/* Cache Status Distribution */}
-        <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex flex-col">
+        <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex flex-col [&_.recharts-wrapper]:outline-none">
           <div className="mb-4 flex items-center gap-3">
             <PieChartIcon size={18} className="text-bamboo" />
             <h2 className="text-base font-semibold text-panda-text">Cache Status Distribution</h2>
@@ -103,15 +287,15 @@ export default function Logs() {
 
           {logStats.cache_status.length > 0 && totalRequests > 0 ? (
             <>
-              <div className="relative flex items-center justify-center" style={{ height: '220px' }}>
+              <div className="relative flex items-center justify-center" style={{ height: '240px' }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
+                  <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                     <Pie
                       data={logStats.cache_status}
                       cx="50%"
                       cy="50%"
-                      innerRadius={65}
-                      outerRadius={95}
+                      innerRadius={70}
+                      outerRadius={100}
                       paddingAngle={2}
                       dataKey="value"
                       stroke="none"
@@ -126,16 +310,16 @@ export default function Logs() {
 
                 <div className="pointer-events-none absolute flex flex-col items-center" style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
                   <span className="font-mono text-2xl font-semibold text-panda-text">
-                    {totalRequests >= 1000 ? `${(totalRequests / 1000).toFixed(0)}k` : totalRequests}
+                    {formatBytes(bw.total_served)}
                   </span>
-                  <span className="text-sm text-panda-dim">requests</span>
+                  <span className="text-sm text-panda-dim">served</span>
                 </div>
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2">
                 {logStats.cache_status.map((item) => (
-                  <div key={item.name} className="flex items-center gap-2.5">
-                    <span className="h-3 w-3 flex-shrink-0 rounded-full" style={{ background: item.color }} />
+                  <div key={item.name} className="flex items-center gap-3">
+                    <span className="h-3.5 w-3.5 flex-shrink-0 rounded-full" style={{ background: item.color }} />
                     <span className="text-sm font-mono font-medium text-panda-muted">{item.name}</span>
                     <span className="ml-auto text-sm font-mono text-panda-text">{item.value.toFixed(1)}%</span>
                   </div>
@@ -165,13 +349,11 @@ export default function Logs() {
             </div>
           ) : (
             <div className="flex flex-col gap-4 flex-1">
-              {/* Summary line */}
               <p className="text-base text-panda-muted">
                 <span className="font-mono text-lg font-semibold text-err">{uh.total_errors}</span>{' '}
                 errors in <span className="font-mono text-panda-text">upstream-error.log</span>
               </p>
 
-              {/* 2x2 breakdown grid */}
               <div className="grid grid-cols-2 gap-3">
                 <UpstreamStatCard icon={AlertTriangle} count={uh.timeouts} label="Timeouts" colorClass="text-warn" />
                 <UpstreamStatCard icon={Wifi} count={uh.conn_refused} label="Conn Refused" colorClass="text-err" />
@@ -179,7 +361,6 @@ export default function Logs() {
                 <UpstreamStatCard icon={HelpCircle} count={uh.other} label="Other" colorClass="text-panda-muted" />
               </div>
 
-              {/* Top Failing Hosts */}
               {uh.top_hosts && uh.top_hosts.length > 0 && (
                 <div>
                   <h3 className="text-sm font-medium uppercase tracking-wider text-panda-dim mb-2">Top Failing Hosts</h3>
@@ -198,86 +379,75 @@ export default function Logs() {
         </div>
       </div>
 
-      {/* Row 2: Error Rate Chart */}
-      <div className="rounded-xl bg-panda-surface border border-panda-border p-5 outline-none" tabIndex={-1}>
-        <div className="mb-4 flex items-center gap-3">
-          <TrendingUp size={18} className="text-err" />
-          <h2 className="text-base font-semibold text-panda-text">Error Rate (Last Hour)</h2>
-        </div>
-
-        {hasErrors ? (
-          <div style={{ height: '220px' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={logStats.error_rate}
-                margin={{ top: 10, right: 15, left: -10, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#45454a" vertical={false} />
-                <XAxis
-                  dataKey="time"
-                  tick={{ fill: '#8a8a8e', fontSize: 12, fontFamily: 'JetBrains Mono' }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fill: '#8a8a8e', fontSize: 12, fontFamily: 'JetBrains Mono' }}
-                  axisLine={false}
-                  tickLine={false}
-                  allowDecimals={false}
-                />
-                <Tooltip content={<CustomLineTooltip />} cursor={{ stroke: '#45454a', strokeWidth: 1 }} />
-                <Line
-                  type="monotone"
-                  dataKey="errors"
-                  stroke="#ef5350"
-                  strokeWidth={2.5}
-                  dot={{ fill: '#ef5350', r: 4, strokeWidth: 0 }}
-                  activeDot={{ fill: '#ef5350', r: 6, strokeWidth: 2, stroke: '#1c1c1e' }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        ) : (
-          <div className="flex items-center justify-center gap-2.5 rounded-lg px-5 py-10 bg-bamboo/5 border border-bamboo/20">
-            <CheckCircle size={18} className="text-bamboo" />
-            <span className="text-base text-bamboo">No errors in the last hour</span>
-          </div>
-        )}
-      </div>
-
-      {/* Row 3: Recent Errors + No-Slice Events */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        {/* Recent Errors */}
-        <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex flex-col">
+      {/* ── Row 4: Per-Service Breakdown ──────────────────────────── */}
+      {sortedServices.length > 0 && (
+        <div className="rounded-xl bg-panda-surface border border-panda-border p-5">
           <div className="mb-4 flex items-center gap-3">
-            <AlertCircle size={18} className="text-err" />
-            <h2 className="text-base font-semibold text-panda-text">Recent Errors</h2>
-            <span className="ml-auto rounded-full px-3 py-1 text-sm bg-panda-elevated text-panda-dim">
-              {logStats.recent_errors.length} entries
-            </span>
+            <ArrowUpDown size={18} className="text-bamboo" />
+            <h2 className="text-base font-semibold text-panda-text">Per-Service Breakdown</h2>
           </div>
 
-          <div className="overflow-y-auto rounded-lg border border-panda-border" style={{ maxHeight: '320px' }}>
+          <div className="overflow-x-auto rounded-lg border border-panda-border">
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-panda-elevated border-b border-panda-border">
-                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider whitespace-nowrap text-panda-dim">Time</th>
-                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Level</th>
-                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Message</th>
+                  <th
+                    onClick={() => toggleServiceSort('service')}
+                    className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim hover:text-panda-text transition-colors"
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      Service <SortArrow sortKey="service" currentKey={serviceSortKey} currentDir={serviceSortDir} />
+                    </span>
+                  </th>
+                  <th
+                    onClick={() => toggleServiceSort('requests')}
+                    className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim hover:text-panda-text transition-colors"
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      Requests <SortArrow sortKey="requests" currentKey={serviceSortKey} currentDir={serviceSortDir} />
+                    </span>
+                  </th>
+                  <th
+                    onClick={() => toggleServiceSort('bytes')}
+                    className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim hover:text-panda-text transition-colors"
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      Bytes Served <SortArrow sortKey="bytes" currentKey={serviceSortKey} currentDir={serviceSortDir} />
+                    </span>
+                  </th>
+                  <th
+                    onClick={() => toggleServiceSort('hit_rate')}
+                    className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim hover:text-panda-text transition-colors"
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      Hit Rate <SortArrow sortKey="hit_rate" currentKey={serviceSortKey} currentDir={serviceSortDir} />
+                    </span>
+                  </th>
+                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">
+                    Status
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {logStats.recent_errors.map((err, index) => (
+                {sortedServices.map((svc, index) => (
                   <tr
-                    key={`${err.time}-${index}`}
+                    key={svc.service}
                     className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
                   >
-                    <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-dim font-mono">
-                      {err.time}
+                    <td className="px-5 py-3 text-sm font-medium text-panda-text">
+                      {svc.service.charAt(0).toUpperCase() + svc.service.slice(1)}
                     </td>
-                    <td className="px-5 py-3"><LevelBadge level={err.level} /></td>
-                    <td className="px-5 py-3 font-mono text-sm text-panda-muted max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={err.message}>
-                      {err.message}
+                    <td className="px-5 py-3 font-mono text-sm text-panda-muted" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {svc.requests.toLocaleString()}
+                    </td>
+                    <td className="px-5 py-3 font-mono text-sm text-panda-muted" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {formatBytes(svc.bytes)}
+                    </td>
+                    <td className={`px-5 py-3 font-mono text-sm font-semibold ${hitRateColor(svc.hit_rate)}`} style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {svc.hit_rate.toFixed(1)}%
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className={`inline-block h-2.5 w-2.5 rounded-full ${hitRateDot(svc.hit_rate)}`} />
                     </td>
                   </tr>
                 ))}
@@ -285,49 +455,116 @@ export default function Logs() {
             </table>
           </div>
         </div>
+      )}
 
-        {/* No-Slice Events */}
-        <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex flex-col">
-          <div className="mb-4 flex items-center gap-3">
-            <Ban size={18} className="text-warn" />
-            <h2 className="text-base font-semibold text-panda-text">No-Slice Events</h2>
-            {logStats.noslice_events.length > 0 && (
-              <span className="ml-auto rounded-full px-3 py-1 text-sm bg-warn/10 text-warn font-medium">
-                {logStats.noslice_events.length} detected
-              </span>
-            )}
-          </div>
+      {/* ── Row 5: Recent Errors ──────────────────────────────────── */}
+      <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex flex-col">
+        <div className="mb-4 flex items-center gap-3">
+          <AlertCircle size={18} className="text-err" />
+          <h2 className="text-base font-semibold text-panda-text">Recent Errors</h2>
+          <span className="ml-auto rounded-full px-3 py-1 text-sm bg-panda-elevated text-panda-dim">
+            {logStats.recent_errors.length} entries
+          </span>
+        </div>
 
-          {logStats.noslice_events.length === 0 ? (
-            <div className="flex items-center gap-2.5 rounded-lg px-5 py-4 text-base bg-bamboo/5 border border-bamboo/20 text-bamboo">
-              No slice failures detected
-            </div>
-          ) : (
-            <div className="overflow-y-auto rounded-lg border border-panda-border" style={{ maxHeight: '320px' }}>
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 z-10">
-                  <tr className="bg-panda-elevated border-b border-panda-border">
-                    <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Host</th>
-                    <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Error</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {logStats.noslice_events.map((event, index) => (
-                    <tr
-                      key={`${event.host}-${index}`}
-                      className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
-                    >
-                      <td className="px-5 py-3 font-mono text-sm text-bamboo whitespace-nowrap">{event.host}</td>
-                      <td className="px-5 py-3 font-mono text-sm text-warn max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={event.error}>
-                        {event.error}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        <div className="overflow-y-auto rounded-lg border border-panda-border" style={{ maxHeight: '400px' }}>
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-panda-elevated border-b border-panda-border">
+                <th
+                  onClick={() => toggleErrorSort('time')}
+                  className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider whitespace-nowrap text-panda-dim hover:text-panda-text transition-colors"
+                >
+                  <span className="inline-flex items-center gap-1">
+                    Time <SortArrow sortKey="time" currentKey={errorSortKey} currentDir={errorSortDir} />
+                  </span>
+                </th>
+                <th
+                  onClick={() => toggleErrorSort('level')}
+                  className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim hover:text-panda-text transition-colors"
+                >
+                  <span className="inline-flex items-center gap-1">
+                    Level <SortArrow sortKey="level" currentKey={errorSortKey} currentDir={errorSortDir} />
+                  </span>
+                </th>
+                <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Message</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedErrors.map((err, index) => (
+                <tr
+                  key={`${err.time}-${index}`}
+                  className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
+                >
+                  <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-dim font-mono">
+                    {err.time}
+                  </td>
+                  <td className="px-5 py-3"><LevelBadge level={err.level} /></td>
+                  <td className="px-5 py-3 font-mono text-sm text-panda-muted max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={err.message}>
+                    {err.message}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Row 6: No-Slice Events ────────────────────────────────── */}
+      <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex flex-col">
+        <div className="mb-4 flex items-center gap-3">
+          <Ban size={18} className="text-warn" />
+          <h2 className="text-base font-semibold text-panda-text">No-Slice Events</h2>
+          {logStats.noslice_events.length > 0 && (
+            <span className="ml-auto rounded-full px-3 py-1 text-sm bg-warn/10 text-warn font-medium">
+              {logStats.noslice_events.length} detected
+            </span>
           )}
         </div>
+
+        {logStats.noslice_events.length === 0 ? (
+          <div className="flex items-center gap-2.5 rounded-lg px-5 py-4 text-base bg-bamboo/5 border border-bamboo/20 text-bamboo">
+            No slice failures detected
+          </div>
+        ) : (
+          <div className="overflow-y-auto rounded-lg border border-panda-border" style={{ maxHeight: '350px' }}>
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-panda-elevated border-b border-panda-border">
+                  <th
+                    onClick={() => toggleNosliceSort('host')}
+                    className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim hover:text-panda-text transition-colors"
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      Host <SortArrow sortKey="host" currentKey={nosliceSortKey} currentDir={nosliceSortDir} />
+                    </span>
+                  </th>
+                  <th
+                    onClick={() => toggleNosliceSort('error')}
+                    className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim hover:text-panda-text transition-colors"
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      Error <SortArrow sortKey="error" currentKey={nosliceSortKey} currentDir={nosliceSortDir} />
+                    </span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedNoslice.map((event, index) => (
+                  <tr
+                    key={`${event.host}-${index}`}
+                    className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
+                  >
+                    <td className="px-5 py-3 font-mono text-sm text-bamboo whitespace-nowrap">{event.host}</td>
+                    <td className="px-5 py-3 font-mono text-sm text-warn max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={event.error}>
+                      {event.error}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   )

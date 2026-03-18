@@ -1,18 +1,3 @@
-import { motion } from 'framer-motion'
-
-/**
- * @param {{
- *   title?: string,
- *   subtitle?: string,
- *   icon?: import('react').ComponentType<{ size?: number, className?: string }>,
- *   children?: import('react').ReactNode,
- *   className?: string,
- *   accentColor?: string,
- *   hover?: boolean,
- *   glass?: boolean,
- *   animate?: boolean,
- * }} props
- */
 export default function Card({
   title,
   subtitle,
@@ -20,54 +5,37 @@ export default function Card({
   children,
   className = '',
   accentColor = '#4ade80',
-  hover = false,
-  glass = false,
-  animate = true,
 }) {
-  const Wrapper = animate ? motion.div : 'div'
-  const wrapperProps = animate
-    ? {
-        initial: { opacity: 0, y: 10 },
-        animate: { opacity: 1, y: 0 },
-        transition: { duration: 0.35, ease: 'easeOut' },
-      }
-    : {}
-
   return (
-    <Wrapper
-      {...wrapperProps}
+    <div
       className={[
-        'rounded-xl p-4 border',
-        glass
-          ? 'glass-card'
-          : 'bg-panda-surface border-panda-border',
-        hover ? 'card-hover' : '',
+        'rounded-xl p-5 border bg-panda-surface border-panda-border',
         className,
       ].join(' ')}
     >
       {(Icon || title || subtitle) && (
-        <div className="flex items-start gap-2.5 mb-3">
+        <div className="flex items-start gap-3 mb-4">
           {Icon && (
             <div
-              className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0"
+              className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
               style={{
                 backgroundColor: `${accentColor}15`,
                 border: `1px solid ${accentColor}25`,
               }}
             >
-              <Icon size={15} style={{ color: accentColor }} />
+              <Icon size={18} style={{ color: accentColor }} />
             </div>
           )}
 
           {(title || subtitle) && (
             <div className="flex-1 min-w-0 pt-0.5">
               {title && (
-                <h3 className="text-sm font-semibold text-panda-text leading-tight truncate">
+                <h3 className="text-base font-semibold text-panda-text leading-tight truncate">
                   {title}
                 </h3>
               )}
               {subtitle && (
-                <p className="text-xs text-panda-muted mt-0.5 leading-snug">
+                <p className="text-sm text-panda-muted mt-0.5 leading-snug">
                   {subtitle}
                 </p>
               )}
@@ -77,6 +45,6 @@ export default function Card({
       )}
 
       {children}
-    </Wrapper>
+    </div>
   )
 }

@@ -8,14 +8,46 @@ import { api } from '../lib/api'
 function FallbackStatusBadge({ status }) {
   const map = {
     stale_keepalive: { bg: 'bg-warn/10', text: 'text-warn', label: 'stale_keepalive' },
+    fallback_ok: { bg: 'bg-bamboo/10', text: 'text-bamboo', label: 'fallback_ok' },
+    upstream_error: { bg: 'bg-err/10', text: 'text-err', label: 'upstream_error' },
+    fallback: { bg: 'bg-info/10', text: 'text-info', label: 'fallback' },
     dns_timeout: { bg: 'bg-err/10', text: 'text-err', label: 'dns_timeout' },
     connect_failed: { bg: 'bg-err/10', text: 'text-err', label: 'connect_failed' },
   }
   const style = map[status] ?? { bg: 'bg-info/10', text: 'text-info', label: status }
   return (
-    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium font-mono ${style.bg} ${style.text}`}>
+    <span className={`inline-block rounded-full px-3 py-1 text-sm font-medium font-mono ${style.bg} ${style.text}`}>
       {style.label}
     </span>
+  )
+}
+
+function CollapsibleSection({ title, icon: Icon, badge, defaultOpen = false, children }) {
+  const [open, setOpen] = useState(defaultOpen)
+
+  return (
+    <div className="rounded-xl bg-panda-surface border border-panda-border overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-panda-elevated/40 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          {Icon && <Icon size={18} className="text-bamboo" />}
+          <span className="text-base font-semibold text-panda-text">{title}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          {badge}
+          {open ? <ChevronDown size={16} className="text-panda-dim" /> : <ChevronRight size={16} className="text-panda-dim" />}
+        </div>
+      </button>
+
+      {open && (
+        <div className="border-t border-panda-border">
+          {children}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -23,36 +55,35 @@ function DomainTreeItem({ service, data }) {
   const [expanded, setExpanded] = useState(false)
 
   return (
-    <div className="rounded-lg overflow-hidden border border-panda-border">
+    <div className="border-b border-panda-border last:border-b-0">
       <button
         onClick={() => setExpanded((prev) => !prev)}
-        className={`flex w-full items-center gap-2.5 px-4 py-2.5 text-left transition-colors ${expanded ? 'bg-panda-elevated' : 'bg-panda-surface'}`}
+        className={`flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-panda-elevated/30 ${expanded ? 'bg-panda-elevated/20' : ''}`}
       >
         {expanded ? (
-          <ChevronDown size={13} className="text-bamboo" />
+          <ChevronDown size={14} className="text-bamboo" />
         ) : (
-          <ChevronRight size={13} className="text-panda-dim" />
+          <ChevronRight size={14} className="text-panda-dim" />
         )}
-        <FolderTree size={13} className="text-bamboo" />
         <span className="flex-1 font-semibold capitalize text-sm text-panda-text">
           {service}
         </span>
-        <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-bamboo/10 text-bamboo">
-          {data.domain_count} domains
+        <span className="rounded-full px-2.5 py-0.5 text-sm font-medium bg-bamboo/10 text-bamboo">
+          {data.domain_count}
         </span>
-        <span className="rounded-full px-2 py-0.5 text-xs bg-panda-elevated text-panda-dim ml-1">
+        <span className="rounded-full px-2.5 py-0.5 text-sm bg-panda-elevated text-panda-dim">
           {data.files.length} {data.files.length === 1 ? 'file' : 'files'}
         </span>
       </button>
 
       {expanded && (
-        <div className="bg-panda-bg border-t border-panda-border">
+        <div className="bg-panda-bg">
           {data.files.map((file) => (
             <div
               key={file}
-              className="flex items-center gap-2.5 px-8 py-2 border-b border-panda-surface last:border-b-0"
+              className="flex items-center gap-3 px-10 py-2 border-t border-panda-surface"
             >
-              <span className="text-panda-border text-xs">└</span>
+              <span className="text-panda-border text-sm">└</span>
               <span className="font-mono text-sm text-bamboo">{file}</span>
             </div>
           ))}
@@ -86,41 +117,39 @@ export default function Upstream() {
   } : mockUpstream
 
   return (
-    <div className="flex flex-col gap-4 animate-fade-in">
+    <div className="flex flex-col gap-5 animate-fade-in">
       {/* Header */}
       <div>
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold text-panda-text">Upstream</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-panda-text">Upstream</h1>
           {!isLive && (
-            <span className="ml-2 text-xs text-warn bg-warn/10 border border-warn/25 px-2.5 py-1 rounded-full">
+            <span className="text-sm text-warn bg-warn/10 border border-warn/25 px-3 py-1.5 rounded-full">
               Mock Data
             </span>
           )}
         </div>
-        <p className="mt-0.5 text-sm text-panda-dim">
+        <p className="mt-1 text-base text-panda-dim">
           Keepalive connection pools &amp; CDN routing
         </p>
       </div>
 
       {/* Status row */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div>
-          <Card className="flex flex-col gap-1.5 card-hover">
-            <span className="text-xs font-medium uppercase tracking-wider text-panda-dim">
-              Keepalive
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="bg-panda-surface border border-panda-border rounded-xl px-5 py-4">
+          <p className="text-sm font-medium text-panda-dim uppercase tracking-wider mb-2">
+            Keepalive
+          </p>
+          {upstream.keepalive_enabled ? (
+            <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium bg-bamboo/10 text-bamboo">
+              <Wifi size={14} />
+              Enabled
             </span>
-            {upstream.keepalive_enabled ? (
-              <span className="inline-flex items-center gap-1.5 self-start rounded-full px-2.5 py-0.5 text-xs font-medium bg-bamboo/10 text-bamboo">
-                <Wifi size={11} />
-                Enabled
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 self-start rounded-full px-2.5 py-0.5 text-xs font-medium bg-err/10 text-err">
-                <WifiOff size={11} />
-                Disabled
-              </span>
-            )}
-          </Card>
+          ) : (
+            <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium bg-err/10 text-err">
+              <WifiOff size={14} />
+              Disabled
+            </span>
+          )}
         </div>
 
         <StatCard label="Pools" value={upstream.pool_count} />
@@ -128,103 +157,109 @@ export default function Upstream() {
         <StatCard label="Fallbacks" value={upstream.fallback_events.length} color="#f9a825" />
       </div>
 
-      {/* Upstream Pools Table */}
-      <div>
-        <Card>
-          <div className="mb-3 flex items-center gap-2">
-            <Network size={15} className="text-bamboo" />
-            <h2 className="text-sm font-semibold text-panda-text">Upstream Pools</h2>
-            <span className="ml-auto rounded-full px-2 py-0.5 text-xs bg-panda-elevated text-panda-dim">
-              {upstream.pools.length} shown
-            </span>
-          </div>
+      {/* Upstream Pools — collapsible with scrollable table */}
+      <CollapsibleSection
+        title="Upstream Pools"
+        icon={Network}
+        defaultOpen={false}
+        badge={
+          <span className="rounded-full px-3 py-1 text-sm bg-panda-elevated text-panda-dim">
+            {upstream.pools.length} pools
+          </span>
+        }
+      >
+        <div className="overflow-y-auto" style={{ maxHeight: '400px' }}>
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-panda-elevated border-b border-panda-border">
+                <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Domain</th>
+                <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Keepalive</th>
+                <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Timeout</th>
+                <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {upstream.pools.map((pool, index) => (
+                <tr
+                  key={pool.domain}
+                  className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
+                >
+                  <td className="px-5 py-3 font-mono text-sm text-bamboo">{pool.domain}</td>
+                  <td className="px-5 py-3 font-mono text-sm text-panda-text">{pool.keepalive}</td>
+                  <td className="px-5 py-3 font-mono text-sm text-panda-text">{pool.timeout}</td>
+                  <td className="px-5 py-3 font-mono text-sm text-panda-text">{pool.time}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CollapsibleSection>
 
-          <div className="overflow-x-auto rounded-lg border border-panda-border">
+      {/* Fallback Events — collapsible */}
+      <CollapsibleSection
+        title="Recent Fallback Events"
+        icon={AlertTriangle}
+        defaultOpen={upstream.fallback_events.length > 0}
+        badge={
+          upstream.fallback_events.length > 0 ? (
+            <span className="rounded-full px-3 py-1 text-sm bg-warn/10 text-warn font-medium">
+              {upstream.fallback_events.length} events
+            </span>
+          ) : (
+            <span className="rounded-full px-3 py-1 text-sm bg-bamboo/10 text-bamboo font-medium">
+              healthy
+            </span>
+          )
+        }
+      >
+        {upstream.fallback_events.length === 0 ? (
+          <div className="flex items-center gap-2 px-5 py-4 text-sm text-bamboo">
+            No fallback events — upstream connections healthy
+          </div>
+        ) : (
+          <div className="overflow-y-auto" style={{ maxHeight: '300px' }}>
             <table className="w-full text-sm">
-              <thead>
+              <thead className="sticky top-0 z-10">
                 <tr className="bg-panda-elevated border-b border-panda-border">
-                  <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-panda-dim">Domain</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-panda-dim">Keepalive</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-panda-dim">Timeout</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-panda-dim">Time</th>
+                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Time</th>
+                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Path</th>
+                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {upstream.pools.map((pool, index) => (
+                {upstream.fallback_events.map((event, index) => (
                   <tr
-                    key={pool.domain}
+                    key={`${event.time}-${index}`}
                     className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
                   >
-                    <td className="px-4 py-2 font-mono text-sm text-bamboo">{pool.domain}</td>
-                    <td className="px-4 py-2 font-mono text-sm text-panda-text">{pool.keepalive}</td>
-                    <td className="px-4 py-2 font-mono text-sm text-panda-text">{pool.timeout}</td>
-                    <td className="px-4 py-2 font-mono text-sm text-panda-text">{pool.time}</td>
+                    <td className="px-5 py-3 text-sm text-panda-dim whitespace-nowrap">{event.time}</td>
+                    <td className="px-5 py-3 font-mono text-sm text-bamboo max-w-[300px] truncate" title={event.host}>{event.host}</td>
+                    <td className="px-5 py-3"><FallbackStatusBadge status={event.status} /></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </Card>
-      </div>
+        )}
+      </CollapsibleSection>
 
-      {/* Fallback Events */}
-      <div>
-        <Card>
-          <div className="mb-3 flex items-center gap-2">
-            <AlertTriangle size={15} className="text-warn" />
-            <h2 className="text-sm font-semibold text-panda-text">Recent Fallback Events</h2>
-          </div>
-
-          {upstream.fallback_events.length === 0 ? (
-            <div className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm bg-bamboo/5 border border-bamboo/20 text-bamboo">
-              No fallback events — upstream connections healthy
-            </div>
-          ) : (
-            <div className="overflow-x-auto rounded-lg border border-panda-border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-panda-elevated border-b border-panda-border">
-                    <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-panda-dim">Time</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-panda-dim">Host</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-panda-dim">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {upstream.fallback_events.map((event, index) => (
-                    <tr
-                      key={`${event.time}-${event.host}`}
-                      className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
-                    >
-                      <td className="px-4 py-2 text-xs text-panda-dim">{event.time}</td>
-                      <td className="px-4 py-2 font-mono text-sm text-bamboo">{event.host}</td>
-                      <td className="px-4 py-2"><FallbackStatusBadge status={event.status} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* Cache Domains Tree */}
-      <div>
-        <Card>
-          <div className="mb-3 flex items-center gap-2">
-            <FolderTree size={15} className="text-bamboo" />
-            <h2 className="text-sm font-semibold text-panda-text">Cache Domains</h2>
-            <span className="ml-auto rounded-full px-2 py-0.5 text-xs bg-panda-elevated text-panda-dim">
-              {Object.keys(upstream.domains).length} services
-            </span>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            {Object.entries(upstream.domains).map(([service, data]) => (
-              <DomainTreeItem key={service} service={service} data={data} />
-            ))}
-          </div>
-        </Card>
-      </div>
+      {/* Cache Domains — collapsible with scrollable list */}
+      <CollapsibleSection
+        title="Cache Domains"
+        icon={FolderTree}
+        defaultOpen={false}
+        badge={
+          <span className="rounded-full px-3 py-1 text-sm bg-panda-elevated text-panda-dim">
+            {Object.keys(upstream.domains).length} services
+          </span>
+        }
+      >
+        <div className="overflow-y-auto" style={{ maxHeight: '400px' }}>
+          {Object.entries(upstream.domains).map(([service, data]) => (
+            <DomainTreeItem key={service} service={service} data={data} />
+          ))}
+        </div>
+      </CollapsibleSection>
     </div>
   )
 }

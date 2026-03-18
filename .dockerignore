@@ -1,0 +1,18 @@
+# Ignore git history (large, not needed for build)
+.git
+.github
+
+# Ignore local node_modules (npm ci installs fresh in Docker)
+admin/frontend/node_modules
+admin/frontend/dist
+
+# Ignore IDE and OS files
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+
+# Ignore plan files
+.claude
+.serena

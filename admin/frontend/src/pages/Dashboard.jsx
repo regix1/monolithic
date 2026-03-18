@@ -37,6 +37,14 @@ export default function Dashboard() {
   const ns = apiNoslice ?? mockNoslice
   const greeting = getGreeting()
   const allRunning = health.processes.every(p => p.status === 'RUNNING')
+  const healthCheck = rawStats.health ?? { status: 'ok', warnings: [], disk_warning: false, disk_critical: false, errors_recent: 0, upstream_errors: 0 }
+  const overallHealthy = healthCheck.status === 'ok' && allRunning
+  const healthStatus = !allRunning ? 'warning' : healthCheck.status
+  const healthWarnings = healthCheck.warnings || []
+  if (!allRunning) {
+    const stopped = health.processes.filter(p => p.status !== 'RUNNING').map(p => p.name)
+    healthWarnings.unshift(`Services not running: ${stopped.join(', ')}`)
+  }
 
   function handleCopy() {
     navigator.clipboard.writeText(configHash).catch(() => {})
@@ -56,8 +64,33 @@ export default function Dashboard() {
             </span>
           )}
         </div>
-        <p className="text-base text-panda-dim mt-1">{getHealthMessage(allRunning)}</p>
+        <p className={`text-base mt-1 ${healthStatus === 'critical' ? 'text-err' : healthStatus === 'warning' ? 'text-warn' : 'text-panda-dim'}`}>
+          {getHealthMessage(healthStatus, healthWarnings)}
+        </p>
       </div>
+
+      {/* Health warnings banner */}
+      {healthWarnings.length > 0 && (
+        <div className={`rounded-xl border px-5 py-4 flex flex-col gap-2 ${
+          healthStatus === 'critical'
+            ? 'border-err/30 bg-err/10'
+            : 'border-warn/30 bg-warn/10'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle size={18} className={healthStatus === 'critical' ? 'text-err' : 'text-warn'} />
+            <span className={`text-base font-semibold ${healthStatus === 'critical' ? 'text-err' : 'text-warn'}`}>
+              {healthWarnings.length} {healthWarnings.length === 1 ? 'issue' : 'issues'} detected
+            </span>
+          </div>
+          <ul className="ml-7 flex flex-col gap-1">
+            {healthWarnings.map((w, i) => (
+              <li key={i} className={`text-sm ${healthStatus === 'critical' ? 'text-err/80' : 'text-warn/80'}`}>
+                {w}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Row 1: Quick stats */}
       <div className="grid grid-cols-6 gap-4">
@@ -136,24 +169,24 @@ export default function Dashboard() {
 
             <div className="flex-1 flex flex-col justify-center">
               <div className="text-center mb-4">
-                <AnimatedCounter value={disk.percent} decimals={1} suffix="%" className="text-5xl font-bold text-bamboo leading-none font-mono" />
+                <AnimatedCounter value={disk.percent} decimals={1} suffix="%" className={`text-5xl font-bold leading-none font-mono ${healthCheck.disk_critical ? 'text-err' : healthCheck.disk_warning ? 'text-warn' : 'text-bamboo'}`} />
                 <p className="text-sm text-panda-dim uppercase tracking-wider mt-2">Capacity Used</p>
               </div>
 
               <div className="h-4 w-full rounded-full bg-panda-bg overflow-hidden mb-3">
-                <div className="h-full rounded-full wave-progress transition-all duration-700"
+                <div className={`h-full rounded-full transition-all duration-700 ${healthCheck.disk_critical ? 'bg-err' : healthCheck.disk_warning ? 'bg-warn' : 'wave-progress'}`}
                   style={{ width: `${disk.percent}%` }} />
               </div>
 
               <div className="flex justify-between text-sm mb-4">
-                <span className="text-bamboo font-medium">{disk.used} used</span>
+                <span className={`font-medium ${healthCheck.disk_critical ? 'text-err' : healthCheck.disk_warning ? 'text-warn' : 'text-bamboo'}`}>{disk.used} used</span>
                 <span className="text-panda-dim">{disk.total} total</span>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-lg bg-panda-bg px-4 py-3">
                   <p className="text-sm text-panda-dim mb-1">Free Space</p>
-                  <p className="text-lg font-bold text-bamboo font-mono">{disk.free}</p>
+                  <p className={`text-lg font-bold font-mono ${healthCheck.disk_critical ? 'text-err' : healthCheck.disk_warning ? 'text-warn' : 'text-bamboo'}`}>{disk.free}</p>
                 </div>
                 <div className="rounded-lg bg-panda-bg px-4 py-3">
                   <p className="text-sm text-panda-dim mb-1">Mount Path</p>

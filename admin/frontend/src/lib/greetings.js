@@ -1,59 +1,47 @@
-/**
- * Returns a time-of-day greeting with panda personality.
- * @returns {{ greeting: string, emoji: string, subtitle: string }}
- */
 export function getGreeting() {
   const hour = new Date().getHours()
 
   if (hour < 6) {
-    return {
-      greeting: 'Up late, huh?',
-      emoji: '🌙',
-      subtitle: 'The panda is keeping watch while you sleep',
-    }
+    return { greeting: 'Up late, huh?', emoji: '🌙' }
   }
   if (hour < 12) {
-    return {
-      greeting: 'Good morning!',
-      emoji: '🌅',
-      subtitle: 'Fresh bamboo, fresh start',
-    }
+    return { greeting: 'Good morning!', emoji: '🌅' }
   }
   if (hour < 17) {
-    return {
-      greeting: 'Good afternoon!',
-      emoji: '☀️',
-      subtitle: 'Everything is caching along nicely',
-    }
+    return { greeting: 'Good afternoon!', emoji: '☀️' }
   }
   if (hour < 21) {
-    return {
-      greeting: 'Good evening!',
-      emoji: '🌆',
-      subtitle: 'Time to check on the cache garden',
-    }
+    return { greeting: 'Good evening!', emoji: '🌆' }
   }
-  return {
-    greeting: 'Night owl mode!',
-    emoji: '🦉',
-    subtitle: 'The panda is still awake with you',
-  }
+  return { greeting: 'Night owl mode!', emoji: '🦉' }
 }
 
-/**
- * Returns a panda-personality health message.
- * @param {boolean} healthy
- * @returns {string}
- */
-export function getHealthMessage(healthy) {
-  if (healthy) {
-    const messages = [
-      "Everything's looking great!",
-      'All systems purring along!',
-      'Cache is happy and healthy!',
-      'Smooth sailing ahead!',
-    ]
-    return messages[Math.floor(Math.random() * messages.length)]
+const healthyMessages = [
+  'All systems running smoothly',
+  'Cache is happy and healthy!',
+  'Everything looks great!',
+  'Smooth sailing ahead!',
+  'All services purring along!',
+  'Nothing to worry about!',
+]
+
+let currentMessageIndex = 0
+let lastRotateTime = 0
+
+export function getHealthMessage(healthStatus, warnings) {
+  if (healthStatus === 'critical') {
+    return warnings?.[0] || 'Critical issues detected'
   }
-  return 'Heads up — some things need attention'
+  if (healthStatus === 'warning') {
+    return warnings?.[0] || 'Some things need attention'
+  }
+
+  // Rotate healthy messages every 30 seconds
+  const now = Date.now()
+  if (now - lastRotateTime > 30000) {
+    currentMessageIndex = (currentMessageIndex + 1) % healthyMessages.length
+    lastRotateTime = now
+  }
+
+  return healthyMessages[currentMessageIndex]
 }

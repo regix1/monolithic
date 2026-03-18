@@ -23,7 +23,7 @@ function VarRow({ varDef, originalValue, onChange }) {
   return (
     <div
       className={[
-        'grid grid-cols-1 gap-2 rounded-lg px-4 py-2.5 sm:grid-cols-[1fr_1.2fr_auto] transition-colors',
+        'grid grid-cols-1 gap-3 rounded-lg px-5 py-3 sm:grid-cols-[280px_1fr_90px] items-center transition-colors',
         isEdited ? 'bg-warn/5 border border-warn/15' : 'bg-panda-bg',
       ].join(' ')}
     >
@@ -31,9 +31,9 @@ function VarRow({ varDef, originalValue, onChange }) {
         <span className="font-mono text-sm font-semibold text-bamboo truncate" title={key}>
           {key}
         </span>
-        <span className="text-xs text-panda-muted leading-snug">{description}</span>
+        <span className="text-sm text-panda-muted leading-snug">{description}</span>
         {value !== defaultVal && (
-          <span className="text-[10px] text-panda-dim font-mono mt-0.5">
+          <span className="text-xs text-panda-dim font-mono mt-0.5">
             default: <span className="text-panda-muted">{defaultVal === '' ? '(empty)' : defaultVal}</span>
           </span>
         )}
@@ -46,7 +46,7 @@ function VarRow({ varDef, originalValue, onChange }) {
               checked={value === 'true'}
               onChange={(checked) => onChange(key, checked ? 'true' : 'false')}
             />
-            <span className="text-xs text-panda-muted font-mono">{value}</span>
+            <span className="text-sm text-panda-muted font-mono">{value}</span>
           </div>
         ) : type === 'select' ? (
           <Dropdown
@@ -59,24 +59,24 @@ function VarRow({ varDef, originalValue, onChange }) {
             type="text"
             value={value}
             onChange={(e) => onChange(key, e.target.value)}
-            className="w-full rounded-md border border-panda-border bg-panda-elevated px-3 py-1.5 text-sm text-panda-text focus:border-bamboo focus:outline-none transition-colors font-mono placeholder-panda-dim"
+            className="w-full rounded-lg border border-panda-border bg-panda-elevated px-4 py-2.5 text-sm text-panda-text focus:border-bamboo focus:outline-none transition-colors font-mono placeholder-panda-dim"
           />
         )}
       </div>
 
       <div className="flex items-center justify-end">
         {isEdited ? (
-          <span className="inline-flex items-center gap-1 text-xs text-warn font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-warn inline-block" />
+          <span className="inline-flex items-center gap-1.5 text-sm text-warn font-medium">
+            <span className="w-2 h-2 rounded-full bg-warn inline-block" />
             unsaved
           </span>
         ) : isCustomized ? (
-          <span className="inline-flex items-center gap-1 text-xs text-panda-muted">
-            <span className="w-1.5 h-1.5 rounded-full bg-panda-dim inline-block" />
+          <span className="inline-flex items-center gap-1.5 text-sm text-panda-muted">
+            <span className="w-2 h-2 rounded-full bg-panda-dim inline-block" />
             customized
           </span>
         ) : (
-          <span className="text-xs text-panda-dim">default</span>
+          <span className="text-sm text-panda-dim">default</span>
         )}
       </div>
     </div>
@@ -95,18 +95,18 @@ function ConfigGroup({ group, originalValues, onChangeVar }) {
           onClick={() => setOpen((o) => !o)}
           className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-panda-elevated/40 transition-colors"
         >
-          <div className="flex items-center gap-2.5">
-            <span className="inline-block h-4 w-1 rounded-full bg-bamboo shrink-0" />
-            <span className="text-sm font-semibold text-panda-text">{group.name}</span>
+          <div className="flex items-center gap-3">
+            <span className="inline-block h-5 w-1 rounded-full bg-bamboo shrink-0" />
+            <span className="text-base font-semibold text-panda-text">{group.name}</span>
             {editedCount > 0 && (
-              <span className="rounded-full bg-warn/10 border border-warn/25 text-warn text-xs px-2 py-0.5 font-medium">
+              <span className="rounded-full bg-warn/10 border border-warn/25 text-warn text-sm px-3 py-0.5 font-medium">
                 {editedCount} unsaved
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2 text-panda-muted">
-            <span className="text-xs">{group.vars.length} vars</span>
-            {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          <div className="flex items-center gap-3 text-panda-muted">
+            <span className="text-sm">{group.vars.length} vars</span>
+            {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </div>
         </button>
 
@@ -233,12 +233,12 @@ export default function Config() {
   }
 
   return (
-    <div className="flex flex-col gap-4 animate-fade-in">
+    <div className="flex flex-col gap-5 animate-fade-in">
       {/* Page header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-panda-text">Configuration</h1>
-          <p className="mt-0.5 text-sm text-panda-dim">
+          <h1 className="text-3xl font-bold text-panda-text">Configuration</h1>
+          <p className="mt-1 text-base text-panda-dim">
             Environment Variables — changes require container restart
           </p>
         </div>

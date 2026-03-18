@@ -27,7 +27,15 @@ export const mockStats = {
     used_bytes: 523069849600,
     total_bytes: 1073741824000,
     percent: 48.7,
-  }
+  },
+  health: {
+    status: 'ok',
+    warnings: [],
+    disk_warning: false,
+    disk_critical: false,
+    errors_recent: 0,
+    upstream_errors: 0,
+  },
 }
 
 export const mockFilesystem = {

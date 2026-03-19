@@ -85,7 +85,7 @@ export default function TagSelect({ value, options, onChange }) {
       <div
         ref={triggerRef}
         onClick={handleTriggerClick}
-        className="w-full flex flex-wrap items-center gap-1.5 min-h-[42px] rounded-lg border border-panda-border bg-panda-elevated px-3 py-2 cursor-text transition-colors focus-within:border-bamboo"
+        className="w-full flex flex-wrap items-center gap-1.5 min-h-[42px] rounded-lg border border-panda-border bg-panda-elevated px-3 py-2 cursor-text transition-colors"
       >
         {selected.map(tag => (
           <span

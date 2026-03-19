@@ -11,10 +11,11 @@ import {
 } from 'lucide-react'
 import { Card, Toggle } from '../components'
 import Dropdown from '../components/Dropdown'
+import TagSelect from '../components/TagSelect'
 import { useSSE } from '../hooks/useSSE'
 import { api } from '../lib/api'
 
-function VarRow({ varDef, originalValue, onChange }) {
+function VarRow({ varDef, originalValue, onChange, tagOptions }) {
   const { key, value, default: defaultVal, description, type, options } = varDef
   const isEdited = value !== originalValue  // user changed it in this session
   const isCustomized = originalValue !== defaultVal  // differs from default (informational)
@@ -53,6 +54,12 @@ function VarRow({ varDef, originalValue, onChange }) {
             value={value}
             onChange={(val) => onChange(key, val)}
           />
+        ) : type === 'tags' ? (
+          <TagSelect
+            value={value}
+            options={tagOptions ?? []}
+            onChange={(val) => onChange(key, val)}
+          />
         ) : (
           <input
             type="text"
@@ -82,7 +89,7 @@ function VarRow({ varDef, originalValue, onChange }) {
   )
 }
 
-function ConfigGroup({ group, originalValues, onChangeVar }) {
+function ConfigGroup({ group, originalValues, onChangeVar, tagOptions }) {
   const [open, setOpen] = useState(true)
   const editedCount = group.vars.filter((v) => v.value !== (originalValues[v.key] ?? v.default)).length
 
@@ -126,6 +133,7 @@ function ConfigGroup({ group, originalValues, onChangeVar }) {
                     varDef={v}
                     originalValue={originalValues[v.key] ?? v.default}
                     onChange={onChangeVar}
+                    tagOptions={v.type === 'tags' ? tagOptions : undefined}
                   />
                 ))}
               </div>
@@ -140,6 +148,12 @@ function ConfigGroup({ group, originalValues, onChangeVar }) {
 export default function Config() {
   const { data: apiConfig } = useSSE('config', api.getConfig)
   const { data: apiFs } = useSSE('filesystem', api.getFilesystem, 60000)
+  const { data: apiDomains } = useSSE('domains', api.getDomains, 60000)
+
+  const serviceNames = useMemo(() => {
+    if (!apiDomains) return []
+    return Object.keys(apiDomains).sort()
+  }, [apiDomains])
 
   const [groups, setGroups] = useState([])
   const [saved, setSaved] = useState(false)
@@ -330,6 +344,7 @@ export default function Config() {
           group={group}
           originalValues={originalValues}
           onChangeVar={handleChangeVar}
+          tagOptions={serviceNames}
         />
       ))}
     </div>

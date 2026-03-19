@@ -33,7 +33,7 @@ var EnvVarGroups = []models.ConfigGroup{
 		{Key: "UPSTREAM_KEEPALIVE_TIMEOUT", Default: "4s", Description: "Idle keepalive connection lifetime", Type: "text"},
 		{Key: "UPSTREAM_KEEPALIVE_TIME", Default: "60s", Description: "Maximum total connection lifetime before recycling", Type: "text"},
 		{Key: "UPSTREAM_KEEPALIVE_REQUESTS", Default: "10000", Description: "Max requests per keepalive connection", Type: "text"},
-		{Key: "UPSTREAM_KEEPALIVE_EXCLUDE", Default: "", Description: "Comma-separated CDN IDs to skip keepalive (e.g. epic,origin)", Type: "text"},
+		{Key: "UPSTREAM_KEEPALIVE_EXCLUDE", Default: "", Description: "CDN services to exclude from keepalive pooling", Type: "tags"},
 	}},
 	{Name: "No-Slice Fallback", Vars: []models.EnvVar{
 		{Key: "NOSLICE_FALLBACK", Default: "false", Description: "Auto-detect CDNs that do not support Range requests", Type: "bool"},

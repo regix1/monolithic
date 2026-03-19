@@ -43,7 +43,7 @@ export default function App() {
   return (
     <div className="noise-bg flex h-screen overflow-hidden bg-panda-bg">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-16">
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}

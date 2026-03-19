@@ -366,8 +366,8 @@ export default function Logs() {
           </div>
 
           {logStats.cache_status.length > 0 && totalRequests > 0 ? (
-            <>
-              <div className="relative flex items-center justify-center" style={{ height: '200px' }}>
+            <div className="flex-1 flex flex-col items-center justify-center">
+              <div className="relative flex items-center justify-center" style={{ height: '200px', width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                     <Pie
@@ -405,7 +405,7 @@ export default function Logs() {
                   </div>
                 ))}
               </div>
-            </>
+            </div>
           ) : (
             <div className="flex-1 flex items-center justify-center text-base text-panda-dim">
               No cache data available yet
@@ -576,12 +576,12 @@ export default function Logs() {
                   key={`${err.time}-${index}`}
                   className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
                 >
-                  <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-dim font-mono">
+                  <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-dim font-mono align-top">
                     {formatTime(err.time)}
                   </td>
-                  <td className="px-5 py-3"><LevelBadge level={err.level} /></td>
-                  <td className="px-5 py-3 font-mono text-sm text-panda-muted max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={err.message}>
-                    {err.message}
+                  <td className="px-5 py-3 align-top"><LevelBadge level={err.level} /></td>
+                  <td className="px-5 py-3 font-mono text-sm text-panda-muted leading-relaxed">
+                    <span className="line-clamp-2">{err.message}</span>
                   </td>
                 </tr>
               ))}
@@ -643,10 +643,10 @@ export default function Logs() {
                     key={`${event.host}-${index}`}
                     className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
                   >
-                    <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-dim font-mono">{formatTime(event.time)}</td>
-                    <td className="px-5 py-3 font-mono text-sm text-bamboo whitespace-nowrap">{event.host}</td>
-                    <td className="px-5 py-3 font-mono text-sm text-warn max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={event.error}>
-                      {event.error}
+                    <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-dim font-mono align-top">{formatTime(event.time)}</td>
+                    <td className="px-5 py-3 font-mono text-sm text-bamboo whitespace-nowrap align-top">{event.host}</td>
+                    <td className="px-5 py-3 font-mono text-sm text-warn leading-relaxed">
+                      <span className="line-clamp-2">{event.error}</span>
                     </td>
                   </tr>
                 ))}

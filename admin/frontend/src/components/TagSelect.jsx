@@ -85,7 +85,7 @@ export default function TagSelect({ value, options, onChange }) {
       <div
         ref={triggerRef}
         onClick={handleTriggerClick}
-        className="w-full flex flex-wrap items-center gap-1.5 min-h-[42px] rounded-lg border border-panda-border bg-panda-elevated px-3 py-2 cursor-text transition-colors"
+        className="w-full flex flex-wrap items-center gap-1.5 min-h-[42px] rounded-lg border border-panda-border bg-panda-elevated px-3 py-2 cursor-text transition-colors focus-within:border-bamboo"
       >
         {selected.map(tag => (
           <span
@@ -110,7 +110,8 @@ export default function TagSelect({ value, options, onChange }) {
           onFocus={() => { if (!open) { setOpen(true); updatePos() } }}
           onKeyDown={handleKeyDown}
           placeholder={selected.length === 0 ? 'Type to search...' : ''}
-          className="flex-1 min-w-[80px] bg-transparent text-sm text-panda-text font-mono outline-none placeholder-panda-dim"
+          className="flex-1 min-w-[80px] bg-transparent text-sm text-panda-text font-mono outline-none placeholder-panda-dim focus:outline-none [&]:outline-none"
+          style={{ outline: 'none' }}
         />
         <ChevronDown size={14} className="text-panda-dim shrink-0" />
       </div>

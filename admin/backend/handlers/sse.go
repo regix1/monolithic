@@ -194,28 +194,16 @@ func sendSlowData(w http.ResponseWriter, flusher http.Flusher) {
 		sendEvent(w, flusher, "filesystem", fsResp)
 	}
 
-	// Log stats (default 30 days for SSE)
+	// Log stats (default 30 days for SSE) — single-pass computation
 	sseSince := time.Now().Add(-720 * time.Hour)
-	cacheStatus := services.ComputeCacheStatus(services.AccessLogPath, 20000, sseSince)
-	errorRate := services.ComputeErrorRate(services.ErrorLogPath, 720)
-	recentErrors, _ := services.ParseErrorLog(services.ErrorLogPath, 50, sseSince)
-	if recentErrors == nil {
-		recentErrors = []models.ErrorLogEntry{}
-	}
-	nosliceEvents := services.FindNosliceEvents(services.ErrorLogPath, sseSince)
-	upstreamHealth := services.ComputeUpstreamHealth(services.UpstreamErrorLogPath, 5000, sseSince)
-	bandwidth, svcStats := services.ComputeBandwidthStats(services.AccessLogPath, 20000, sseSince)
-
-	sendEvent(w, flusher, "logstats", models.LogStatsResponse{
-		CacheStatus:    cacheStatus,
-		ErrorRate:      errorRate,
-		RecentErrors:   recentErrors,
-		NosliceEvents:  nosliceEvents,
-		ResponseTimes:  models.ResponseTimes{Avg: "-", P95: "-", P99: "-"},
-		UpstreamHealth: upstreamHealth,
-		Bandwidth:      bandwidth,
-		Services:       svcStats,
-	})
+	logStats := services.ComputeAllLogStats(
+		services.AccessLogPath,
+		services.ErrorLogPath,
+		services.UpstreamErrorLogPath,
+		720,
+		sseSince,
+	)
+	sendEvent(w, flusher, "logstats", logStats)
 
 	// Domains
 	domains := services.LoadDomains("/data/cachedomains")

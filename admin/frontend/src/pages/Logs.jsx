@@ -131,7 +131,7 @@ export default function Logs() {
   /* All hooks MUST be called before any early return */
   const { formatTime } = useTimeFormat()
   const [timeRange, setTimeRange] = useState(720)
-  const [fetchedStats, setFetchedStats] = useState(null)
+  const [statsCache, setStatsCache] = useState({})
   const [fetchingRange, setFetchingRange] = useState(false)
   const [serviceSortKey, setServiceSortKey] = useState('bytes')
   const [serviceSortDir, setServiceSortDir] = useState('desc')
@@ -141,19 +141,24 @@ export default function Logs() {
   const [nosliceSortDir, setNosliceSortDir] = useState('desc')
 
   // When time range changes, fetch filtered data from REST API
-  const apiLogStats = timeRange === 720 ? sseLogStats : fetchedStats
+  const apiLogStats = timeRange === 720 ? sseLogStats : (statsCache[timeRange] ?? null)
 
   async function handleTimeRangeChange(hours) {
     setTimeRange(hours)
-    if (hours === 720) {
-      setFetchedStats(null)
-      return
+    if (hours === 720) return  // SSE handles default
+
+    // Check cache first
+    if (statsCache[hours]) {
+      return  // already cached, will be used via apiLogStats
     }
+
     setFetchingRange(true)
     const result = await fetch(`/api/logs/stats?hours=${hours}`)
       .then(r => r.ok ? r.json() : null)
       .catch(() => null)
-    setFetchedStats(result)
+    if (result) {
+      setStatsCache(prev => ({ ...prev, [hours]: result }))
+    }
     setFetchingRange(false)
   }
 
@@ -238,7 +243,12 @@ export default function Logs() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {fetchingRange && <span className="text-sm text-panda-dim">Loading...</span>}
+          {fetchingRange && (
+            <span className="flex items-center gap-2 text-sm text-panda-dim">
+              <span className="h-2 w-2 rounded-full bg-bamboo animate-pulse" />
+              Loading...
+            </span>
+          )}
           <div className="flex rounded-xl bg-panda-elevated/50 border border-panda-border p-1 gap-0.5">
             {TIME_RANGES.map(({ label, hours }) => (
               <button
@@ -257,6 +267,9 @@ export default function Logs() {
           </div>
         </div>
       </div>
+
+      {/* Data area — dims during fetch */}
+      <div className={`flex flex-col gap-5 transition-opacity duration-300 ${fetchingRange ? 'opacity-50' : ''}`}>
 
       {/* ── Row 1: KPI Cards ──────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -344,7 +357,7 @@ export default function Logs() {
       </div>
 
       {/* ── Row 3: Cache Donut + Upstream Health ──────────────────── */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 items-start">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         {/* Cache Status Distribution */}
         <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex flex-col [&_.recharts-wrapper]:outline-none">
           <div className="mb-4 flex items-center gap-3">
@@ -354,15 +367,15 @@ export default function Logs() {
 
           {logStats.cache_status.length > 0 && totalRequests > 0 ? (
             <>
-              <div className="relative flex items-center justify-center" style={{ height: '240px' }}>
+              <div className="relative flex items-center justify-center" style={{ height: '200px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                     <Pie
                       data={logStats.cache_status}
                       cx="50%"
                       cy="50%"
-                      innerRadius={70}
-                      outerRadius={100}
+                      innerRadius={65}
+                      outerRadius={95}
                       paddingAngle={2}
                       dataKey="value"
                       stroke="none"
@@ -383,7 +396,7 @@ export default function Logs() {
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2">
+              <div className="mt-4 flex flex-wrap justify-center gap-x-8 gap-y-2">
                 {logStats.cache_status.map((item) => (
                   <div key={item.name} className="flex items-center gap-3">
                     <span className="h-3.5 w-3.5 shrink-0 rounded-full" style={{ background: item.color }} />
@@ -642,6 +655,7 @@ export default function Logs() {
           </div>
         )}
       </div>
+      </div>{/* end data area wrapper */}
     </div>
   )
 }

@@ -574,6 +574,319 @@ func ComputeUpstreamHealth(path string, n int, since time.Time) models.UpstreamH
 	return summary
 }
 
+// ---------- combined single-pass log stats ----------
+
+// ComputeAllLogStats reads access.log and error.log once each, then computes
+// all log statistics in a single pass per file. Upstream-error.log is handled
+// separately because it is a different file.
+func ComputeAllLogStats(accessLogPath, errorLogPath, upstreamErrorLogPath string, hours int, since time.Time) models.LogStatsResponse {
+	// Read each file once
+	accessLines, _ := tailFile(accessLogPath, 20000)
+	errorLines, _ := tailFile(errorLogPath, 10000)
+
+	// Single pass over access.log
+	cacheStatus, bandwidth, svcStats := processAccessLog(accessLines, since)
+
+	// Single pass over error.log
+	errorRate, recentErrors, nosliceEvents := processErrorLog(errorLines, hours, since)
+
+	// Upstream errors (separate file, cannot combine)
+	upstreamHealth := ComputeUpstreamHealth(upstreamErrorLogPath, 5000, since)
+
+	return models.LogStatsResponse{
+		CacheStatus:    cacheStatus,
+		ErrorRate:      errorRate,
+		RecentErrors:   recentErrors,
+		NosliceEvents:  nosliceEvents,
+		ResponseTimes:  models.ResponseTimes{Avg: "-", P95: "-", P99: "-"},
+		UpstreamHealth: upstreamHealth,
+		Bandwidth:      bandwidth,
+		Services:       svcStats,
+	}
+}
+
+// processAccessLog computes cache status distribution, bandwidth summary, and
+// per-service stats in a single pass over the access log lines.
+func processAccessLog(lines []string, since time.Time) ([]models.CacheStatusEntry, models.BandwidthSummary, []models.ServiceStats) {
+	// ---- cache status accumulators ----
+	csCounts := make(map[string]int)
+	csTotal := 0
+
+	// ---- bandwidth accumulators ----
+	var totalBytes, hitBytes uint64
+	clients := make(map[string]bool)
+
+	type svcAccum struct {
+		requests int
+		bytes    uint64
+		bytesHit uint64
+	}
+	svcMap := make(map[string]*svcAccum)
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Time-window filter (shared between cache status and bandwidth)
+		if !since.IsZero() {
+			if m := accessLogTimeRegex.FindStringSubmatch(line); m != nil {
+				if t, err := time.Parse("02/Jan/2006:15:04:05 -0700", m[1]); err == nil {
+					if t.Before(since) {
+						continue
+					}
+				}
+			}
+		}
+
+		// ---- cache status extraction ----
+		cacheStatus := extractCacheStatus(line)
+		if cacheStatus != "" {
+			csCounts[cacheStatus]++
+			csTotal++
+		}
+
+		// ---- bandwidth / service extraction ----
+		if line[0] == '[' {
+			match := bandwidthLogRegex.FindStringSubmatch(line)
+			if match != nil {
+				cacheID := match[1]
+				clientIP := match[2]
+				bytesStr := match[3]
+				bwCacheStatus := strings.ToUpper(strings.TrimSpace(match[4]))
+
+				bytes, err := strconv.ParseUint(bytesStr, 10, 64)
+				if err == nil {
+					totalBytes += bytes
+					if bwCacheStatus == "HIT" {
+						hitBytes += bytes
+					}
+					clients[clientIP] = true
+
+					svc, ok := svcMap[cacheID]
+					if !ok {
+						svc = &svcAccum{}
+						svcMap[cacheID] = svc
+					}
+					svc.requests++
+					svc.bytes += bytes
+					if bwCacheStatus == "HIT" {
+						svc.bytesHit += bytes
+					}
+				}
+			}
+		} else if line[0] == '{' {
+			var entry struct {
+				CacheIdentifier string `json:"cache_identifier"`
+				RemoteAddr      string `json:"remote_addr"`
+				BytesSent       uint64 `json:"bytes_sent"`
+				CacheStatus     string `json:"upstream_cache_status"`
+			}
+			if err := json.Unmarshal([]byte(line), &entry); err == nil {
+				totalBytes += entry.BytesSent
+				status := strings.ToUpper(entry.CacheStatus)
+				if status == "HIT" {
+					hitBytes += entry.BytesSent
+				}
+				if entry.RemoteAddr != "" {
+					clients[entry.RemoteAddr] = true
+				}
+
+				cacheID := entry.CacheIdentifier
+				if cacheID == "" {
+					cacheID = "unknown"
+				}
+				svc, ok := svcMap[cacheID]
+				if !ok {
+					svc = &svcAccum{}
+					svcMap[cacheID] = svc
+				}
+				svc.requests++
+				svc.bytes += entry.BytesSent
+				if status == "HIT" {
+					svc.bytesHit += entry.BytesSent
+				}
+			}
+		}
+	}
+
+	// ---- build cache status result ----
+	csEntries := make([]models.CacheStatusEntry, 0, len(cacheStatusOrder))
+	if csTotal > 0 {
+		for _, name := range cacheStatusOrder {
+			count := csCounts[name]
+			if count == 0 {
+				continue
+			}
+			pct := float64(count) / float64(csTotal) * 100
+			pct = math.Round(pct*10) / 10
+			csEntries = append(csEntries, models.CacheStatusEntry{
+				Name:  name,
+				Value: pct,
+				Count: count,
+				Color: cacheStatusColors[name],
+			})
+		}
+	}
+
+	// ---- build bandwidth result ----
+	var hitRate float64
+	if totalBytes > 0 {
+		hitRate = float64(hitBytes) / float64(totalBytes) * 100
+		hitRate = math.Round(hitRate*10) / 10
+	}
+	bandwidth := models.BandwidthSummary{
+		TotalServed:    totalBytes,
+		BandwidthSaved: hitBytes,
+		HitRateBytes:   hitRate,
+		UniqueClients:  len(clients),
+	}
+
+	// ---- build services result ----
+	svcList := make([]models.ServiceStats, 0, len(svcMap))
+	for name, acc := range svcMap {
+		var hr float64
+		if acc.bytes > 0 {
+			hr = float64(acc.bytesHit) / float64(acc.bytes) * 100
+			hr = math.Round(hr*10) / 10
+		}
+		svcList = append(svcList, models.ServiceStats{
+			Service:  name,
+			Requests: acc.requests,
+			Bytes:    acc.bytes,
+			BytesHit: acc.bytesHit,
+			HitRate:  hr,
+		})
+	}
+	sort.Slice(svcList, func(i, j int) bool {
+		return svcList[i].Bytes > svcList[j].Bytes
+	})
+
+	return csEntries, bandwidth, svcList
+}
+
+// processErrorLog computes error rate buckets, recent errors list, and noslice
+// events in a single pass over the error log lines.
+func processErrorLog(lines []string, hours int, since time.Time) ([]models.ErrorRateBucket, []models.ErrorLogEntry, []models.NosliceEvent) {
+	now := time.Now()
+	rateSince := now.Add(-time.Duration(hours) * time.Hour)
+
+	// ---- set up error-rate buckets (same logic as ComputeErrorRate) ----
+	var bucketDuration time.Duration
+	var bucketCount int
+	var labelFormat string
+
+	if hours <= 24 {
+		bucketDuration = time.Hour
+		bucketCount = hours
+		labelFormat = "15:00"
+	} else {
+		bucketDuration = 24 * time.Hour
+		bucketCount = hours / 24
+		labelFormat = "Jan 2"
+	}
+
+	var bucketStart time.Time
+	if hours <= 24 {
+		bucketStart = time.Date(rateSince.Year(), rateSince.Month(), rateSince.Day(), rateSince.Hour(), 0, 0, 0, rateSince.Location())
+	} else {
+		bucketStart = time.Date(rateSince.Year(), rateSince.Month(), rateSince.Day(), 0, 0, 0, 0, rateSince.Location())
+	}
+
+	buckets := make(map[string]int)
+	bucketTimes := make([]string, 0, bucketCount)
+	for i := 0; i < bucketCount; i++ {
+		t := bucketStart.Add(time.Duration(i) * bucketDuration)
+		label := t.Format(labelFormat)
+		buckets[label] = 0
+		bucketTimes = append(bucketTimes, label)
+	}
+
+	// ---- accumulators ----
+	recentErrors := make([]models.ErrorLogEntry, 0, 50)
+	nosliceEvents := make([]models.NosliceEvent, 0)
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		match := errorLogRegex.FindStringSubmatch(line)
+		if match == nil {
+			continue
+		}
+
+		// Parse the timestamp once
+		t, err := time.ParseInLocation("2006/01/02 15:04:05", match[1], time.Local)
+		if err != nil {
+			continue
+		}
+
+		ts := convertErrorTimestamp(match[1])
+		level := match[2]
+		msg := match[3]
+
+		// ---- error rate buckets (uses rateSince which may differ from since) ----
+		if !t.Before(rateSince) {
+			var bucketTime time.Time
+			if hours <= 24 {
+				bucketTime = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
+			} else {
+				bucketTime = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+			}
+			label := bucketTime.Format(labelFormat)
+			if _, ok := buckets[label]; ok {
+				buckets[label]++
+			}
+		}
+
+		// ---- filter by since for recent errors and noslice events ----
+		if !since.IsZero() && t.Before(since) {
+			continue
+		}
+
+		// ---- recent errors (keep last 50) ----
+		if len(recentErrors) < 50 {
+			recentErrors = append(recentErrors, models.ErrorLogEntry{
+				Time:    ts,
+				Level:   level,
+				Message: msg,
+			})
+		} else {
+			// We're reading tail lines (newest last), so keep all — they
+			// are already the most recent. We just cap at 50.
+		}
+
+		// ---- noslice events ----
+		lower := strings.ToLower(line)
+		if strings.Contains(lower, "unexpected status code") || strings.Contains(lower, "slice") {
+			host := extractHostFromMessage(msg)
+			nosliceEvents = append(nosliceEvents, models.NosliceEvent{
+				Time:  ts,
+				Host:  host,
+				Error: msg,
+			})
+		}
+	}
+
+	// Build error rate result
+	errorRate := make([]models.ErrorRateBucket, 0, len(bucketTimes))
+	for _, label := range bucketTimes {
+		errorRate = append(errorRate, models.ErrorRateBucket{
+			Time:   label,
+			Errors: buckets[label],
+		})
+	}
+
+	if recentErrors == nil {
+		recentErrors = []models.ErrorLogEntry{}
+	}
+
+	return errorRate, recentErrors, nosliceEvents
+}
+
 // ---------- bandwidth stats ----------
 
 func ComputeBandwidthStats(path string, n int, since time.Time) (models.BandwidthSummary, []models.ServiceStats) {

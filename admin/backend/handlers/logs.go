@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/lancachenet/monolithic/admin/models"
 	"github.com/lancachenet/monolithic/admin/services"
 )
 
@@ -63,26 +62,13 @@ func LogStats(w http.ResponseWriter, r *http.Request) {
 
 	since := time.Now().Add(-time.Duration(hours) * time.Hour)
 
-	cacheStatus := services.ComputeCacheStatus(services.AccessLogPath, 20000, since)
-	errorRate := services.ComputeErrorRate(services.ErrorLogPath, hours)
-	recentErrors, _ := services.ParseErrorLog(services.ErrorLogPath, 50, since)
-	if recentErrors == nil {
-		recentErrors = []models.ErrorLogEntry{}
-	}
-	nosliceEvents := services.FindNosliceEvents(services.ErrorLogPath, since)
-	upstreamHealth := services.ComputeUpstreamHealth(services.UpstreamErrorLogPath, 5000, since)
-	bandwidth, svcStats := services.ComputeBandwidthStats(services.AccessLogPath, 20000, since)
-
-	resp := models.LogStatsResponse{
-		CacheStatus:    cacheStatus,
-		ErrorRate:      errorRate,
-		RecentErrors:   recentErrors,
-		NosliceEvents:  nosliceEvents,
-		ResponseTimes:  models.ResponseTimes{Avg: "-", P95: "-", P99: "-"},
-		UpstreamHealth: upstreamHealth,
-		Bandwidth:      bandwidth,
-		Services:       svcStats,
-	}
+	resp := services.ComputeAllLogStats(
+		services.AccessLogPath,
+		services.ErrorLogPath,
+		services.UpstreamErrorLogPath,
+		hours,
+		since,
+	)
 
 	services.CacheLogStats(&resp)
 	writeJSON(w, resp)

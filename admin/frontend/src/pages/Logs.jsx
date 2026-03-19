@@ -374,8 +374,8 @@ export default function Logs() {
                       data={logStats.cache_status}
                       cx="50%"
                       cy="50%"
-                      innerRadius="35%"
-                      outerRadius="48%"
+                      innerRadius={110}
+                      outerRadius={155}
                       paddingAngle={2}
                       dataKey="value"
                       stroke="none"
@@ -389,10 +389,10 @@ export default function Logs() {
                 </ResponsiveContainer>
 
                 <div className="pointer-events-none absolute flex flex-col items-center" style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
-                  <span className="font-mono text-2xl font-bold text-panda-text">
+                  <span className="font-mono text-3xl font-bold text-panda-text">
                     {formatBytes(bw.total_served)}
                   </span>
-                  <span className="text-xs uppercase tracking-wider text-panda-dim mt-0.5">served</span>
+                  <span className="text-sm uppercase tracking-wider text-panda-dim mt-1">served</span>
                 </div>
               </div>
 

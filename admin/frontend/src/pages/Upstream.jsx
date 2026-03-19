@@ -216,6 +216,11 @@ export default function Upstream() {
           )
         }
       >
+        <div className="px-5 py-3 border-b border-panda-border">
+          <p className="text-sm text-panda-dim">
+            Requests that bypassed the keepalive upstream pool due to 502/504 errors and were retried via direct connection to the CDN.
+          </p>
+        </div>
         {upstream.fallback_events.length === 0 ? (
           <div className="flex items-center gap-2 px-5 py-4 text-sm text-bamboo">
             No fallback events — upstream connections healthy

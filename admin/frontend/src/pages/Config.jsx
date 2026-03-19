@@ -23,7 +23,7 @@ function VarRow({ varDef, originalValue, onChange, tagOptions }) {
   return (
     <div
       className={[
-        'grid grid-cols-1 gap-3 rounded-lg px-5 py-3 sm:grid-cols-[280px_1fr_90px] items-center transition-colors',
+        'grid grid-cols-1 gap-3 rounded-lg px-3 sm:px-5 py-3 sm:grid-cols-[280px_1fr_90px] items-center transition-colors',
         isEdited ? 'bg-warn/5 border border-warn/15' : 'bg-panda-bg',
       ].join(' ')}
     >
@@ -70,7 +70,7 @@ function VarRow({ varDef, originalValue, onChange, tagOptions }) {
         )}
       </div>
 
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-start sm:justify-end">
         {isEdited ? (
           <span className="inline-flex items-center gap-1.5 text-sm text-warn font-medium">
             <span className="w-2 h-2 rounded-full bg-warn inline-block" />
@@ -101,7 +101,7 @@ function ConfigGroup({ group, originalValues, onChangeVar, tagOptions }) {
           onClick={() => setOpen((o) => !o)}
           className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-panda-elevated/40 transition-colors"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <span className="inline-block h-5 w-1 rounded-full bg-bamboo shrink-0" />
             <span className="text-base font-semibold text-panda-text">{group.name}</span>
             {editedCount > 0 && (
@@ -244,7 +244,7 @@ export default function Config() {
   return (
     <div className="flex flex-col gap-5 animate-fade-in">
       {/* Page header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-panda-text">Configuration</h1>
           <p className="mt-1 text-base text-panda-dim">
@@ -252,7 +252,7 @@ export default function Config() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 sm:shrink-0 flex-wrap">
           {dirtyCount > 0 && (
             <span className="flex items-center gap-1.5 text-xs text-warn px-2.5 py-1 rounded-full bg-warn/10 border border-warn/25">
               <AlertTriangle size={12} />

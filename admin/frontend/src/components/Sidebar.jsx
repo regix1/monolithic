@@ -4,6 +4,7 @@ import { LayoutDashboard, Settings, Network, ScrollText, ChevronLeft, ChevronRig
 import { motion, AnimatePresence } from 'framer-motion'
 import pandaIcon from '../assets/panda.svg'
 import { useTimeFormat } from '../hooks/useTimeFormat'
+import { useIsMobile } from '../hooks/useBreakpoint'
 
 /** @type {{ to: string, icon: import('lucide-react').LucideIcon, label: string }[]} */
 const NAV_ITEMS = [
@@ -17,14 +18,25 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const { is24h, toggle } = useTimeFormat()
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     function handleResize() {
       if (window.innerWidth >= 1024) setMobileOpen(false)
+      else setCollapsed(false)
     }
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [mobileOpen])
 
   return (
     <>
@@ -32,8 +44,9 @@ export default function Sidebar() {
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-50 rounded-xl bg-panda-surface border border-panda-border p-2.5 text-panda-muted hover:text-panda-text hover:bg-panda-elevated transition-colors shadow-lg"
+        className="lg:hidden fixed top-4 left-4 z-50 rounded-xl bg-panda-surface border border-panda-border p-3 text-panda-muted hover:text-panda-text hover:bg-panda-elevated transition-colors shadow-lg"
         aria-label="Open menu"
+        aria-expanded={mobileOpen}
       >
         <Menu size={18} />
       </button>
@@ -57,7 +70,7 @@ export default function Sidebar() {
         animate={{ width: collapsed ? 72 : 240, x: 0 }}
         transition={{ duration: 0.25, ease: 'easeInOut' }}
         className={[
-          'relative flex flex-col overflow-hidden bg-panda-surface border-r border-panda-border shrink-0 h-screen',
+          'relative flex flex-col overflow-y-auto overflow-x-hidden bg-panda-surface border-r border-panda-border shrink-0 h-screen',
           'hidden lg:flex',
           mobileOpen ? '!flex fixed inset-y-0 left-0 z-50 shadow-2xl' : '',
         ].join(' ')}
@@ -67,7 +80,7 @@ export default function Sidebar() {
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
-            className="lg:hidden absolute top-4 right-3 z-10 rounded-lg p-1.5 text-panda-dim hover:text-panda-text hover:bg-panda-elevated transition-colors"
+            className="lg:hidden absolute top-4 right-3 z-10 rounded-lg p-2.5 text-panda-dim hover:text-panda-text hover:bg-panda-elevated transition-colors"
             aria-label="Close menu"
           >
             <X size={16} />
@@ -118,11 +131,10 @@ export default function Sidebar() {
               to={to}
               end={to === '/'}
               onClick={() => setMobileOpen(false)}
-              aria-current="page"
               className={({ isActive }) =>
                 [
                   'group flex items-center gap-3 rounded-xl transition-all duration-200 relative overflow-hidden',
-                  collapsed ? 'px-3 py-3 justify-center' : 'px-4 py-3',
+                  collapsed ? 'px-3 py-3.5 justify-center' : 'px-4 py-3.5',
                   isActive
                     ? 'bg-bamboo/12 text-bamboo border-l-2 border-bamboo pl-[10px]'
                     : 'text-panda-muted hover:text-panda-text hover:bg-panda-elevated/60 border-l-2 border-transparent',
@@ -175,7 +187,7 @@ export default function Sidebar() {
             onClick={toggle}
             className={[
               'flex items-center gap-3 rounded-xl transition-colors duration-150 text-panda-muted hover:text-panda-text hover:bg-panda-elevated/60',
-              collapsed ? 'px-3 py-2.5 justify-center' : 'px-4 py-2.5',
+              collapsed ? 'px-3 py-3 lg:py-2.5 justify-center' : 'px-4 py-3 lg:py-2.5',
             ].join(' ')}
             title={is24h ? 'Switch to 12-hour time' : 'Switch to 24-hour time'}
           >

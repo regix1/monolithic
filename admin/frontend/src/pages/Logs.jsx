@@ -235,14 +235,14 @@ export default function Logs() {
   return (
     <div className="flex flex-col gap-5 animate-fade-in">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-panda-text">Logs</h1>
           <p className="mt-1 text-base text-panda-dim">
             Operational analytics — upstream performance &amp; error monitoring
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 sm:shrink-0 w-full sm:w-auto">
           {fetchingRange && (
             <span className="flex items-center gap-2 text-sm text-panda-dim">
               <span className="h-2 w-2 rounded-full bg-bamboo animate-pulse" />
@@ -281,7 +281,7 @@ export default function Logs() {
               <Download size={16} className="text-bamboo" />
               Bandwidth Saved
             </div>
-            <div className="text-3xl font-bold font-mono text-bamboo">
+            <div className="text-2xl sm:text-3xl font-bold font-mono text-bamboo">
               {formatBytes(bw.bandwidth_saved)}
             </div>
           </div>
@@ -293,7 +293,7 @@ export default function Logs() {
             <Shield size={16} className={hitRateColor(bw.hit_rate_bytes)} />
             Cache Hit Rate
           </div>
-          <div className={`text-3xl font-bold font-mono ${hitRateColor(bw.hit_rate_bytes)}`}>
+          <div className={`text-2xl sm:text-3xl font-bold font-mono ${hitRateColor(bw.hit_rate_bytes)}`}>
             {bw.hit_rate_bytes.toFixed(1)}%
           </div>
         </div>
@@ -304,7 +304,7 @@ export default function Logs() {
             <Database size={16} className="text-panda-text" />
             Total Served
           </div>
-          <div className="text-3xl font-bold font-mono text-panda-text">
+          <div className="text-2xl sm:text-3xl font-bold font-mono text-panda-text">
             {formatBytes(bw.total_served)}
           </div>
         </div>
@@ -315,7 +315,7 @@ export default function Logs() {
             <Users size={16} className="text-panda-text" />
             Active Clients
           </div>
-          <div className="text-3xl font-bold font-mono text-panda-text">
+          <div className="text-2xl sm:text-3xl font-bold font-mono text-panda-text">
             {bw.unique_clients}
           </div>
         </div>
@@ -367,15 +367,15 @@ export default function Logs() {
 
           {logStats.cache_status.length > 0 && totalRequests > 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center">
-              <div className="relative flex items-center justify-center" style={{ height: '340px', width: '100%' }}>
+              <div className="relative flex items-center justify-center h-[260px] sm:h-[340px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                     <Pie
                       data={logStats.cache_status}
                       cx="50%"
                       cy="50%"
-                      innerRadius={110}
-                      outerRadius={155}
+                      innerRadius="35%"
+                      outerRadius="50%"
                       paddingAngle={2}
                       dataKey="value"
                       stroke="none"
@@ -389,7 +389,7 @@ export default function Logs() {
                 </ResponsiveContainer>
 
                 <div className="pointer-events-none absolute flex flex-col items-center" style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
-                  <span className="font-mono text-3xl font-bold text-panda-text">
+                  <span className="font-mono text-xl sm:text-3xl font-bold text-panda-text">
                     {formatBytes(bw.total_served)}
                   </span>
                   <span className="text-sm uppercase tracking-wider text-panda-dim mt-1">served</span>
@@ -547,7 +547,7 @@ export default function Logs() {
           </span>
         </div>
 
-        <div className="overflow-y-auto rounded-lg border border-panda-border" style={{ maxHeight: '400px' }}>
+        <div className="overflow-auto rounded-lg border border-panda-border" style={{ maxHeight: '400px' }}>
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10">
               <tr className="bg-panda-elevated border-b border-panda-border">
@@ -591,7 +591,7 @@ export default function Logs() {
                     {err.client_ip || '-'}
                   </td>
                   <td className="px-5 py-3 align-top"><LevelBadge level={err.level} /></td>
-                  <td className="px-5 py-3 font-mono text-sm text-panda-muted leading-relaxed">
+                  <td className="px-5 py-3 font-mono text-sm text-panda-muted leading-relaxed break-all">
                     <span className="line-clamp-2">{err.message}</span>
                   </td>
                 </tr>
@@ -618,7 +618,7 @@ export default function Logs() {
             No slice failures detected
           </div>
         ) : (
-          <div className="overflow-y-auto rounded-lg border border-panda-border" style={{ maxHeight: '350px' }}>
+          <div className="overflow-auto rounded-lg border border-panda-border" style={{ maxHeight: '350px' }}>
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-panda-elevated border-b border-panda-border">
@@ -665,7 +665,7 @@ export default function Logs() {
                     <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-dim font-mono align-top">{formatTime(event.time)}</td>
                     <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-muted font-mono align-top">{event.client_ip || '-'}</td>
                     <td className="px-5 py-3 font-mono text-sm text-bamboo whitespace-nowrap align-top">{event.host}</td>
-                    <td className="px-5 py-3 font-mono text-sm text-warn leading-relaxed">
+                    <td className="px-5 py-3 font-mono text-sm text-warn leading-relaxed break-all">
                       <span className="line-clamp-2">{event.error}</span>
                     </td>
                   </tr>

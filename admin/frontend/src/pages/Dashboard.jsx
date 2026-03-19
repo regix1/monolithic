@@ -65,8 +65,8 @@ export default function Dashboard() {
     <div className="flex flex-col gap-5 animate-fade-in">
       {/* Header with greeting */}
       <div className="shrink-0">
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-panda-text">{greeting.greeting} {greeting.emoji}</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl sm:text-3xl font-bold text-panda-text">{greeting.greeting} {greeting.emoji}</h1>
           {!isLive && (
             <span className="text-sm text-warn bg-warn/10 border border-warn/25 px-3 py-1.5 rounded-full">
               Mock Data
@@ -91,7 +91,7 @@ export default function Dashboard() {
               {healthWarnings.length} {healthWarnings.length === 1 ? 'issue' : 'issues'} detected
             </span>
           </div>
-          <ul className="ml-7 flex flex-col gap-1">
+          <ul className="ml-5 sm:ml-7 flex flex-col gap-1">
             {healthWarnings.map((w, i) => (
               <li key={i} className={`text-sm ${healthStatus === 'critical' ? 'text-err/80' : 'text-warn/80'}`}>
                 {w}
@@ -102,9 +102,9 @@ export default function Dashboard() {
       )}
 
       {/* Row 1: Quick stats */}
-      <div className="grid grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         {/* Active connections — hero */}
-        <div className="col-span-2 rounded-xl bg-panda-surface border border-panda-border p-5 flex items-center gap-5">
+        <div className="col-span-full lg:col-span-2 rounded-xl bg-panda-surface border border-panda-border p-5 flex items-center gap-5">
           <div className="w-14 h-14 rounded-xl bg-bamboo/10 flex items-center justify-center shrink-0">
             <Activity size={28} className="text-bamboo" />
           </div>
@@ -136,9 +136,9 @@ export default function Dashboard() {
       </div>
 
       {/* Row 2: Service Health + Cache Volume */}
-      <div className="grid grid-cols-5 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
         {/* Service Health */}
-        <div className="col-span-3 flex">
+        <div className="lg:col-span-3 flex">
           <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex-1 flex flex-col">
             <div className="flex items-center gap-3 mb-4">
               <SIcon icon={Server} />
@@ -147,7 +147,7 @@ export default function Dashboard() {
                 <p className="text-sm text-panda-dim">Uptime: {health.uptime}</p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 flex-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
               {health.processes.map((proc) => {
                 const desc = {
                   'nginx': 'Reverse proxy & cache engine',
@@ -180,7 +180,7 @@ export default function Dashboard() {
         </div>
 
         {/* Cache Volume */}
-        <div className="col-span-2 flex">
+        <div className="lg:col-span-2 flex">
           <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex-1 flex flex-col">
             <div className="flex items-center gap-3 mb-4">
               <SIcon icon={HardDrive} />
@@ -219,7 +219,7 @@ export default function Dashboard() {
       </div>
 
       {/* Row 3: Filesystem + Config Hash + Noslice */}
-      <div className="grid grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* Filesystem */}
         <div className="flex">
           <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex-1 flex flex-col">

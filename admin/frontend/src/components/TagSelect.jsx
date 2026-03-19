@@ -19,7 +19,11 @@ export default function TagSelect({ value, options, onChange }) {
   const updatePos = useCallback(() => {
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect()
-      setPos({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+      const VIEWPORT_PADDING = 8
+      const maxWidth = window.innerWidth - VIEWPORT_PADDING * 2
+      const width = Math.min(rect.width, maxWidth)
+      const left = Math.min(rect.left, window.innerWidth - width - VIEWPORT_PADDING)
+      setPos({ top: rect.bottom + 4, left, width })
     }
   }, [])
 
@@ -96,9 +100,9 @@ export default function TagSelect({ value, options, onChange }) {
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); removeTag(tag) }}
-              className="text-panda-dim hover:text-err transition-colors"
+              className="text-panda-dim hover:text-err transition-colors p-1"
             >
-              <X size={12} />
+              <X size={14} />
             </button>
           </span>
         ))}
@@ -121,7 +125,7 @@ export default function TagSelect({ value, options, onChange }) {
         <div
           ref={dropdownRef}
           className="fixed max-h-[240px] overflow-y-auto rounded-lg border border-panda-border bg-panda-elevated shadow-2xl"
-          style={{ top: pos.top, left: pos.left, width: pos.width, zIndex: 9999 }}
+          style={{ top: pos.top, left: pos.left, width: pos.width, maxWidth: 'calc(100vw - 1rem)', zIndex: 100 }}
         >
           {filtered.length === 0 && selected.length < options.length ? (
             <div className="px-4 py-3 text-sm text-panda-dim">

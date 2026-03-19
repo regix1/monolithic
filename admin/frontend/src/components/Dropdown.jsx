@@ -48,7 +48,11 @@ export default function Dropdown({
     const shouldOpenUp = spaceBelow < estimatedHeight + 8 && spaceAbove > estimatedHeight + 8
 
     const minWidth = 220
-    const width = dropdownWidth ? parseInt(dropdownWidth) || rect.width : Math.max(rect.width, minWidth)
+    const maxWidth = window.innerWidth - VIEWPORT_PADDING * 2
+    const width = Math.min(
+      dropdownWidth ? parseInt(dropdownWidth) || rect.width : Math.max(rect.width, minWidth),
+      maxWidth
+    )
     const left = Math.min(
       Math.max(rect.left, VIEWPORT_PADDING),
       window.innerWidth - width - VIEWPORT_PADDING
@@ -127,6 +131,7 @@ export default function Dropdown({
             bottom: position.bottom,
             left: position.left,
             width: position.width,
+            maxWidth: 'calc(100vw - 1rem)',
             animation: `${openUpward ? 'slideUp' : 'slideDown'} 0.15s cubic-bezier(0.16, 1, 0.3, 1)`,
           }}
         >

@@ -57,7 +57,7 @@ function DomainTreeItem({ service, data }) {
     <div className="border-b border-panda-border last:border-b-0">
       <button
         onClick={() => setExpanded((prev) => !prev)}
-        className={`flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-panda-elevated/30 ${expanded ? 'bg-panda-elevated/20' : ''}`}
+        className={`flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-panda-elevated/30 ${expanded ? 'bg-panda-elevated/20' : ''}`}
       >
         {expanded ? (
           <ChevronDown size={14} className="text-bamboo" />
@@ -80,10 +80,10 @@ function DomainTreeItem({ service, data }) {
           {data.files.map((file) => (
             <div
               key={file}
-              className="flex items-center gap-3 px-10 py-2 border-t border-panda-surface"
+              className="flex items-center gap-3 px-5 sm:px-10 py-2 border-t border-panda-surface"
             >
               <span className="text-panda-border text-sm">└</span>
-              <span className="font-mono text-sm text-bamboo">{file}</span>
+              <span className="font-mono text-sm text-bamboo truncate">{file}</span>
             </div>
           ))}
         </div>
@@ -172,14 +172,14 @@ export default function Upstream() {
           </span>
         }
       >
-        <div className="overflow-y-auto" style={{ maxHeight: '400px' }}>
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '400px' }}>
+          <table className="w-full min-w-[500px] text-sm">
             <thead className="sticky top-0 z-10">
               <tr className="bg-panda-elevated border-b border-panda-border">
-                <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Domain</th>
-                <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Keepalive</th>
-                <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Timeout</th>
-                <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Time</th>
+                <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim whitespace-nowrap">Domain</th>
+                <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim whitespace-nowrap">Keepalive</th>
+                <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim whitespace-nowrap">Timeout</th>
+                <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim whitespace-nowrap">Time</th>
               </tr>
             </thead>
             <tbody>
@@ -188,10 +188,10 @@ export default function Upstream() {
                   key={pool.domain}
                   className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
                 >
-                  <td className="px-5 py-3 font-mono text-sm text-bamboo">{pool.domain}</td>
-                  <td className="px-5 py-3 font-mono text-sm text-panda-text">{pool.keepalive}</td>
-                  <td className="px-5 py-3 font-mono text-sm text-panda-text">{pool.timeout}</td>
-                  <td className="px-5 py-3 font-mono text-sm text-panda-text">{pool.time}</td>
+                  <td className="px-5 py-3 font-mono text-sm text-bamboo whitespace-nowrap">{pool.domain}</td>
+                  <td className="px-5 py-3 font-mono text-sm text-panda-text whitespace-nowrap">{pool.keepalive}</td>
+                  <td className="px-5 py-3 font-mono text-sm text-panda-text whitespace-nowrap">{pool.timeout}</td>
+                  <td className="px-5 py-3 font-mono text-sm text-panda-text whitespace-nowrap">{pool.time}</td>
                 </tr>
               ))}
             </tbody>
@@ -226,13 +226,13 @@ export default function Upstream() {
             No fallback events — upstream connections healthy
           </div>
         ) : (
-          <div className="overflow-y-auto" style={{ maxHeight: '300px' }}>
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '300px' }}>
+            <table className="w-full min-w-[500px] text-sm">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-panda-elevated border-b border-panda-border">
-                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Time</th>
+                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim whitespace-nowrap">Time</th>
                   <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Path</th>
-                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Status</th>
+                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim whitespace-nowrap">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -242,10 +242,10 @@ export default function Upstream() {
                     className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
                   >
                     <td className="px-5 py-3 text-sm text-panda-dim whitespace-nowrap align-top">{event.time}</td>
-                    <td className="px-5 py-3 font-mono text-sm text-bamboo leading-relaxed align-top break-all">
-                      {event.host}
+                    <td className="px-5 py-3 font-mono text-sm text-bamboo leading-relaxed align-top">
+                      <span className="truncate max-w-[200px] sm:max-w-[300px] block" title={event.host}>{event.host}</span>
                     </td>
-                    <td className="px-5 py-3 align-top"><FallbackStatusBadge status={event.status} /></td>
+                    <td className="px-5 py-3 align-top whitespace-nowrap"><FallbackStatusBadge status={event.status} /></td>
                   </tr>
                 ))}
               </tbody>

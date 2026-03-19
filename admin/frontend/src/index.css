@@ -50,6 +50,10 @@ body,
   -moz-osx-font-smoothing: grayscale;
 }
 
+body {
+  overflow-x: hidden;
+}
+
 /* ── Noise texture overlay ─────────────────────────────────────── */
 .noise-bg::before {
   content: '';
@@ -71,13 +75,15 @@ body,
   transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.card-hover:hover {
-  border-color: rgba(74, 222, 128, 0.25);
-  box-shadow:
-    0 0 0 1px rgba(74, 222, 128, 0.08),
-    0 0 20px rgba(74, 222, 128, 0.06),
-    0 8px 32px rgba(0, 0, 0, 0.35);
-  transform: translateY(-2px);
+@media (hover: hover) {
+  .card-hover:hover {
+    border-color: rgba(74, 222, 128, 0.25);
+    box-shadow:
+      0 0 0 1px rgba(74, 222, 128, 0.08),
+      0 0 20px rgba(74, 222, 128, 0.06),
+      0 8px 32px rgba(0, 0, 0, 0.35);
+    transform: translateY(-2px);
+  }
 }
 
 /* ── Glassmorphism card ────────────────────────────────────────── */

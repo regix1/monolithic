@@ -237,8 +237,8 @@ export default function Upstream() {
                     className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
                   >
                     <td className="px-5 py-3 text-sm text-panda-dim whitespace-nowrap align-top">{event.time}</td>
-                    <td className="px-5 py-3 font-mono text-sm text-bamboo leading-relaxed align-top">
-                      <span className="line-clamp-2">{event.host}</span>
+                    <td className="px-5 py-3 font-mono text-sm text-bamboo leading-relaxed align-top break-all">
+                      {event.host}
                     </td>
                     <td className="px-5 py-3 align-top"><FallbackStatusBadge status={event.status} /></td>
                   </tr>

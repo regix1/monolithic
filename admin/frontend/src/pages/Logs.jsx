@@ -106,10 +106,11 @@ function LevelBadge({ level }) {
 }
 
 function UpstreamStatCard({ icon: Icon, count, label, colorClass }) {
+  const activeColor = count > 0 ? colorClass : 'text-panda-dim'
   return (
     <div className="flex flex-col items-center gap-1.5 rounded-lg p-4 bg-panda-bg border border-panda-border">
-      <Icon size={18} className={colorClass} />
-      <span className={`font-mono text-2xl font-semibold ${colorClass}`}>{count}</span>
+      <Icon size={18} className={activeColor} />
+      <span className={`font-mono text-2xl font-semibold ${activeColor}`}>{count}</span>
       <span className="text-sm text-panda-dim">{label}</span>
     </div>
   )
@@ -416,7 +417,7 @@ export default function Logs() {
           ) : (
             <div className="flex flex-col gap-4 flex-1">
               <p className="text-base text-panda-muted">
-                <span className="font-mono text-lg font-semibold text-err">{uh.total_errors}</span>{' '}
+                <span className={`font-mono text-lg font-semibold ${uh.total_errors > 50 ? 'text-err' : uh.total_errors > 10 ? 'text-warn' : 'text-panda-text'}`}>{uh.total_errors}</span>{' '}
                 errors in <span className="font-mono text-panda-text">upstream-error.log</span>
               </p>
 
@@ -434,7 +435,7 @@ export default function Logs() {
                     {uh.top_hosts.slice(0, 5).map((h) => (
                       <div key={h.host} className="flex items-center justify-between rounded-lg px-4 py-2.5 bg-panda-bg border border-panda-border">
                         <span className="font-mono text-sm text-panda-muted truncate mr-3">{h.host}</span>
-                        <span className="font-mono text-sm font-semibold text-err shrink-0">{h.count}</span>
+                        <span className={`font-mono text-sm font-semibold shrink-0 ${h.count > 50 ? 'text-err' : h.count > 10 ? 'text-warn' : 'text-panda-muted'}`}>{h.count}</span>
                       </div>
                     ))}
                   </div>

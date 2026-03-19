@@ -308,7 +308,7 @@ export default function Dashboard() {
               <SIcon icon={Shield} />
               <h3 className="text-base font-semibold text-panda-text">No-Slice</h3>
               <span className={`ml-auto text-sm font-medium px-3 py-1 rounded-full ${
-                ns.enabled ? 'bg-bamboo/10 text-bamboo' : 'bg-err/10 text-err'
+                ns.enabled ? 'bg-bamboo/10 text-bamboo' : 'bg-panda-elevated text-panda-dim'
               }`}>
                 {ns.enabled ? 'Enabled' : 'Disabled'}
               </span>

@@ -8,10 +8,10 @@ function FallbackStatusBadge({ status }) {
   const map = {
     stale_keepalive: { bg: 'bg-warn/10', text: 'text-warn', label: 'stale_keepalive' },
     fallback_ok: { bg: 'bg-bamboo/10', text: 'text-bamboo', label: 'fallback_ok' },
-    upstream_error: { bg: 'bg-err/10', text: 'text-err', label: 'upstream_error' },
+    upstream_error: { bg: 'bg-warn/10', text: 'text-warn', label: 'upstream_error' },
     fallback: { bg: 'bg-info/10', text: 'text-info', label: 'fallback' },
-    dns_timeout: { bg: 'bg-err/10', text: 'text-err', label: 'dns_timeout' },
-    connect_failed: { bg: 'bg-err/10', text: 'text-err', label: 'connect_failed' },
+    dns_timeout: { bg: 'bg-warn/10', text: 'text-warn', label: 'dns_timeout' },
+    connect_failed: { bg: 'bg-warn/10', text: 'text-warn', label: 'connect_failed' },
   }
   const style = map[status] ?? { bg: 'bg-info/10', text: 'text-info', label: status }
   return (
@@ -149,7 +149,7 @@ export default function Upstream() {
               Enabled
             </span>
           ) : (
-            <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium bg-err/10 text-err">
+            <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium bg-panda-elevated text-panda-dim">
               <WifiOff size={14} />
               Disabled
             </span>

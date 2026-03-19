@@ -246,7 +246,7 @@ var cacheStatusColors = map[string]string{
 	"MISS":     "#60a5fa",
 	"EXPIRED":  "#fbbf24",
 	"STALE":    "#a0a0a0",
-	"BYPASS":   "#f87171",
+	"BYPASS":   "#a78bfa",
 	"UPDATING": "#c084fc",
 }
 

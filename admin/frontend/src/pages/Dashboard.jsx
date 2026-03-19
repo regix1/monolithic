@@ -148,22 +148,33 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 flex-1">
-              {health.processes.map((proc) => (
-                <div key={proc.name}
-                  className="flex items-center justify-between rounded-lg bg-panda-bg px-4 py-3.5">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-2.5 h-2.5 rounded-full ${proc.status === 'RUNNING' ? 'bg-bamboo breathe-green' : 'bg-err breathe-red'}`} />
-                    <div>
-                      <p className="text-base font-medium text-panda-text font-mono">{proc.name}</p>
-                      <p className="text-sm text-panda-dim">
-                        {proc.pid ? `PID ${proc.pid}` : proc.status === 'RUNNING' ? 'running' : 'not running'}
-                        {proc.uptime ? ` · ${proc.uptime}` : ''}
-                      </p>
+              {health.processes.map((proc) => {
+                const desc = {
+                  'nginx': 'Reverse proxy & cache engine',
+                  'heartbeat': 'Health check ping service',
+                  'log-watcher': 'Log rotation monitor',
+                  'noslice-detector': 'Slice error auto-detection',
+                  'lancache-admin': 'Admin UI backend',
+                }[proc.name] || ''
+
+                return (
+                  <div key={proc.name}
+                    className="flex items-center justify-between rounded-lg bg-panda-bg px-4 py-3.5">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${proc.status === 'RUNNING' ? 'bg-bamboo breathe-green' : 'bg-err breathe-red'}`} />
+                      <div>
+                        <p className="text-base font-medium text-panda-text font-mono">{proc.name}</p>
+                        <p className="text-xs text-panda-dim leading-snug">{desc}</p>
+                        <p className="text-sm text-panda-muted mt-0.5">
+                          {proc.pid ? `PID ${proc.pid}` : proc.status === 'RUNNING' ? 'running' : 'not running'}
+                          {proc.uptime ? ` · ${proc.uptime}` : ''}
+                        </p>
+                      </div>
                     </div>
+                    <StatusBadge status={proc.status === 'RUNNING' ? 'running' : 'stopped'} label={proc.status} />
                   </div>
-                  <StatusBadge status={proc.status === 'RUNNING' ? 'running' : 'stopped'} label={proc.status} />
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         </div>

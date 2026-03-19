@@ -111,7 +111,7 @@ func sendFastData(w http.ResponseWriter, flusher http.Flusher) {
 	} else if diskWarning {
 		warnings = append(warnings, fmt.Sprintf("Disk space low: %.1f%% used", disk.Percent))
 	}
-	recentErrors, _ := services.ParseErrorLog(services.ErrorLogPath, 200)
+	recentErrors, _ := services.ParseErrorLog(services.ErrorLogPath, 200, time.Time{})
 	errorsLastHour := 0
 	for _, e := range recentErrors {
 		if t, err := time.ParseInLocation("2006-01-02 15:04:05", e.Time, time.Local); err == nil {
@@ -194,16 +194,17 @@ func sendSlowData(w http.ResponseWriter, flusher http.Flusher) {
 		sendEvent(w, flusher, "filesystem", fsResp)
 	}
 
-	// Log stats
-	cacheStatus := services.ComputeCacheStatus(services.AccessLogPath, 10000)
+	// Log stats (default 30 days for SSE)
+	sseSince := time.Now().Add(-720 * time.Hour)
+	cacheStatus := services.ComputeCacheStatus(services.AccessLogPath, 20000, sseSince)
 	errorRate := services.ComputeErrorRate(services.ErrorLogPath, 720)
-	recentErrors, _ := services.ParseErrorLog(services.ErrorLogPath, 20)
+	recentErrors, _ := services.ParseErrorLog(services.ErrorLogPath, 50, sseSince)
 	if recentErrors == nil {
 		recentErrors = []models.ErrorLogEntry{}
 	}
-	nosliceEvents := services.FindNosliceEvents(services.ErrorLogPath)
-	upstreamHealth := services.ComputeUpstreamHealth(services.UpstreamErrorLogPath, 5000, time.Time{})
-	bandwidth, svcStats := services.ComputeBandwidthStats(services.AccessLogPath, 10000)
+	nosliceEvents := services.FindNosliceEvents(services.ErrorLogPath, sseSince)
+	upstreamHealth := services.ComputeUpstreamHealth(services.UpstreamErrorLogPath, 5000, sseSince)
+	bandwidth, svcStats := services.ComputeBandwidthStats(services.AccessLogPath, 20000, sseSince)
 
 	sendEvent(w, flusher, "logstats", models.LogStatsResponse{
 		CacheStatus:    cacheStatus,

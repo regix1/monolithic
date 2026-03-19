@@ -15,7 +15,7 @@ func LogErrors(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entries, err := services.ParseErrorLog(services.ErrorLogPath, 50)
+	entries, err := services.ParseErrorLog(services.ErrorLogPath, 50, time.Time{})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to read error log: "+err.Error())
 		return
@@ -61,15 +61,17 @@ func LogStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	cacheStatus := services.ComputeCacheStatus(services.AccessLogPath, 10000)
+	since := time.Now().Add(-time.Duration(hours) * time.Hour)
+
+	cacheStatus := services.ComputeCacheStatus(services.AccessLogPath, 20000, since)
 	errorRate := services.ComputeErrorRate(services.ErrorLogPath, hours)
-	recentErrors, _ := services.ParseErrorLog(services.ErrorLogPath, 20)
+	recentErrors, _ := services.ParseErrorLog(services.ErrorLogPath, 50, since)
 	if recentErrors == nil {
 		recentErrors = []models.ErrorLogEntry{}
 	}
-	nosliceEvents := services.FindNosliceEvents(services.ErrorLogPath)
-	upstreamHealth := services.ComputeUpstreamHealth(services.UpstreamErrorLogPath, 5000, time.Time{})
-	bandwidth, svcStats := services.ComputeBandwidthStats(services.AccessLogPath, 10000)
+	nosliceEvents := services.FindNosliceEvents(services.ErrorLogPath, since)
+	upstreamHealth := services.ComputeUpstreamHealth(services.UpstreamErrorLogPath, 5000, since)
+	bandwidth, svcStats := services.ComputeBandwidthStats(services.AccessLogPath, 20000, since)
 
 	resp := models.LogStatsResponse{
 		CacheStatus:    cacheStatus,

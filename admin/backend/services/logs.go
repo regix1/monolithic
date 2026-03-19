@@ -135,7 +135,7 @@ func tailFile(path string, n int) ([]string, error) {
 
 // ---------- error log parsing ----------
 
-func ParseErrorLog(path string, n int) ([]models.ErrorLogEntry, error) {
+func ParseErrorLog(path string, n int, since time.Time) ([]models.ErrorLogEntry, error) {
 	lines, err := tailFile(path, n)
 	if err != nil {
 		return nil, err
@@ -150,6 +150,15 @@ func ParseErrorLog(path string, n int) ([]models.ErrorLogEntry, error) {
 		match := errorLogRegex.FindStringSubmatch(line)
 		if match == nil {
 			continue
+		}
+
+		// Filter by time window
+		if !since.IsZero() {
+			if t, err := time.ParseInLocation("2006/01/02 15:04:05", match[1], time.Local); err == nil {
+				if t.Before(since) {
+					continue
+				}
+			}
 		}
 
 		ts := convertErrorTimestamp(match[1])
@@ -253,7 +262,10 @@ var cacheStatusColors = map[string]string{
 // cacheStatusOrder defines the display order.
 var cacheStatusOrder = []string{"HIT", "MISS", "EXPIRED", "STALE", "BYPASS", "UPDATING"}
 
-func ComputeCacheStatus(path string, n int) []models.CacheStatusEntry {
+// accessLogTimeRegex extracts the nginx timestamp from access log lines: [02/Jan/2006:15:04:05 -0700]
+var accessLogTimeRegex = regexp.MustCompile(`\[(\d{2}/\w{3}/\d{4}:\d{2}:\d{2}:\d{2}\s+[^\]]+)\]`)
+
+func ComputeCacheStatus(path string, n int, since time.Time) []models.CacheStatusEntry {
 	lines, err := tailFile(path, n)
 	if err != nil {
 		return []models.CacheStatusEntry{}
@@ -263,6 +275,17 @@ func ComputeCacheStatus(path string, n int) []models.CacheStatusEntry {
 	total := 0
 
 	for _, line := range lines {
+		// Filter by time window
+		if !since.IsZero() {
+			if m := accessLogTimeRegex.FindStringSubmatch(line); m != nil {
+				if t, err := time.Parse("02/Jan/2006:15:04:05 -0700", m[1]); err == nil {
+					if t.Before(since) {
+						continue
+					}
+				}
+			}
+		}
+
 		status := extractCacheStatus(line)
 		if status == "" {
 			continue
@@ -417,7 +440,7 @@ func ComputeErrorRate(path string, hours int) []models.ErrorRateBucket {
 
 // ---------- noslice events ----------
 
-func FindNosliceEvents(path string) []models.NosliceEvent {
+func FindNosliceEvents(path string, since time.Time) []models.NosliceEvent {
 	lines, err := tailFile(path, 5000)
 	if err != nil {
 		return []models.NosliceEvent{}
@@ -434,6 +457,15 @@ func FindNosliceEvents(path string) []models.NosliceEvent {
 		match := errorLogRegex.FindStringSubmatch(line)
 		if match == nil {
 			continue
+		}
+
+		// Filter by time window
+		if !since.IsZero() {
+			if t, err := time.ParseInLocation("2006/01/02 15:04:05", match[1], time.Local); err == nil {
+				if t.Before(since) {
+					continue
+				}
+			}
 		}
 
 		ts := convertErrorTimestamp(match[1])
@@ -544,7 +576,7 @@ func ComputeUpstreamHealth(path string, n int, since time.Time) models.UpstreamH
 
 // ---------- bandwidth stats ----------
 
-func ComputeBandwidthStats(path string, n int) (models.BandwidthSummary, []models.ServiceStats) {
+func ComputeBandwidthStats(path string, n int, since time.Time) (models.BandwidthSummary, []models.ServiceStats) {
 	lines, err := tailFile(path, n)
 	if err != nil {
 		return models.BandwidthSummary{}, []models.ServiceStats{}
@@ -564,6 +596,17 @@ func ComputeBandwidthStats(path string, n int) (models.BandwidthSummary, []model
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
+		}
+
+		// Filter by time window
+		if !since.IsZero() {
+			if m := accessLogTimeRegex.FindStringSubmatch(line); m != nil {
+				if t, err := time.Parse("02/Jan/2006:15:04:05 -0700", m[1]); err == nil {
+					if t.Before(since) {
+						continue
+					}
+				}
+			}
 		}
 
 		// Try text format

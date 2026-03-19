@@ -44,7 +44,7 @@ func StatsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Error rate check (count recent errors from error.log)
-	recentErrors, _ := services.ParseErrorLog(services.ErrorLogPath, 200)
+	recentErrors, _ := services.ParseErrorLog(services.ErrorLogPath, 200, time.Time{})
 	errorsLastHour := 0
 	oneHourAgo := time.Now().Add(-1 * time.Hour)
 	for _, e := range recentErrors {

@@ -196,7 +196,7 @@ func sendSlowData(w http.ResponseWriter, flusher http.Flusher) {
 
 	// Log stats
 	cacheStatus := services.ComputeCacheStatus(services.AccessLogPath, 10000)
-	errorRate := services.ComputeErrorRate(services.ErrorLogPath)
+	errorRate := services.ComputeErrorRate(services.ErrorLogPath, 720)
 	recentErrors, _ := services.ParseErrorLog(services.ErrorLogPath, 20)
 	if recentErrors == nil {
 		recentErrors = []models.ErrorLogEntry{}

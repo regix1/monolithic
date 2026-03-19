@@ -117,17 +117,44 @@ function UpstreamStatCard({ icon: Icon, count, label, colorClass }) {
 
 /* ── Main Component ───────────────────────────────────────────── */
 
+const TIME_RANGES = [
+  { label: '1 Hour', hours: 1 },
+  { label: '24 Hours', hours: 24 },
+  { label: '7 Days', hours: 168 },
+  { label: '30 Days', hours: 720 },
+]
+
 export default function Logs() {
-  const { data: apiLogStats, loading } = useSSE('logstats', api.getLogStats)
+  const { data: sseLogStats, loading } = useSSE('logstats', api.getLogStats)
 
   /* All hooks MUST be called before any early return */
   const { formatTime } = useTimeFormat()
+  const [timeRange, setTimeRange] = useState(720)
+  const [fetchedStats, setFetchedStats] = useState(null)
+  const [fetchingRange, setFetchingRange] = useState(false)
   const [serviceSortKey, setServiceSortKey] = useState('bytes')
   const [serviceSortDir, setServiceSortDir] = useState('desc')
   const [errorSortKey, setErrorSortKey] = useState('time')
   const [errorSortDir, setErrorSortDir] = useState('desc')
   const [nosliceSortKey, setNosliceSortKey] = useState('time')
   const [nosliceSortDir, setNosliceSortDir] = useState('desc')
+
+  // When time range changes, fetch filtered data from REST API
+  const apiLogStats = timeRange === 720 ? sseLogStats : fetchedStats
+
+  async function handleTimeRangeChange(hours) {
+    setTimeRange(hours)
+    if (hours === 720) {
+      setFetchedStats(null)
+      return
+    }
+    setFetchingRange(true)
+    const result = await fetch(`/api/logs/stats?hours=${hours}`)
+      .then(r => r.ok ? r.json() : null)
+      .catch(() => null)
+    setFetchedStats(result)
+    setFetchingRange(false)
+  }
 
   if (loading) {
     return (
@@ -190,30 +217,59 @@ export default function Logs() {
   }
 
   function SortArrow({ sortKey, currentKey, currentDir }) {
-    if (currentKey !== sortKey) return null
-    return currentDir === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+    const isActive = currentKey === sortKey
+    if (isActive) {
+      return currentDir === 'asc'
+        ? <ChevronUp size={14} className="text-bamboo" />
+        : <ChevronDown size={14} className="text-bamboo" />
+    }
+    return <ChevronDown size={14} className="opacity-25" />
   }
 
   return (
     <div className="flex flex-col gap-5 animate-fade-in">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-panda-text">Logs</h1>
-        <p className="mt-1 text-base text-panda-dim">
-          Operational analytics — upstream performance &amp; error monitoring
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-panda-text">Logs</h1>
+          <p className="mt-1 text-base text-panda-dim">
+            Operational analytics — upstream performance &amp; error monitoring
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {fetchingRange && <span className="text-sm text-panda-dim">Loading...</span>}
+          <div className="flex rounded-xl bg-panda-elevated/50 border border-panda-border p-1 gap-0.5">
+            {TIME_RANGES.map(({ label, hours }) => (
+              <button
+                key={hours}
+                onClick={() => handleTimeRangeChange(hours)}
+                className={[
+                  'px-3.5 py-1.5 text-sm font-medium rounded-lg transition-all duration-200',
+                  timeRange === hours
+                    ? 'bg-bamboo/20 text-bamboo shadow-sm'
+                    : 'text-panda-dim hover:text-panda-text hover:bg-panda-elevated',
+                ].join(' ')}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* ── Row 1: KPI Cards ──────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {/* Bandwidth Saved */}
-        <div className="rounded-xl bg-panda-surface border border-panda-border p-5">
-          <div className="flex items-center gap-2 text-sm uppercase tracking-wider text-panda-dim mb-2">
-            <Download size={16} className="text-bamboo" />
-            Bandwidth Saved
-          </div>
-          <div className="text-3xl font-bold font-mono text-bamboo">
-            {formatBytes(bw.bandwidth_saved)}
+        {/* Bandwidth Saved — hero metric */}
+        <div className="rounded-xl bg-panda-surface border border-bamboo/20 p-5 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-bamboo/5 to-transparent pointer-events-none" />
+          <div className="relative">
+            <div className="flex items-center gap-2 text-sm uppercase tracking-wider text-panda-dim mb-2">
+              <Download size={16} className="text-bamboo" />
+              Bandwidth Saved
+            </div>
+            <div className="text-3xl font-bold font-mono text-bamboo">
+              {formatBytes(bw.bandwidth_saved)}
+            </div>
           </div>
         </div>
 
@@ -255,7 +311,7 @@ export default function Logs() {
       <div className="rounded-xl bg-panda-surface border border-panda-border p-5 [&_.recharts-wrapper]:outline-none">
         <div className="mb-4 flex items-center gap-3">
           <TrendingUp size={18} className="text-err" />
-          <h2 className="text-base font-semibold text-panda-text">Error Rate (Last Hour)</h2>
+          <h2 className="text-base font-semibold text-panda-text">Error Rate ({TIME_RANGES.find(r => r.hours === timeRange)?.label ?? '30 Days'})</h2>
         </div>
 
         {hasErrors ? (
@@ -264,8 +320,9 @@ export default function Logs() {
               <AreaChart data={logStats.error_rate} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="errorGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef5350" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#ef5350" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#ef5350" stopOpacity={0.35} />
+                    <stop offset="40%" stopColor="#ef5350" stopOpacity={0.15} />
+                    <stop offset="100%" stopColor="#ef5350" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
@@ -277,15 +334,16 @@ export default function Logs() {
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className="flex items-center justify-center gap-2.5 rounded-lg px-5 py-10 bg-bamboo/5 border border-bamboo/20">
-            <CheckCircle size={18} className="text-bamboo" />
-            <span className="text-base text-bamboo">No errors in the last hour</span>
+          <div className="flex flex-col items-center justify-center gap-2 rounded-lg px-5 py-12 bg-bamboo/5 border border-bamboo/20">
+            <CheckCircle size={24} className="text-bamboo" />
+            <span className="text-base font-medium text-bamboo">No errors detected</span>
+            <span className="text-sm text-bamboo/60">All clear for the selected time range</span>
           </div>
         )}
       </div>
 
       {/* ── Row 3: Cache Donut + Upstream Health ──────────────────── */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 auto-rows-fr">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 items-start">
         {/* Cache Status Distribution */}
         <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex flex-col [&_.recharts-wrapper]:outline-none">
           <div className="mb-4 flex items-center gap-3">
@@ -317,17 +375,17 @@ export default function Logs() {
                 </ResponsiveContainer>
 
                 <div className="pointer-events-none absolute flex flex-col items-center" style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
-                  <span className="font-mono text-2xl font-semibold text-panda-text">
+                  <span className="font-mono text-2xl font-bold text-panda-text">
                     {formatBytes(bw.total_served)}
                   </span>
-                  <span className="text-sm text-panda-dim">served</span>
+                  <span className="text-xs uppercase tracking-wider text-panda-dim mt-0.5">served</span>
                 </div>
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2">
                 {logStats.cache_status.map((item) => (
                   <div key={item.name} className="flex items-center gap-3">
-                    <span className="h-3.5 w-3.5 flex-shrink-0 rounded-full" style={{ background: item.color }} />
+                    <span className="h-3.5 w-3.5 shrink-0 rounded-full" style={{ background: item.color }} />
                     <span className="text-sm font-mono font-medium text-panda-muted">{item.name}</span>
                     <span className="ml-auto text-sm font-mono text-panda-text">{item.value.toFixed(1)}%</span>
                   </div>
@@ -376,7 +434,7 @@ export default function Logs() {
                     {uh.top_hosts.slice(0, 5).map((h) => (
                       <div key={h.host} className="flex items-center justify-between rounded-lg px-4 py-2.5 bg-panda-bg border border-panda-border">
                         <span className="font-mono text-sm text-panda-muted truncate mr-3">{h.host}</span>
-                        <span className="font-mono text-sm font-semibold text-err flex-shrink-0">{h.count}</span>
+                        <span className="font-mono text-sm font-semibold text-err shrink-0">{h.count}</span>
                       </div>
                     ))}
                   </div>
@@ -455,7 +513,7 @@ export default function Logs() {
                       {svc.hit_rate.toFixed(1)}%
                     </td>
                     <td className="px-5 py-3">
-                      <span className={`inline-block h-2.5 w-2.5 rounded-full ${hitRateDot(svc.hit_rate)}`} />
+                      <span className={`inline-block h-5 w-1.5 rounded-full ${hitRateDot(svc.hit_rate)}`} />
                     </td>
                   </tr>
                 ))}

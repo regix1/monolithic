@@ -2,7 +2,6 @@ package services
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"math"
 	"os"
@@ -330,29 +329,48 @@ func extractCacheStatus(line string) string {
 	return ""
 }
 
-// ---------- error rate (5-minute buckets, last hour) ----------
+// ---------- error rate (adaptive buckets) ----------
 
-func ComputeErrorRate(path string) []models.ErrorRateBucket {
-	lines, err := tailFile(path, 5000)
+// ComputeErrorRate computes error counts in time buckets over the given duration.
+// Bucket size adapts: <=24h uses hourly buckets, >24h uses daily buckets.
+func ComputeErrorRate(path string, hours int) []models.ErrorRateBucket {
+	lines, err := tailFile(path, 20000)
 	if err != nil {
 		return []models.ErrorRateBucket{}
 	}
 
 	now := time.Now()
-	oneHourAgo := now.Add(-1 * time.Hour)
+	since := now.Add(-time.Duration(hours) * time.Hour)
 
-	// Round oneHourAgo down to nearest 5-minute boundary so bucket labels align.
-	startMinute := oneHourAgo.Minute() - (oneHourAgo.Minute() % 5)
-	bucketStart := time.Date(oneHourAgo.Year(), oneHourAgo.Month(), oneHourAgo.Day(),
-		oneHourAgo.Hour(), startMinute, 0, 0, oneHourAgo.Location())
+	// Choose bucket size and count based on duration
+	var bucketDuration time.Duration
+	var bucketCount int
+	var labelFormat string
 
-	// Create 12 five-minute buckets covering the last hour.
+	if hours <= 24 {
+		bucketDuration = time.Hour
+		bucketCount = hours
+		labelFormat = "15:00"
+	} else {
+		bucketDuration = 24 * time.Hour
+		bucketCount = hours / 24
+		labelFormat = "Jan 2"
+	}
+
+	// Round start down to bucket boundary
+	var bucketStart time.Time
+	if hours <= 24 {
+		bucketStart = time.Date(since.Year(), since.Month(), since.Day(), since.Hour(), 0, 0, 0, since.Location())
+	} else {
+		bucketStart = time.Date(since.Year(), since.Month(), since.Day(), 0, 0, 0, 0, since.Location())
+	}
+
 	buckets := make(map[string]int)
-	bucketTimes := make([]string, 0, 12)
+	bucketTimes := make([]string, 0, bucketCount)
 
-	for i := 0; i < 12; i++ {
-		t := bucketStart.Add(time.Duration(i) * 5 * time.Minute)
-		label := t.Format("15:04")
+	for i := 0; i < bucketCount; i++ {
+		t := bucketStart.Add(time.Duration(i) * bucketDuration)
+		label := t.Format(labelFormat)
 		buckets[label] = 0
 		bucketTimes = append(bucketTimes, label)
 	}
@@ -363,20 +381,23 @@ func ComputeErrorRate(path string) []models.ErrorRateBucket {
 			continue
 		}
 
-		// Use local timezone since nginx logs use server-local time.
 		t, err := time.ParseInLocation("2006/01/02 15:04:05", match[1], time.Local)
 		if err != nil {
 			continue
 		}
 
-		if t.Before(oneHourAgo) {
+		if t.Before(since) {
 			continue
 		}
 
-		// Round down to 5-minute bucket.
-		minute := t.Minute()
-		bucketMinute := minute - (minute % 5)
-		label := fmt.Sprintf("%02d:%02d", t.Hour(), bucketMinute)
+		// Round down to bucket
+		var bucketTime time.Time
+		if hours <= 24 {
+			bucketTime = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
+		} else {
+			bucketTime = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+		}
+		label := bucketTime.Format(labelFormat)
 
 		if _, ok := buckets[label]; ok {
 			buckets[label]++

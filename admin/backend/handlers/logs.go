@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/lancachenet/monolithic/admin/models"
@@ -44,13 +45,24 @@ func LogStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if cached := services.GetCachedLogStats(); cached != nil {
-		writeJSON(w, cached)
-		return
+	// Parse hours parameter (default 720 = 30 days)
+	hours := 720
+	if h := r.URL.Query().Get("hours"); h != "" {
+		if parsed, err := strconv.Atoi(h); err == nil && parsed > 0 {
+			hours = parsed
+		}
+	}
+
+	// Skip cache if custom time range
+	if hours == 720 {
+		if cached := services.GetCachedLogStats(); cached != nil {
+			writeJSON(w, cached)
+			return
+		}
 	}
 
 	cacheStatus := services.ComputeCacheStatus(services.AccessLogPath, 10000)
-	errorRate := services.ComputeErrorRate(services.ErrorLogPath)
+	errorRate := services.ComputeErrorRate(services.ErrorLogPath, hours)
 	recentErrors, _ := services.ParseErrorLog(services.ErrorLogPath, 20)
 	if recentErrors == nil {
 		recentErrors = []models.ErrorLogEntry{}

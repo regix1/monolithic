@@ -1,9 +1,10 @@
 package models
 
 type ErrorLogEntry struct {
-	Time    string `json:"time"`
-	Level   string `json:"level"`
-	Message string `json:"message"`
+	Time     string `json:"time"`
+	Level    string `json:"level"`
+	ClientIP string `json:"client_ip"`
+	Message  string `json:"message"`
 }
 
 type UpstreamLogEntry struct {
@@ -25,9 +26,10 @@ type ErrorRateBucket struct {
 }
 
 type NosliceEvent struct {
-	Time  string `json:"time"`
-	Host  string `json:"host"`
-	Error string `json:"error"`
+	Time     string `json:"time"`
+	ClientIP string `json:"client_ip"`
+	Host     string `json:"host"`
+	Error    string `json:"error"`
 }
 
 type ResponseTimes struct {

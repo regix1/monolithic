@@ -51,7 +51,7 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="h-full max-w-7xl mx-auto"
+            className="h-full max-w-[1600px] mx-auto"
           >
             <Routes location={location}>
               <Route path="/" element={<Dashboard />} />

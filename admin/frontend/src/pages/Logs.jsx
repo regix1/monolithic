@@ -560,6 +560,14 @@ export default function Logs() {
                   </span>
                 </th>
                 <th
+                  onClick={() => toggleErrorSort('client_ip')}
+                  className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider whitespace-nowrap text-panda-dim hover:text-panda-text transition-colors"
+                >
+                  <span className="inline-flex items-center gap-1">
+                    Client IP <SortArrow sortKey="client_ip" currentKey={errorSortKey} currentDir={errorSortDir} />
+                  </span>
+                </th>
+                <th
                   onClick={() => toggleErrorSort('level')}
                   className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim hover:text-panda-text transition-colors"
                 >
@@ -578,6 +586,9 @@ export default function Logs() {
                 >
                   <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-dim font-mono align-top">
                     {formatTime(err.time)}
+                  </td>
+                  <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-muted font-mono align-top">
+                    {err.client_ip || '-'}
                   </td>
                   <td className="px-5 py-3 align-top"><LevelBadge level={err.level} /></td>
                   <td className="px-5 py-3 font-mono text-sm text-panda-muted leading-relaxed">
@@ -620,6 +631,14 @@ export default function Logs() {
                     </span>
                   </th>
                   <th
+                    onClick={() => toggleNosliceSort('client_ip')}
+                    className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider whitespace-nowrap text-panda-dim hover:text-panda-text transition-colors"
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      Client IP <SortArrow sortKey="client_ip" currentKey={nosliceSortKey} currentDir={nosliceSortDir} />
+                    </span>
+                  </th>
+                  <th
                     onClick={() => toggleNosliceSort('host')}
                     className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim hover:text-panda-text transition-colors"
                   >
@@ -644,6 +663,7 @@ export default function Logs() {
                     className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
                   >
                     <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-dim font-mono align-top">{formatTime(event.time)}</td>
+                    <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-muted font-mono align-top">{event.client_ip || '-'}</td>
                     <td className="px-5 py-3 font-mono text-sm text-bamboo whitespace-nowrap align-top">{event.host}</td>
                     <td className="px-5 py-3 font-mono text-sm text-warn leading-relaxed">
                       <span className="line-clamp-2">{event.error}</span>

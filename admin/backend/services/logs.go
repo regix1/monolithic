@@ -163,9 +163,10 @@ func ParseErrorLog(path string, n int, since time.Time) ([]models.ErrorLogEntry,
 
 		ts := convertErrorTimestamp(match[1])
 		entries = append(entries, models.ErrorLogEntry{
-			Time:    ts,
-			Level:   match[2],
-			Message: match[3],
+			Time:     ts,
+			Level:    match[2],
+			ClientIP: extractClientIP(match[3]),
+			Message:  match[3],
 		})
 	}
 
@@ -473,13 +474,25 @@ func FindNosliceEvents(path string, since time.Time) []models.NosliceEvent {
 		host := extractHostFromMessage(msg)
 
 		events = append(events, models.NosliceEvent{
-			Time:  ts,
-			Host:  host,
-			Error: msg,
+			Time:     ts,
+			ClientIP: extractClientIP(msg),
+			Host:     host,
+			Error:    msg,
 		})
 	}
 
 	return events
+}
+
+// clientIPRegex extracts the client IP from nginx error log messages: "client: 127.0.0.1"
+var clientIPRegex = regexp.MustCompile(`client:\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})`)
+
+func extractClientIP(msg string) string {
+	match := clientIPRegex.FindStringSubmatch(msg)
+	if len(match) > 1 {
+		return match[1]
+	}
+	return ""
 }
 
 // extractHostFromMessage attempts to pull a hostname from an error message.
@@ -847,12 +860,15 @@ func processErrorLog(lines []string, hours int, since time.Time) ([]models.Error
 			continue
 		}
 
+		clientIP := extractClientIP(msg)
+
 		// ---- recent errors (keep last 50) ----
 		if len(recentErrors) < 50 {
 			recentErrors = append(recentErrors, models.ErrorLogEntry{
-				Time:    ts,
-				Level:   level,
-				Message: msg,
+				Time:     ts,
+				Level:    level,
+				ClientIP: clientIP,
+				Message:  msg,
 			})
 		} else {
 			// We're reading tail lines (newest last), so keep all — they
@@ -864,9 +880,10 @@ func processErrorLog(lines []string, hours int, since time.Time) ([]models.Error
 		if strings.Contains(lower, "unexpected status code") || strings.Contains(lower, "slice") {
 			host := extractHostFromMessage(msg)
 			nosliceEvents = append(nosliceEvents, models.NosliceEvent{
-				Time:  ts,
-				Host:  host,
-				Error: msg,
+				Time:     ts,
+				ClientIP: clientIP,
+				Host:     host,
+				Error:    msg,
 			})
 		}
 	}

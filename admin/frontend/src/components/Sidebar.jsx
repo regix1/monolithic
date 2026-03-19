@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Settings, Network, ScrollText, ChevronLeft, ChevronRight, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Settings, Network, ScrollText, ChevronLeft, ChevronRight, Menu, X, Clock } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import pandaIcon from '../assets/panda.svg'
+import { useTimeFormat } from '../hooks/useTimeFormat'
 
 /** @type {{ to: string, icon: import('lucide-react').LucideIcon, label: string }[]} */
 const NAV_ITEMS = [
@@ -15,6 +16,7 @@ const NAV_ITEMS = [
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { is24h, toggle } = useTimeFormat()
 
   useEffect(() => {
     function handleResize() {
@@ -167,8 +169,33 @@ export default function Sidebar() {
           ))}
         </nav>
 
-        {/* Collapse + version */}
-        <div className="px-3 pb-5 flex flex-col gap-2">
+        {/* Time format + Collapse + version */}
+        <div className="px-3 pb-5 flex flex-col gap-1">
+          <button
+            onClick={toggle}
+            className={[
+              'flex items-center gap-3 rounded-xl transition-colors duration-150 text-panda-muted hover:text-panda-text hover:bg-panda-elevated/60',
+              collapsed ? 'px-3 py-2.5 justify-center' : 'px-4 py-2.5',
+            ].join(' ')}
+            title={is24h ? 'Switch to 12-hour time' : 'Switch to 24-hour time'}
+          >
+            <Clock size={19} className="shrink-0" />
+            <AnimatePresence initial={false}>
+              {!collapsed && (
+                <motion.span
+                  key="time-label"
+                  initial={{ opacity: 0, x: -6 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -6 }}
+                  transition={{ duration: 0.18 }}
+                  className="text-sm font-mono font-medium whitespace-nowrap"
+                >
+                  {is24h ? '24-hour' : '12-hour'}
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </button>
+
           <button
             onClick={() => setCollapsed((c) => !c)}
             className="hidden lg:flex items-center justify-center w-full rounded-xl py-2.5 text-panda-dim hover:text-panda-muted hover:bg-panda-elevated/60 transition-colors duration-150"

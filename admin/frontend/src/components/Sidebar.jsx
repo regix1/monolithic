@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Settings, Network, ScrollText, ChevronLeft, ChevronRight, Menu, X, Clock } from 'lucide-react'
+import { LayoutDashboard, Settings, Network, ScrollText, ChevronLeft, ChevronRight, Clock } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import pandaIcon from '../assets/panda.svg'
 import { useTimeFormat } from '../hooks/useTimeFormat'
@@ -9,83 +9,72 @@ import { useIsMobile } from '../hooks/useBreakpoint'
 /** @type {{ to: string, icon: import('lucide-react').LucideIcon, label: string }[]} */
 const NAV_ITEMS = [
   { to: '/',         icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/config',   icon: Settings,        label: 'Configuration' },
+  { to: '/config',   icon: Settings,        label: 'Config' },
   { to: '/upstream', icon: Network,          label: 'Upstream' },
   { to: '/logs',     icon: ScrollText,       label: 'Logs' },
 ]
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
-  const [mobileOpen, setMobileOpen] = useState(false)
   const { is24h, toggle } = useTimeFormat()
   const isMobile = useIsMobile()
 
   useEffect(() => {
     function handleResize() {
-      if (window.innerWidth >= 1024) setMobileOpen(false)
-      else setCollapsed(false)
+      if (window.innerWidth < 1024) setCollapsed(false)
     }
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  useEffect(() => {
-    if (mobileOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
-    return () => { document.body.style.overflow = '' }
-  }, [mobileOpen])
-
   return (
     <>
-      {/* Mobile hamburger */}
-      <button
-        type="button"
-        onClick={() => setMobileOpen(true)}
-        className="lg:hidden !fixed top-4 left-4 z-50 rounded-xl bg-panda-surface border border-panda-border p-3 text-panda-muted hover:text-panda-text hover:bg-panda-elevated transition-colors shadow-lg"
-        aria-label="Open menu"
-        aria-expanded={mobileOpen}
-      >
-        <Menu size={18} />
-      </button>
+      {/* ── Mobile bottom tab bar ──────────────────────────────────── */}
+      <nav className="lg:hidden fixed! bottom-0 left-0 right-0 z-50 flex items-stretch border-t border-panda-border bg-panda-surface/95 backdrop-blur-md safe-bottom">
+        {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/'}
+            className={({ isActive }) =>
+              [
+                'flex flex-1 flex-col items-center justify-center gap-1 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] transition-colors duration-150',
+                isActive
+                  ? 'text-bamboo'
+                  : 'text-panda-dim active:text-panda-text',
+              ].join(' ')
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <div className="relative flex items-center justify-center">
+                  <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+                  {isActive && (
+                    <motion.div
+                      layoutId="tab-indicator"
+                      className="absolute -inset-1.5 rounded-lg bg-bamboo/10"
+                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                    />
+                  )}
+                </div>
+                <span className={[
+                  'text-[11px] font-medium leading-none',
+                  isActive ? 'font-semibold' : '',
+                ].join(' ')}>
+                  {label}
+                </span>
+              </>
+            )}
+          </NavLink>
+        ))}
+      </nav>
 
-      {/* Mobile backdrop */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="lg:hidden !fixed inset-0 z-40 bg-black/60"
-            onClick={() => setMobileOpen(false)}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Sidebar */}
+      {/* ── Desktop sidebar ────────────────────────────────────────── */}
       <motion.aside
         animate={{ width: collapsed ? 72 : 240, x: 0 }}
         transition={{ duration: 0.25, ease: 'easeInOut' }}
-        className={[
-          'relative flex-col overflow-y-auto overflow-x-hidden bg-panda-surface border-r border-panda-border shrink-0 h-screen',
-          mobileOpen ? 'flex !fixed inset-y-0 left-0 z-50 shadow-2xl' : 'hidden lg:flex',
-        ].join(' ')}
+        className="relative hidden lg:flex flex-col overflow-y-auto overflow-x-hidden bg-panda-surface border-r border-panda-border shrink-0 h-screen"
       >
-        {/* Mobile close */}
-        {mobileOpen && (
-          <button
-            type="button"
-            onClick={() => setMobileOpen(false)}
-            className="lg:hidden absolute top-4 right-3 z-10 rounded-lg p-2.5 text-panda-dim hover:text-panda-text hover:bg-panda-elevated transition-colors"
-            aria-label="Close menu"
-          >
-            <X size={16} />
-          </button>
-        )}
-
         {/* Logo */}
         <div className="flex items-center gap-3 px-5 pt-6 pb-5">
           <div className="flex items-center justify-center w-9 h-9 shrink-0">
@@ -129,7 +118,6 @@ export default function Sidebar() {
               key={to}
               to={to}
               end={to === '/'}
-              onClick={() => setMobileOpen(false)}
               className={({ isActive }) =>
                 [
                   'group flex items-center gap-3 rounded-xl transition-all duration-200 relative overflow-hidden',
@@ -186,7 +174,7 @@ export default function Sidebar() {
             onClick={toggle}
             className={[
               'flex items-center gap-3 rounded-xl transition-colors duration-150 text-panda-muted hover:text-panda-text hover:bg-panda-elevated/60',
-              collapsed ? 'px-3 py-3 lg:py-2.5 justify-center' : 'px-4 py-3 lg:py-2.5',
+              collapsed ? 'px-3 py-2.5 justify-center' : 'px-4 py-2.5',
             ].join(' ')}
             title={is24h ? 'Switch to 12-hour time' : 'Switch to 24-hour time'}
           >

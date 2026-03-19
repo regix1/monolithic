@@ -31,6 +31,7 @@ import {
   CartesianGrid,
 } from 'recharts'
 import { useSSE } from '../hooks/useSSE'
+import { useTimeFormat } from '../hooks/useTimeFormat'
 import { api } from '../lib/api'
 
 /* ── Helpers ──────────────────────────────────────────────────── */
@@ -120,6 +121,7 @@ export default function Logs() {
   const { data: apiLogStats, loading } = useSSE('logstats', api.getLogStats)
 
   /* All hooks MUST be called before any early return */
+  const { formatTime } = useTimeFormat()
   const [serviceSortKey, setServiceSortKey] = useState('bytes')
   const [serviceSortDir, setServiceSortDir] = useState('desc')
   const [errorSortKey, setErrorSortKey] = useState('time')
@@ -503,7 +505,7 @@ export default function Logs() {
                   className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
                 >
                   <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-dim font-mono">
-                    {err.time}
+                    {formatTime(err.time)}
                   </td>
                   <td className="px-5 py-3"><LevelBadge level={err.level} /></td>
                   <td className="px-5 py-3 font-mono text-sm text-panda-muted max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={err.message}>
@@ -569,7 +571,7 @@ export default function Logs() {
                     key={`${event.host}-${index}`}
                     className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
                   >
-                    <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-dim font-mono">{event.time}</td>
+                    <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-dim font-mono">{formatTime(event.time)}</td>
                     <td className="px-5 py-3 font-mono text-sm text-bamboo whitespace-nowrap">{event.host}</td>
                     <td className="px-5 py-3 font-mono text-sm text-warn max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={event.error}>
                       {event.error}

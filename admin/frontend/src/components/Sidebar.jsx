@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Settings, Network, ScrollText, ChevronLeft, ChevronRight, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Settings, Network, ScrollText, ChevronLeft, ChevronRight, Menu, X, Clock } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import pandaIcon from '../assets/panda.svg'
+import { useTimeFormat } from '../hooks/useTimeFormat'
 
 /** @type {{ to: string, icon: import('lucide-react').LucideIcon, label: string }[]} */
 const NAV_ITEMS = [
@@ -15,6 +16,7 @@ const NAV_ITEMS = [
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { is24h, toggle } = useTimeFormat()
 
   useEffect(() => {
     function handleResize() {
@@ -169,6 +171,17 @@ export default function Sidebar() {
 
         {/* Collapse + version */}
         <div className="px-3 pb-5 flex flex-col gap-2">
+          <button
+            onClick={toggle}
+            className="flex items-center justify-center gap-2 w-full rounded-xl py-2.5 text-panda-dim hover:text-panda-muted hover:bg-panda-elevated/60 transition-colors duration-150"
+            title={is24h ? 'Switch to 12-hour time' : 'Switch to 24-hour time'}
+          >
+            <Clock size={14} />
+            {!collapsed && (
+              <span className="text-xs font-mono">{is24h ? '24h' : '12h'}</span>
+            )}
+          </button>
+
           <button
             onClick={() => setCollapsed((c) => !c)}
             className="hidden lg:flex items-center justify-center w-full rounded-xl py-2.5 text-panda-dim hover:text-panda-muted hover:bg-panda-elevated/60 transition-colors duration-150"

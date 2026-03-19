@@ -65,7 +65,8 @@ body {
   opacity: 1;
 }
 
-.noise-bg > * {
+.noise-bg > main,
+.noise-bg > aside {
   position: relative;
   z-index: 1;
 }

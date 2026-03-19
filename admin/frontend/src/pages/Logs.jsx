@@ -389,7 +389,7 @@ export default function Logs() {
                 </ResponsiveContainer>
 
                 <div className="pointer-events-none absolute flex flex-col items-center" style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
-                  <span className="font-mono text-xl sm:text-3xl font-bold text-panda-text">
+                  <span className="font-mono text-sm sm:text-xl md:text-3xl font-bold text-panda-text">
                     {formatBytes(bw.total_served)}
                   </span>
                   <span className="text-sm uppercase tracking-wider text-panda-dim mt-1">served</span>

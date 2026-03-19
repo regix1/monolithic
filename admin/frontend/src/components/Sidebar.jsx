@@ -44,7 +44,7 @@ export default function Sidebar() {
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-50 rounded-xl bg-panda-surface border border-panda-border p-3 text-panda-muted hover:text-panda-text hover:bg-panda-elevated transition-colors shadow-lg"
+        className="lg:hidden !fixed top-4 left-4 z-50 rounded-xl bg-panda-surface border border-panda-border p-3 text-panda-muted hover:text-panda-text hover:bg-panda-elevated transition-colors shadow-lg"
         aria-label="Open menu"
         aria-expanded={mobileOpen}
       >
@@ -70,9 +70,8 @@ export default function Sidebar() {
         animate={{ width: collapsed ? 72 : 240, x: 0 }}
         transition={{ duration: 0.25, ease: 'easeInOut' }}
         className={[
-          'relative flex flex-col overflow-y-auto overflow-x-hidden bg-panda-surface border-r border-panda-border shrink-0 h-screen',
-          'hidden lg:flex',
-          mobileOpen ? '!flex fixed inset-y-0 left-0 z-50 shadow-2xl' : '',
+          'relative flex-col overflow-y-auto overflow-x-hidden bg-panda-surface border-r border-panda-border shrink-0 h-screen',
+          mobileOpen ? 'flex fixed inset-y-0 left-0 z-50 shadow-2xl' : 'hidden lg:flex',
         ].join(' ')}
       >
         {/* Mobile close */}

@@ -1,35 +1,59 @@
-import { useState, useCallback } from 'react'
+import { useSyncExternalStore, useCallback } from 'react'
 
 const STORAGE_KEY = 'lancache-time-format'
 
-/**
- * Returns the current time format preference and a toggle function.
- * Stored in localStorage so it persists across sessions.
- * @returns {{ is24h: boolean, toggle: () => void, formatTime: (ts: string) => string }}
- */
-export function useTimeFormat() {
-  const [is24h, setIs24h] = useState(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored !== null) return stored === '24h'
-    // Auto-detect from browser locale
-    const hourCycle = Intl.DateTimeFormat().resolvedOptions().hourCycle
-    return hourCycle === 'h23' || hourCycle === 'h24'
+const listeners = new Set()
+
+function getInitialValue() {
+  const stored = localStorage.getItem(STORAGE_KEY)
+  if (stored !== null) return stored === '24h'
+  const hourCycle = Intl.DateTimeFormat().resolvedOptions().hourCycle
+  return hourCycle === 'h23' || hourCycle === 'h24'
+}
+
+let snapshot = getInitialValue()
+
+function getSnapshot() {
+  return snapshot
+}
+
+function subscribe(callback) {
+  listeners.add(callback)
+  return () => listeners.delete(callback)
+}
+
+function emitChange() {
+  for (const listener of listeners) {
+    listener()
+  }
+}
+
+function setIs24h(value) {
+  snapshot = value
+  localStorage.setItem(STORAGE_KEY, value ? '24h' : '12h')
+  emitChange()
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === STORAGE_KEY) {
+      snapshot = e.newValue === '24h'
+      emitChange()
+    }
   })
+}
+
+export function useTimeFormat() {
+  const is24h = useSyncExternalStore(subscribe, getSnapshot)
 
   const toggle = useCallback(() => {
-    setIs24h(prev => {
-      const next = !prev
-      localStorage.setItem(STORAGE_KEY, next ? '24h' : '12h')
-      return next
-    })
+    setIs24h(!getSnapshot())
   }, [])
 
   const formatTime = useCallback((ts) => {
     if (!ts) return ''
-    // ts is "2026-03-17 15:44:30" or similar
-    // Parse and reformat
     const date = new Date(ts.replace(' ', 'T'))
-    if (isNaN(date.getTime())) return ts // unparseable, return as-is
+    if (isNaN(date.getTime())) return ts
 
     const month = String(date.getMonth() + 1).padStart(2, '0')
     const day = String(date.getDate()).padStart(2, '0')

@@ -367,15 +367,15 @@ export default function Logs() {
 
           {logStats.cache_status.length > 0 && totalRequests > 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center">
-              <div className="relative flex items-center justify-center h-[260px] sm:h-[340px] w-full">
+              <div className="relative flex items-center justify-center h-[280px] sm:h-[340px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                     <Pie
                       data={logStats.cache_status}
                       cx="50%"
                       cy="50%"
-                      innerRadius="35%"
-                      outerRadius="50%"
+                      innerRadius="60%"
+                      outerRadius="85%"
                       paddingAngle={2}
                       dataKey="value"
                       stroke="none"
@@ -389,7 +389,7 @@ export default function Logs() {
                 </ResponsiveContainer>
 
                 <div className="pointer-events-none absolute flex flex-col items-center" style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
-                  <span className="font-mono text-sm sm:text-xl md:text-3xl font-bold text-panda-text">
+                  <span className="font-mono text-lg sm:text-2xl md:text-3xl font-bold text-panda-text">
                     {formatBytes(bw.total_served)}
                   </span>
                   <span className="text-sm uppercase tracking-wider text-panda-dim mt-1">served</span>

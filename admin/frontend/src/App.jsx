@@ -43,7 +43,7 @@ export default function App() {
   return (
     <div className="noise-bg flex h-screen overflow-hidden bg-panda-bg">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-16">
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6">
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
@@ -51,7 +51,7 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="h-full max-w-[1600px] mx-auto"
+            className="max-w-[1600px] mx-auto pb-20"
           >
             <Routes location={location}>
               <Route path="/" element={<Dashboard />} />

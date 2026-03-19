@@ -1,21 +1,46 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { X, ChevronDown } from 'lucide-react'
 
 export default function TagSelect({ value, options, onChange }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef(null)
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 0 })
+  const triggerRef = useRef(null)
+  const dropdownRef = useRef(null)
 
-  // Parse comma-separated string into array
   const selected = value ? value.split(',').map(s => s.trim()).filter(Boolean) : []
 
-  // Close on outside click
+  const updatePos = useCallback(() => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      setPos({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+    }
+  }, [])
+
   useEffect(() => {
     function handleClick(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+      if (
+        triggerRef.current && !triggerRef.current.contains(e.target) &&
+        dropdownRef.current && !dropdownRef.current.contains(e.target)
+      ) {
+        setOpen(false)
+      }
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
+
+  useEffect(() => {
+    if (open) {
+      updatePos()
+      window.addEventListener('scroll', updatePos, true)
+      window.addEventListener('resize', updatePos)
+      return () => {
+        window.removeEventListener('scroll', updatePos, true)
+        window.removeEventListener('resize', updatePos)
+      }
+    }
+  }, [open, updatePos])
 
   function toggleOption(opt) {
     let next
@@ -31,14 +56,12 @@ export default function TagSelect({ value, options, onChange }) {
     onChange(selected.filter(s => s !== opt).join(','))
   }
 
-  const available = options.filter(o => !selected.includes(o))
-
   return (
-    <div ref={ref} className="relative w-full">
-      {/* Selected tags + trigger */}
+    <div className="relative w-full">
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => { updatePos(); setOpen(o => !o) }}
         className="w-full flex flex-wrap items-center gap-1.5 min-h-[42px] rounded-lg border border-panda-border bg-panda-elevated px-3 py-2 text-left transition-colors focus:border-bamboo focus:outline-none"
       >
         {selected.length === 0 && (
@@ -62,9 +85,12 @@ export default function TagSelect({ value, options, onChange }) {
         <ChevronDown size={14} className="ml-auto text-panda-dim shrink-0" />
       </button>
 
-      {/* Dropdown */}
-      {open && (
-        <div className="absolute z-50 mt-1 w-full max-h-[240px] overflow-y-auto rounded-lg border border-panda-border bg-panda-elevated shadow-xl">
+      {open && createPortal(
+        <div
+          ref={dropdownRef}
+          className="fixed max-h-[240px] overflow-y-auto rounded-lg border border-panda-border bg-panda-elevated shadow-2xl"
+          style={{ top: pos.top, left: pos.left, width: pos.width, zIndex: 9999 }}
+        >
           {options.length === 0 ? (
             <div className="px-4 py-3 text-sm text-panda-dim">No services available</div>
           ) : (
@@ -88,7 +114,8 @@ export default function TagSelect({ value, options, onChange }) {
               )
             })
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

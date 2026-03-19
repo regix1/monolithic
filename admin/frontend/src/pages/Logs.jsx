@@ -367,15 +367,15 @@ export default function Logs() {
 
           {logStats.cache_status.length > 0 && totalRequests > 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center">
-              <div className="relative flex items-center justify-center" style={{ height: '280px', width: '100%' }}>
+              <div className="relative flex items-center justify-center" style={{ height: '340px', width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                     <Pie
                       data={logStats.cache_status}
                       cx="50%"
                       cy="50%"
-                      innerRadius={85}
-                      outerRadius={125}
+                      innerRadius="35%"
+                      outerRadius="48%"
                       paddingAngle={2}
                       dataKey="value"
                       stroke="none"

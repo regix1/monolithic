@@ -222,12 +222,7 @@ func parseUpstreamLine(line string) models.UpstreamLogEntry {
 		} else if httpStatus == "502" || httpStatus == "504" {
 			status = "upstream_error"
 		}
-		// Extract a short path segment for display
-		host := path
-		if len(path) > 40 {
-			host = path[:40] + "..."
-		}
-		return models.UpstreamLogEntry{Time: ts, Host: host, Status: status}
+		return models.UpstreamLogEntry{Time: ts, Host: path, Status: status}
 	}
 
 	// Legacy format: YYYY/MM/DD HH:MM:SS hostname status

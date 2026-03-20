@@ -33,6 +33,13 @@ check_depending_env () {
 # in the Dockerfile for the same file. If you want to disable a hook, rename it.
 chmod +x /init/setup /hooks/{entrypoint-pre.d/*,entrypoint-run,entrypoint-exec,supervisord-pre.d/*,supervisord-ready} 2> /dev/null || true
 
+# Load admin UI overrides (these take precedence over Docker env vars)
+if [ -f /data/config/admin-overrides.env ]; then
+    set -a
+    . /data/config/admin-overrides.env
+    set +a
+fi
+
 entrypoint_pre=$(ls /hooks/entrypoint-pre.d/* 2>/dev/null | sort -n )
 if [ "$entrypoint_pre" != "" ]; then
   for hook in $entrypoint_pre; do

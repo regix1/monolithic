@@ -304,7 +304,7 @@ func ComputeCacheStatus(path string, n int, since time.Time) []models.CacheStatu
 	for _, line := range lines {
 		// Filter by time window
 		if !since.IsZero() {
-			if t, ok := parseAccessLogTime(line); ok && t.Before(since) {
+			if t, ok := parseAccessLogTime(line); !ok || t.Before(since) {
 				continue
 			}
 		}
@@ -666,7 +666,7 @@ func processAccessLog(lines []string, since time.Time) ([]models.CacheStatusEntr
 
 		// Time-window filter (shared between cache status and bandwidth)
 		if !since.IsZero() {
-			if t, ok := parseAccessLogTime(line); ok && t.Before(since) {
+			if t, ok := parseAccessLogTime(line); !ok || t.Before(since) {
 				continue
 			}
 		}
@@ -948,7 +948,7 @@ func ComputeBandwidthStats(path string, n int, since time.Time) (models.Bandwidt
 
 		// Filter by time window
 		if !since.IsZero() {
-			if t, ok := parseAccessLogTime(line); ok && t.Before(since) {
+			if t, ok := parseAccessLogTime(line); !ok || t.Before(since) {
 				continue
 			}
 		}

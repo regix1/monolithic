@@ -436,8 +436,8 @@ export default function Config() {
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
 
-    // Reload nginx in the background — don't block UI or disrupt the proxy mid-fetch
-    api.reloadNginx()
+    // Restart services in the background — re-runs setup hooks then reloads nginx
+    api.restartServices()
   }
 
   return (

@@ -46,6 +46,7 @@ export const api = {
   getFilesystem: () => fetchJson('/filesystem'),
   getNginxStatus: () => fetchJson('/nginx/status'),
   reloadNginx: () => postJson('/nginx/reload'),
+  restartServices: () => postJson('/nginx/restart'),
   getSupervisor: () => fetchJson('/supervisor'),
   getLogErrors: () => fetchJson('/logs/errors'),
   getLogUpstream: () => fetchJson('/logs/upstream'),

@@ -80,6 +80,10 @@ func LogStats(w http.ResponseWriter, r *http.Request) {
 		since,
 	)
 
-	services.CacheLogStats(&resp)
+	// Only cache the default (30d) response — filtered responses must not
+	// contaminate the cache that the SSE handler reads.
+	if hours == 720 {
+		services.CacheLogStats(&resp)
+	}
 	writeJSON(w, resp)
 }

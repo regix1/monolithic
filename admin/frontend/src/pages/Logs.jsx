@@ -148,17 +148,13 @@ export default function Logs() {
     setTimeRange(hours)
     if (hours === 720) return  // SSE handles default
 
-    // Check cache first
-    if (statsCache[hours]) {
-      return  // already cached, will be used via apiLogStats
-    }
-
+    // Show cached data immediately while re-fetching in background
     setFetchingRange(true)
     const result = await fetch(`/api/logs/stats?hours=${hours}`)
-      .then(r => r.ok ? r.json() : null)
+      .then((r) => r.ok ? r.json() : null)
       .catch(() => null)
     if (result) {
-      setStatsCache(prev => ({ ...prev, [hours]: result }))
+      setStatsCache((prev) => ({ ...prev, [hours]: result }))
     }
     setFetchingRange(false)
   }

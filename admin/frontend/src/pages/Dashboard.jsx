@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Server, Activity, HardDrive, Database, Fingerprint, Shield,
-  CheckCircle, AlertTriangle, Copy, Check, Info,
+  CheckCircle, AlertTriangle, Copy, Check, Info, Globe,
 } from 'lucide-react'
 
 import { StatusBadge, AnimatedCounter } from '../components'
@@ -246,6 +246,47 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Row 2b: Upstream Services */}
+      {rawStats.upstream && rawStats.upstream.pools && (
+        <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex-1 flex flex-col">
+          <div className="flex items-center gap-3 mb-4">
+            <SIcon icon={Globe} />
+            <div>
+              <h3 className="text-base font-semibold text-panda-text">Upstream Services</h3>
+              <p className="text-sm text-panda-dim">
+                {rawStats.upstream.pool_count} {rawStats.upstream.pool_count === 1 ? 'pool' : 'pools'}
+                {rawStats.upstream.keepalive_enabled ? ' · keepalive enabled' : ''}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
+            {rawStats.upstream.pools.map((pool) => {
+              const hasIps = Array.isArray(pool.ips) && pool.ips.length > 0
+              return (
+                <div key={pool.domain}
+                  className="flex items-center justify-between rounded-lg bg-panda-bg px-4 py-3.5">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${hasIps ? 'bg-bamboo breathe-green' : 'bg-err breathe-red'}`} />
+                    <div>
+                      <p className="text-base font-medium text-panda-text font-mono">{pool.domain}</p>
+                      <p className="text-xs text-panda-dim leading-snug">
+                        {hasIps ? `${pool.ips.length} ${pool.ips.length === 1 ? 'endpoint' : 'endpoints'}` : 'no endpoints resolved'}
+                      </p>
+                      <p className="text-sm text-panda-muted mt-0.5">
+                        {pool.keepalive ? `keepalive ${pool.keepalive}` : ''}
+                        {pool.keepalive && pool.timeout ? ' · ' : ''}
+                        {pool.timeout ? `timeout ${pool.timeout}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <StatusBadge status={hasIps ? 'running' : 'stopped'} label={hasIps ? 'ACTIVE' : 'DOWN'} />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Row 3: Filesystem + Config Hash + Noslice */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">

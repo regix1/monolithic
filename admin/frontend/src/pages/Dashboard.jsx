@@ -62,7 +62,7 @@ export default function Dashboard() {
     return (
       <div className="flex flex-col gap-5 animate-fade-in">
         <div className="shrink-0">
-          <h1 className="text-3xl font-bold text-panda-text">{greeting.greeting} {greeting.emoji}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-panda-text">{greeting.greeting} {greeting.emoji}</h1>
           <p className="text-base text-panda-dim mt-1">Loading...</p>
         </div>
       </div>

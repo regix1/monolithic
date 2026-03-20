@@ -11,6 +11,7 @@ import {
   Trash2,
   Hash,
 } from 'lucide-react'
+import Modal from '../components/Modal'
 import { Card, Toggle } from '../components'
 import Dropdown from '../components/Dropdown'
 import TagSelect from '../components/TagSelect'
@@ -152,6 +153,7 @@ function ConfigHashSection() {
   const [hashLoading, setHashLoading] = useState(true)
   const [hashError, setHashError] = useState(null)
   const [deleteStatus, setDeleteStatus] = useState(null) // 'success' | 'error' | null
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
   async function fetchHash() {
     setHashLoading(true)
@@ -170,18 +172,8 @@ function ConfigHashSection() {
     fetchHash()
   }, [])
 
-  async function handleDeleteHash() {
-    const confirmed = window.confirm(
-      [
-        'Are you sure? This will delete the CONFIGHASH file.',
-        '',
-        'The container must be restarted after deletion to regenerate it.',
-        '',
-        'If your config has changed, existing cached data may be invalidated.',
-      ].join('\n')
-    )
-    if (!confirmed) return
-
+  async function performDeleteHash() {
+    setShowDeleteModal(false)
     setDeleteStatus(null)
     try {
       await api.deleteConfigHash()
@@ -201,117 +193,154 @@ function ConfigHashSection() {
   ]
 
   return (
-    <Card className="p-0 overflow-hidden">
-      {/* Section header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-panda-border">
-        <div className="flex items-center gap-3">
-          <Hash size={16} className="text-bamboo shrink-0" />
-          <div>
-            <span className="text-base font-semibold text-panda-text">Config Hash</span>
-            <p className="text-xs text-panda-dim mt-0.5">Guards against cache invalidation from config changes</p>
+    <>
+      <Modal
+        opened={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete Config Hash"
+        size="sm"
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start gap-3 rounded-lg bg-red-500/10 px-4 py-3">
+            <AlertTriangle size={16} className="text-red-400 shrink-0 mt-0.5" />
+            <div className="flex flex-col gap-1 text-sm text-red-400">
+              <p>This will delete the CONFIGHASH file.</p>
+              <p>The container must be restarted after deletion to regenerate it.</p>
+              <p>If your config has changed, existing cached data may be invalidated.</p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setShowDeleteModal(false)}
+              className="rounded-lg border border-panda-border px-4 py-2 text-sm font-semibold text-panda-muted hover:text-panda-text hover:border-panda-elevated transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={performDeleteHash}
+              className="flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 px-4 py-2 text-sm font-semibold text-white transition-colors"
+            >
+              <Trash2 size={13} />
+              Delete
+            </button>
           </div>
         </div>
+      </Modal>
 
-        {/* Status badge */}
-        {!hashLoading && hashData && (
-          hashData.exists ? (
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-bamboo px-2.5 py-1 rounded-full bg-bamboo-glow border border-bamboo/25">
-              <CheckCircle size={11} />
-              Present
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-warn px-2.5 py-1 rounded-full bg-warn/10 border border-warn/25">
-              <AlertTriangle size={11} />
-              Will regenerate on restart
-            </span>
-          )
-        )}
-      </div>
-
-      <div className="px-4 py-4 flex flex-col gap-4">
-        {hashLoading && (
-          <p className="text-sm text-panda-dim">Loading…</p>
-        )}
-
-        {hashError && (
-          <div className="flex items-center gap-2 text-sm text-err">
-            <AlertTriangle size={14} className="shrink-0" />
-            {hashError}
-          </div>
-        )}
-
-        {!hashLoading && hashData && hashData.exists && (
-          <>
-            {/* Raw hash display */}
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-panda-muted uppercase tracking-wide">Raw Hash</span>
-              <div className="flex items-center gap-2 rounded-lg border border-panda-border bg-panda-elevated px-4 py-2.5 font-mono text-sm text-panda-text break-all">
-                {hashData.raw}
-              </div>
+      <Card className="p-0 overflow-hidden">
+        {/* Section header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-panda-border">
+          <div className="flex items-center gap-3">
+            <Hash size={16} className="text-bamboo shrink-0" />
+            <div>
+              <span className="text-base font-semibold text-panda-text">Config Hash</span>
+              <p className="text-xs text-panda-dim mt-0.5">Guards against cache invalidation from config changes</p>
             </div>
-
-            {/* Parsed components table */}
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-panda-muted uppercase tracking-wide">Components</span>
-              <div className="rounded-lg border border-panda-border overflow-hidden">
-                {componentRows.map(({ label, key }, idx) => (
-                  <div
-                    key={key}
-                    className={[
-                      'grid grid-cols-[1fr_1fr] gap-4 px-4 py-2.5 text-sm',
-                      idx > 0 ? 'border-t border-panda-border' : '',
-                      'bg-panda-bg',
-                    ].join(' ')}
-                  >
-                    <span className="font-mono text-panda-muted text-xs font-semibold self-center">{label}</span>
-                    <span className="font-mono text-panda-text text-xs self-center break-all">
-                      {hashData.components?.[key] ?? '—'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-
-        {!hashLoading && hashData && !hashData.exists && (
-          <p className="text-sm text-panda-muted italic">No CONFIGHASH file found. It will be created on the next container start.</p>
-        )}
-
-        {/* Info text */}
-        <p className="text-xs text-panda-dim leading-relaxed">
-          This file is auto-generated on container startup from your environment variables.
-          If it gets out of sync, delete it and restart the container to regenerate.
-        </p>
-
-        {/* Feedback banners */}
-        {deleteStatus === 'success' && (
-          <div className="flex items-center gap-2 text-sm text-bamboo rounded-lg border border-bamboo/25 bg-bamboo-glow px-3 py-2">
-            <CheckCircle size={14} className="shrink-0" />
-            CONFIGHASH deleted. Restart the container to regenerate.
           </div>
-        )}
-        {deleteStatus === 'error' && (
-          <div className="flex items-center gap-2 text-sm text-err rounded-lg border border-err/30 bg-err/10 px-3 py-2">
-            <AlertTriangle size={14} className="shrink-0" />
-            Failed to delete CONFIGHASH — check browser console for details.
-          </div>
-        )}
 
-        {/* Delete & Regenerate button */}
-        <div className="flex justify-end pt-1">
-          <button
-            type="button"
-            onClick={handleDeleteHash}
-            disabled={hashLoading || (hashData && !hashData.exists)}
-            className="flex items-center gap-1.5 rounded-lg border border-err/40 bg-err/10 px-4 py-2 text-sm font-semibold text-err hover:bg-err/20 hover:border-err/60 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Trash2 size={13} />
-            Delete &amp; Regenerate
-          </button>
+          {/* Status badge */}
+          {!hashLoading && hashData && (
+            hashData.exists ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-bamboo px-2.5 py-1 rounded-full bg-bamboo-glow border border-bamboo/25">
+                <CheckCircle size={11} />
+                Present
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-warn px-2.5 py-1 rounded-full bg-warn/10 border border-warn/25">
+                <AlertTriangle size={11} />
+                Will regenerate on restart
+              </span>
+            )
+          )}
         </div>
-      </div>
-    </Card>
+
+        <div className={['px-4 py-4 flex flex-col gap-4', hashLoading ? 'min-h-[200px]' : ''].join(' ')}>
+          {hashLoading && (
+            <p className="text-sm text-panda-dim">Loading…</p>
+          )}
+
+          {hashError && (
+            <div className="flex items-center gap-2 text-sm text-err">
+              <AlertTriangle size={14} className="shrink-0" />
+              {hashError}
+            </div>
+          )}
+
+          {!hashLoading && hashData && hashData.exists && (
+            <>
+              {/* Raw hash display */}
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-panda-muted uppercase tracking-wide">Raw Hash</span>
+                <div className="flex items-center gap-2 rounded-lg border border-panda-border bg-panda-elevated px-4 py-2.5 font-mono text-sm text-panda-text break-all">
+                  {hashData.raw}
+                </div>
+              </div>
+
+              {/* Parsed components */}
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-panda-muted uppercase tracking-wide">Components</span>
+                <div className="rounded-lg border border-panda-border overflow-x-auto">
+                  {componentRows.map(({ label, key }, idx) => (
+                    <div
+                      key={key}
+                      className={[
+                        'grid grid-cols-[1fr_1fr] gap-4 px-4 py-2.5 text-sm',
+                        idx > 0 ? 'border-t border-panda-border' : '',
+                        'bg-panda-bg',
+                      ].join(' ')}
+                    >
+                      <span className="font-mono text-panda-muted text-xs font-semibold self-center">{label}</span>
+                      <span className="font-mono text-panda-text text-xs self-center break-all">
+                        {hashData.components?.[key] ?? '—'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {!hashLoading && hashData && !hashData.exists && (
+            <p className="text-sm text-panda-muted italic">No CONFIGHASH file found. It will be created on the next container start.</p>
+          )}
+
+          {/* Info text */}
+          <p className="text-xs text-panda-dim leading-relaxed">
+            This file is auto-generated on container startup from your environment variables.
+            If it gets out of sync, delete it and restart the container to regenerate.
+          </p>
+
+          {/* Feedback banners */}
+          {deleteStatus === 'success' && (
+            <div className="flex items-center gap-2 text-sm text-bamboo rounded-lg border border-bamboo/25 bg-bamboo-glow px-3 py-2">
+              <CheckCircle size={14} className="shrink-0" />
+              CONFIGHASH deleted. Restart the container to regenerate.
+            </div>
+          )}
+          {deleteStatus === 'error' && (
+            <div className="flex items-center gap-2 text-sm text-err rounded-lg border border-err/30 bg-err/10 px-3 py-2">
+              <AlertTriangle size={14} className="shrink-0" />
+              Failed to delete CONFIGHASH — check browser console for details.
+            </div>
+          )}
+
+          {/* Delete & Regenerate button */}
+          <div className="flex justify-end pt-1">
+            <button
+              type="button"
+              onClick={() => setShowDeleteModal(true)}
+              disabled={hashLoading || (hashData && !hashData.exists)}
+              className="flex items-center gap-1.5 rounded-lg border border-err/40 bg-err/10 px-4 py-2 text-sm font-semibold text-err hover:bg-err/20 hover:border-err/60 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Trash2 size={13} />
+              Delete &amp; Regenerate
+            </button>
+          </div>
+        </div>
+      </Card>
+    </>
   )
 }
 
@@ -416,7 +445,7 @@ export default function Config() {
       {/* Page header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-panda-text">Configuration</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-panda-text">Configuration</h1>
           <p className="mt-1 text-base text-panda-dim">
             Environment Variables — changes require container restart
           </p>

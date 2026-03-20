@@ -119,14 +119,15 @@ function UpstreamStatCard({ icon: Icon, count, label, colorClass }) {
 /* ── Main Component ───────────────────────────────────────────── */
 
 const TIME_RANGES = [
-  { label: '1 Hour', hours: 1 },
-  { label: '24 Hours', hours: 24 },
-  { label: '7 Days', hours: 168 },
-  { label: '30 Days', hours: 720 },
+  { label: '1h', hours: 1 },
+  { label: '24h', hours: 24 },
+  { label: '7d', hours: 168 },
+  { label: '30d', hours: 720 },
 ]
 
 export default function Logs() {
   const { data: sseLogStats, loading } = useSSE('logstats', api.getLogStats)
+  const isLive = sseLogStats != null
 
   /* All hooks MUST be called before any early return */
   const { formatTime } = useTimeFormat()
@@ -166,7 +167,7 @@ export default function Logs() {
     return (
       <div className="flex flex-col gap-5 animate-fade-in">
         <div>
-          <h1 className="text-3xl font-bold text-panda-text">Logs</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-panda-text">Logs</h1>
           <p className="mt-1 text-base text-panda-dim">Loading...</p>
         </div>
       </div>
@@ -237,7 +238,14 @@ export default function Logs() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-panda-text">Logs</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold text-panda-text">Logs</h1>
+            {!isLive && (
+              <span className="text-sm text-warn bg-warn/10 border border-warn/25 px-3 py-1.5 rounded-full">
+                Mock Data
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-base text-panda-dim">
             Operational analytics — upstream performance &amp; error monitoring
           </p>
@@ -249,7 +257,7 @@ export default function Logs() {
               Loading...
             </span>
           )}
-          <div className="flex rounded-xl bg-panda-elevated/50 border border-panda-border p-1 gap-0.5">
+          <div className="flex flex-wrap rounded-xl bg-panda-elevated/50 border border-panda-border p-1 gap-0.5">
             {TIME_RANGES.map(({ label, hours }) => (
               <button
                 key={hours}

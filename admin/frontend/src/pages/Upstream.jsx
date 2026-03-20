@@ -129,7 +129,7 @@ export default function Upstream() {
     return (
       <div className="flex flex-col gap-5 animate-fade-in">
         <div>
-          <h1 className="text-3xl font-bold text-panda-text">Upstream</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-panda-text">Upstream</h1>
           <p className="mt-1 text-base text-panda-dim">Loading...</p>
         </div>
       </div>
@@ -158,7 +158,7 @@ export default function Upstream() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-panda-text">Upstream</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-panda-text">Upstream</h1>
             {!isLive && (
               <span className="text-sm text-warn bg-warn/10 border border-warn/25 px-3 py-1.5 rounded-full">
                 Mock Data
@@ -176,7 +176,7 @@ export default function Upstream() {
               Loading...
             </span>
           )}
-          <div className="flex rounded-xl bg-panda-elevated/50 border border-panda-border p-1 gap-0.5">
+          <div className="flex flex-wrap rounded-xl bg-panda-elevated/50 border border-panda-border p-1 gap-0.5">
             {TIME_RANGES.map(({ label, hours }) => (
               <button
                 key={hours}
@@ -284,12 +284,13 @@ export default function Upstream() {
             No fallback events — upstream connections healthy
           </div>
         ) : (
+          <div className={`transition-opacity duration-300 ${fetchingRange ? 'opacity-50' : ''}`}>
           <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '300px' }}>
             <table className="w-full min-w-[500px] text-sm">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-panda-elevated border-b border-panda-border">
                   <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim whitespace-nowrap">Time</th>
-                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Path</th>
+                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim whitespace-nowrap">Path</th>
                   <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim whitespace-nowrap">Status</th>
                 </tr>
               </thead>
@@ -301,13 +302,14 @@ export default function Upstream() {
                   >
                     <td className="px-5 py-3 text-sm text-panda-dim whitespace-nowrap align-top">{event.time}</td>
                     <td className="px-5 py-3 font-mono text-sm text-bamboo leading-relaxed align-top">
-                      <span className="truncate max-w-[200px] sm:max-w-[300px] block" title={event.host}>{event.host}</span>
+                      <span className="break-all block" title={event.host}>{event.host}</span>
                     </td>
                     <td className="px-5 py-3 align-top whitespace-nowrap"><FallbackStatusBadge status={event.status} /></td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
           </div>
         )}
       </CollapsibleSection>

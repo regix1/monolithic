@@ -46,7 +46,7 @@ export const api = {
   getFilesystem: () => fetchJson('/filesystem'),
   getNginxStatus: () => fetchJson('/nginx/status'),
   reloadNginx: () => postJson('/nginx/reload'),
-  restartServices: () => postJson('/nginx/restart'),
+  containerRestart: () => postJson('/container/restart'),
   getSupervisor: () => fetchJson('/supervisor'),
   getLogErrors: () => fetchJson('/logs/errors'),
   getLogUpstream: () => fetchJson('/logs/upstream'),
@@ -55,6 +55,7 @@ export const api = {
   resetNoslice: () => postJson('/noslice/reset'),
   getDomains: () => fetchJson('/domains'),
   getLogUpstreamByHours: (hours) => fetchJson('/logs/upstream?hours=' + hours),
+  getLogStatsByHours: (hours) => fetchJson('/logs/stats?hours=' + hours),
   getConfigHash: () => fetchJson('/config/confighash'),
   deleteConfigHash: () => fetch(`${BASE}/config/confighash`, { method: 'DELETE' }).then(r => r.ok ? r.json() : null),
 }

@@ -2,6 +2,9 @@ package handlers
 
 import (
 	"net/http"
+	"os"
+	"syscall"
+	"time"
 
 	"github.com/lancachenet/monolithic/admin/services"
 )
@@ -34,33 +37,18 @@ func NginxReload(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func NginxRestart(w http.ResponseWriter, r *http.Request) {
-	// Return 200 to the client immediately before running the hooks,
-	// so the browser gets a response before nginx is reloaded.
-	writeJSON(w, map[string]interface{}{
-		"ok":      true,
-		"message": "restart initiated",
-	})
-
-	// Flush the response to the client now, then run hooks in the background.
+func ContainerRestart(w http.ResponseWriter, r *http.Request) {
+	// Return 200 to the client before killing PID 1 so the browser gets a response.
+	writeJSON(w, map[string]any{"status": "restarting"})
 	if f, ok := w.(http.Flusher); ok {
 		f.Flush()
 	}
-
+	// Send SIGTERM to PID 1 in a goroutine after a short delay.
 	go func() {
-		hooksDir := "/hooks/entrypoint-pre.d"
-		hooks := []string{
-			hooksDir + "/10_setup.sh",
-			hooksDir + "/15_generate_maps.sh",
-			hooksDir + "/16_generate_upstream_keepalive.sh",
+		time.Sleep(500 * time.Millisecond)
+		proc, err := os.FindProcess(1)
+		if err == nil {
+			proc.Signal(syscall.SIGTERM)
 		}
-
-		for _, hook := range hooks {
-			if _, err := services.RunCommand("bash", hook); err != nil {
-				return
-			}
-		}
-
-		services.RunCommand("nginx", "-s", "reload")
 	}()
 }

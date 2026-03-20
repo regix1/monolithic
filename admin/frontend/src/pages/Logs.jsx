@@ -141,21 +141,28 @@ export default function Logs() {
   const [nosliceSortKey, setNosliceSortKey] = useState('time')
   const [nosliceSortDir, setNosliceSortDir] = useState('desc')
 
-  // When time range changes, fetch filtered data from REST API
+  // When time range changes, fetch filtered data from REST API.
+  // For 30d (720h), SSE provides live data; all other ranges use REST + client cache.
   const apiLogStats = timeRange === 720 ? sseLogStats : (statsCache[timeRange] ?? null)
 
   async function handleTimeRangeChange(hours) {
     setTimeRange(hours)
-    if (hours === 720) return  // SSE handles default
+    if (hours === 720) return  // SSE handles 30d — no REST fetch needed
 
-    // Show cached data immediately while re-fetching in background
+    // If we already have cached data for this range, show it immediately.
+    // Still re-fetch in the background so data stays fresh.
     setFetchingRange(true)
-    const result = await fetch(`/api/logs/stats?hours=${hours}`)
-      .then((r) => r.ok ? r.json() : null)
-      .catch(() => null)
-    if (result) {
-      setStatsCache((prev) => ({ ...prev, [hours]: result }))
-    }
+    const result = await api.getLogStatsByHours(hours)
+    // Guard: only store if the selected range hasn't changed while we were fetching
+    setStatsCache((prev) => {
+      // Always store the result (even null→empty) so the loading state resolves.
+      // Use the fetched data when available, otherwise keep existing cache entry.
+      if (result != null) {
+        return { ...prev, [hours]: result }
+      }
+      // Fetch failed — preserve any existing cached data for this range
+      return prev
+    })
     setFetchingRange(false)
   }
 

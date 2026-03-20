@@ -357,6 +357,7 @@ export default function Config() {
   const [groups, setGroups] = useState([])
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState(null)
+  const [restarting, setRestarting] = useState(false)
   const initializedRef = useRef(false)
 
   // Track the original values as they came from the API (or mock)
@@ -436,8 +437,14 @@ export default function Config() {
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
 
-    // Restart services in the background — re-runs setup hooks then reloads nginx
-    api.restartServices()
+    // Reload nginx to apply config changes
+    api.reloadNginx()
+  }
+
+  async function handleRestart() {
+    setRestarting(true)
+    await api.containerRestart()
+    // Container is restarting — show message indefinitely (page will reload when it comes back)
   }
 
   return (
@@ -478,7 +485,15 @@ export default function Config() {
             className="flex items-center gap-1.5 rounded-lg bg-bamboo px-3 py-2 text-sm font-semibold text-panda-bg hover:bg-bamboo-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Save size={13} />
-            Save &amp; Restart
+            Save
+          </button>
+          <button
+            onClick={handleRestart}
+            disabled={restarting}
+            className="flex items-center gap-1.5 rounded-lg bg-err px-3 py-2 text-sm font-semibold text-white hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <RotateCcw size={13} className={restarting ? 'animate-spin' : ''} />
+            {restarting ? 'Restarting…' : 'Restart'}
           </button>
         </div>
       </div>
@@ -488,6 +503,14 @@ export default function Config() {
         <div className="rounded-xl border border-err/30 bg-err/10 px-4 py-3 flex items-center gap-2.5">
           <AlertTriangle size={15} className="text-err shrink-0" />
           <p className="text-sm font-semibold text-err">{saveError}</p>
+        </div>
+      )}
+
+      {/* Container restarting banner */}
+      {restarting && (
+        <div className="rounded-xl border border-err/30 bg-err/10 px-4 py-3 flex items-center gap-2.5">
+          <RotateCcw size={15} className="text-err shrink-0 animate-spin" />
+          <p className="text-sm font-semibold text-err">Container restarting… please wait. The page will become available again shortly.</p>
         </div>
       )}
 
@@ -525,14 +548,25 @@ export default function Config() {
               {dirtyCount} unsaved {dirtyCount === 1 ? 'change' : 'changes'} — restart required to apply
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleSave}
-            className="shrink-0 flex items-center gap-1.5 rounded-lg bg-bamboo px-4 py-2 text-sm font-semibold text-panda-bg hover:bg-bamboo-hover transition-colors"
-          >
-            <Save size={13} />
-            Save &amp; Restart
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleSave}
+              className="flex items-center gap-1.5 rounded-lg bg-bamboo px-4 py-2 text-sm font-semibold text-panda-bg hover:bg-bamboo-hover transition-colors"
+            >
+              <Save size={13} />
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={handleRestart}
+              disabled={restarting}
+              className="flex items-center gap-1.5 rounded-lg bg-err px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <RotateCcw size={13} className={restarting ? 'animate-spin' : ''} />
+              {restarting ? 'Restarting…' : 'Restart'}
+            </button>
+          </div>
         </div>
       )}
 

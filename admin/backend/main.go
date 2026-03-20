@@ -56,12 +56,12 @@ func main() {
 		handlers.NginxReload(w, r)
 	})
 
-	mux.HandleFunc("/api/nginx/restart", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/container/restart", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		handlers.NginxRestart(w, r)
+		handlers.ContainerRestart(w, r)
 	})
 
 	mux.HandleFunc("/api/supervisor", handlers.HealthHandler)

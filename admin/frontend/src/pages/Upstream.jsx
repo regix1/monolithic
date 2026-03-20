@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Network, AlertTriangle, FolderTree, ChevronDown, ChevronRight, Wifi, WifiOff } from 'lucide-react'
 import { Card, StatCard } from '../components'
 import { useSSE } from '../hooks/useSSE'
 import { api } from '../lib/api'
-import { TIME_RANGES } from '../lib/constants'
+import useTimeRange from '../hooks/useTimeRange'
 
 function FallbackStatusBadge({ status }) {
   const map = {
@@ -96,33 +96,21 @@ function DomainTreeItem({ service, data }) {
 export default function Upstream() {
   const { data: apiStats, loading: loadingStats } = useSSE('stats', api.getStats)
   const { data: apiDomains } = useSSE('domains', api.getDomains, 60000)
-  const { data: logStats } = useSSE('logstats', api.getLogStats)
   const loading = loadingStats
 
-  const [selectedHours, setSelectedHours] = useState(720)
-  const [fetchingRange, setFetchingRange] = useState(false)
-  const [statsCache, setStatsCache] = useState({})
+  const { timeRange, activeLogStats, fetchingRange } = useTimeRange()
+
+  const [fallbackEvents, setFallbackEvents] = useState([])
+
+  useEffect(() => {
+    let cancelled = false
+    api.getLogUpstreamByHours(timeRange).then((result) => {
+      if (!cancelled) setFallbackEvents(result ?? [])
+    })
+    return () => { cancelled = true }
+  }, [timeRange])
 
   const apiData = apiStats ? { stats: apiStats, domains: apiDomains } : null
-
-  async function fetchRange(hours) {
-    setSelectedHours(hours)
-    if (hours === 720) return  // SSE data handles 30d
-
-    // Show cached data immediately, re-fetch in background to refresh
-    setFetchingRange(true)
-    const [logStatsResult, fallbackResult] = await Promise.all([
-      api.getLogStatsByHours(hours),
-      api.getLogUpstreamByHours(hours),
-    ])
-    if (logStatsResult || fallbackResult) {
-      setStatsCache((prev) => ({
-        ...prev,
-        [hours]: { logStats: logStatsResult, fallbackEvents: fallbackResult ?? [] },
-      }))
-    }
-    setFetchingRange(false)
-  }
 
   if (loading) {
     return (
@@ -146,56 +134,25 @@ export default function Upstream() {
     domains: apiData.domains ?? {},
   } : emptyUpstream
 
-  // For non-30d ranges: use cached logStats for upstream_health summary, cached fallbackEvents for the events table
-  const cachedEntry = selectedHours !== 720 ? statsCache[selectedHours] : null
-  const activeFallbackEvents = cachedEntry ? (cachedEntry.fallbackEvents ?? []) : upstream.fallback_events
+  const activeFallbackEvents = fallbackEvents.length > 0 ? fallbackEvents : upstream.fallback_events
 
-  // Upstream health summary: use logstats SSE for 30d, cached logStats for filtered ranges
-  const activeUpstreamHealth = selectedHours === 720
-    ? logStats?.upstream_health ?? null
-    : cachedEntry?.logStats?.upstream_health ?? null
+  const activeUpstreamHealth = activeLogStats?.upstream_health ?? null
 
   return (
     <div className="flex flex-col gap-5 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-bold text-panda-text">Upstream</h1>
-            {!isLive && (
-              <span className="text-sm text-warn bg-warn/10 border border-warn/25 px-3 py-1.5 rounded-full">
-                Mock Data
-              </span>
-            )}
-          </div>
-          <p className="mt-1 text-base text-panda-dim">
-            Keepalive connection pools &amp; CDN routing
-          </p>
-        </div>
-        <div className="flex items-center gap-2 sm:shrink-0 w-full sm:w-auto">
-          {fetchingRange && (
-            <span className="flex items-center gap-2 text-sm text-panda-dim">
-              <span className="h-2 w-2 rounded-full bg-bamboo animate-pulse" />
-              Loading...
+      <div>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl sm:text-3xl font-bold text-panda-text">Upstream</h1>
+          {!isLive && (
+            <span className="text-sm text-warn bg-warn/10 border border-warn/25 px-3 py-1.5 rounded-full">
+              Mock Data
             </span>
           )}
-          <div className="flex flex-wrap rounded-xl bg-panda-elevated/50 border border-panda-border p-1 gap-0.5">
-            {TIME_RANGES.map(({ label, hours }) => (
-              <button
-                key={hours}
-                onClick={() => fetchRange(hours)}
-                className={[
-                  'px-3.5 py-1.5 text-sm font-medium rounded-lg transition-all duration-200',
-                  selectedHours === hours
-                    ? 'bg-bamboo/20 text-bamboo shadow-sm'
-                    : 'text-panda-dim hover:text-panda-text hover:bg-panda-elevated',
-                ].join(' ')}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
         </div>
+        <p className="mt-1 text-base text-panda-dim">
+          Keepalive connection pools &amp; CDN routing
+        </p>
       </div>
 
       {/* Status row */}
@@ -287,7 +244,6 @@ export default function Upstream() {
             No fallback events — upstream connections healthy
           </div>
         ) : (
-          <div className={`transition-opacity duration-300 ${fetchingRange ? 'opacity-50' : ''}`}>
           <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '300px' }}>
             <table className="w-full min-w-[500px] text-sm">
               <thead className="sticky top-0 z-10">
@@ -312,7 +268,6 @@ export default function Upstream() {
                 ))}
               </tbody>
             </table>
-          </div>
           </div>
         )}
       </CollapsibleSection>

@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import pandaIcon from '../assets/panda.svg'
 import { useTimeFormat } from '../hooks/useTimeFormat'
 import { useIsMobile } from '../hooks/useBreakpoint'
+import useTimeRange from '../hooks/useTimeRange'
+import { TIME_RANGES } from '../lib/constants'
 
 /** @type {{ to: string, icon: import('lucide-react').LucideIcon, label: string }[]} */
 const NAV_ITEMS = [
@@ -18,6 +20,7 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const { is24h, toggle } = useTimeFormat()
   const isMobile = useIsMobile()
+  const { timeRange, setTimeRange } = useTimeRange()
 
   useEffect(() => {
     function handleResize() {
@@ -30,7 +33,25 @@ export default function Sidebar() {
   return (
     <>
       {/* ── Mobile bottom tab bar ──────────────────────────────────── */}
-      <nav className="lg:hidden fixed! bottom-0 left-0 right-0 z-50 flex items-stretch border-t border-panda-border bg-panda-surface/95 backdrop-blur-md safe-bottom">
+      <div className="lg:hidden fixed! bottom-0 left-0 right-0 z-50 flex flex-col border-t border-panda-border bg-panda-surface/95 backdrop-blur-md safe-bottom">
+        {/* Time range pills row */}
+        <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 border-b border-panda-border/50">
+          {TIME_RANGES.map(({ label, hours }) => (
+            <button
+              key={hours}
+              onClick={() => setTimeRange(hours)}
+              className={[
+                'px-2.5 py-1 rounded-md text-xs font-medium transition-all',
+                timeRange === hours
+                  ? 'bg-bamboo/20 text-bamboo ring-1 ring-bamboo/30'
+                  : 'text-panda-muted hover:text-panda-text hover:bg-panda-bg',
+              ].join(' ')}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <nav className="flex items-stretch">
         {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
@@ -67,7 +88,8 @@ export default function Sidebar() {
             )}
           </NavLink>
         ))}
-      </nav>
+        </nav>
+      </div>
 
       {/* ── Desktop sidebar ────────────────────────────────────────── */}
       <motion.aside
@@ -167,6 +189,37 @@ export default function Sidebar() {
             </NavLink>
           ))}
         </nav>
+
+        {/* Time range pills */}
+        <AnimatePresence initial={false}>
+          {!collapsed && (
+            <motion.div
+              key="time-range-pills"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden px-3 pb-2"
+            >
+              <div className="flex gap-1 flex-wrap">
+                {TIME_RANGES.map(({ label, hours }) => (
+                  <button
+                    key={hours}
+                    onClick={() => setTimeRange(hours)}
+                    className={[
+                      'px-2.5 py-1 rounded-md text-xs font-medium transition-all',
+                      timeRange === hours
+                        ? 'bg-bamboo/20 text-bamboo ring-1 ring-bamboo/30'
+                        : 'text-panda-muted hover:text-panda-text hover:bg-panda-bg',
+                    ].join(' ')}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Time format + Collapse + version */}
         <div className="px-3 pb-5 flex flex-col gap-1">

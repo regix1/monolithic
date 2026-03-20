@@ -53,7 +53,17 @@ func LogStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fallback: compute on demand for non-standard ranges.
+	// For standard precomputed ranges, return 202 if cache is still building
+	// rather than computing on-demand (which would timeout through nginx).
+	for _, r := range []int{1, 24, 168, 720} {
+		if hours == r {
+			w.WriteHeader(http.StatusAccepted)
+			writeJSON(w, map[string]string{"status": "loading", "message": "stats are being computed, try again shortly"})
+			return
+		}
+	}
+
+	// Fallback: compute on demand for non-standard ranges only.
 	since := time.Now().Add(-time.Duration(hours) * time.Hour)
 	resp := services.ComputeAllLogStats(
 		services.AccessLogPath,

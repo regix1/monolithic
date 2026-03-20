@@ -50,16 +50,22 @@ func GetCachedLogStatsByHours(hours int) *models.LogStatsResponse {
 	return logStatsCache[hours]
 }
 
-// recomputeAllLogStats computes log stats for every precomputed range.
+// recomputeAllLogStats computes log stats for every precomputed range in parallel.
 func recomputeAllLogStats() {
+	var wg sync.WaitGroup
 	for _, hours := range precomputedRanges {
-		since := time.Now().Add(-time.Duration(hours) * time.Hour)
-		stats := ComputeAllLogStats(AccessLogPath, ErrorLogPath, UpstreamErrorLogPath, hours, since)
+		wg.Add(1)
+		go func(h int) {
+			defer wg.Done()
+			since := time.Now().Add(-time.Duration(h) * time.Hour)
+			stats := ComputeAllLogStats(AccessLogPath, ErrorLogPath, UpstreamErrorLogPath, h, since)
 
-		logStatsMu.Lock()
-		logStatsCache[hours] = &stats
-		logStatsMu.Unlock()
+			logStatsMu.Lock()
+			logStatsCache[h] = &stats
+			logStatsMu.Unlock()
+		}(hours)
 	}
+	wg.Wait()
 }
 
 // StartLogStatsWorker starts a background goroutine that precomputes log stats

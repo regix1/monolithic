@@ -9,7 +9,7 @@ import Tooltip from '../components/Tooltip'
 import { useSSE } from '../hooks/useSSE'
 import { api } from '../lib/api'
 import { getGreeting, getHealthMessage } from '../lib/greetings'
-import { TIME_RANGES } from '../lib/constants'
+import useTimeRange from '../hooks/useTimeRange'
 
 const NGINX_METRIC_DEFINITIONS = {
   Reading:  'Connections currently being read by nginx. This is an instantaneous gauge — on low-traffic systems it will typically show 0.',
@@ -29,17 +29,13 @@ function SIcon({ icon: Icon, color = '#4ade80' }) {
 
 export default function Dashboard() {
   const [copied, setCopied] = useState(false)
-  const [timeRange, setTimeRange] = useState(720)
-  const [statsCache, setStatsCache] = useState({})
-  const [fetchingRange, setFetchingRange] = useState(false)
+
+  const { activeLogStats, fetchingRange } = useTimeRange()
 
   const { data: apiHealth, loading: loadingHealth } = useSSE('health', api.getHealth)
   const { data: apiStats, loading: loadingStats } = useSSE('stats', api.getStats)
   const { data: apiFs } = useSSE('filesystem', api.getFilesystem, 60000)
   const { data: apiNoslice } = useSSE('noslice', api.getNoslice)
-  const { data: sseLogStats } = useSSE('logstats', api.getLogStats)
-
-  const activeLogStats = timeRange === 720 ? sseLogStats : (statsCache[timeRange] ?? null)
 
   const initialLoading = loadingHealth || loadingStats
   const isLive = apiHealth !== null
@@ -70,19 +66,6 @@ export default function Dashboard() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  async function handleTimeRangeChange(hours) {
-    setTimeRange(hours)
-    if (hours === 720) return
-    if (statsCache[hours]) return
-    setFetchingRange(true)
-    try {
-      const result = await api.getLogStatsByHours(hours)
-      setStatsCache(prev => ({ ...prev, [hours]: result }))
-    } finally {
-      setFetchingRange(false)
-    }
-  }
-
   if (initialLoading) {
     return (
       <div className="flex flex-col gap-5 animate-fade-in">
@@ -109,32 +92,6 @@ export default function Dashboard() {
         <p className={`text-base mt-1 ${healthStatus === 'critical' ? 'text-err' : healthStatus === 'warning' ? 'text-warn' : 'text-panda-dim'}`}>
           {getHealthMessage(healthStatus, healthWarnings)}
         </p>
-      </div>
-
-      {/* Time range selector for log-based stats */}
-      <div className="flex flex-wrap items-center gap-3">
-        {fetchingRange && (
-          <span className="flex items-center gap-2 text-sm text-panda-dim">
-            <span className="h-2 w-2 rounded-full bg-bamboo animate-pulse" />
-            Loading...
-          </span>
-        )}
-        <div className="flex flex-wrap rounded-xl bg-panda-elevated/50 border border-panda-border p-1 gap-0.5">
-          {TIME_RANGES.map(({ label, hours }) => (
-            <button
-              key={hours}
-              onClick={() => handleTimeRangeChange(hours)}
-              className={[
-                'px-3.5 py-1.5 text-sm font-medium rounded-lg transition-all duration-200',
-                timeRange === hours
-                  ? 'bg-bamboo/20 text-bamboo shadow-sm'
-                  : 'text-panda-dim hover:text-panda-text hover:bg-panda-elevated',
-              ].join(' ')}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Health warnings banner */}
@@ -317,10 +274,10 @@ export default function Dashboard() {
               return (
                 <div key={pool.domain}
                   className="flex items-center justify-between rounded-lg bg-panda-bg px-4 py-3.5">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     <div className="w-2.5 h-2.5 rounded-full shrink-0 bg-bamboo breathe-green" />
-                    <div>
-                      <p className="text-base font-medium text-panda-text font-mono">{pool.domain}</p>
+                    <div className="min-w-0">
+                      <p className="text-base font-medium text-panda-text font-mono truncate">{pool.domain}</p>
                       <p className="text-xs text-panda-dim leading-snug">configured upstream</p>
                       <p className="text-sm text-panda-muted mt-0.5">
                         {pool.keepalive ? `keepalive ${pool.keepalive}` : ''}
@@ -348,7 +305,7 @@ export default function Dashboard() {
             </div>
 
             <div className="text-center mb-4">
-              <p className="text-3xl font-bold text-panda-text font-mono">{fs.type}</p>
+              <p className="text-2xl md:text-3xl font-bold text-panda-text font-mono">{fs.type}</p>
               <p className="text-sm text-panda-dim mt-1">{fs.mount_point}</p>
             </div>
 

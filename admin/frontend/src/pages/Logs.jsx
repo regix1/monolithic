@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { TIME_RANGES } from '../lib/constants'
+import useTimeRange from '../hooks/useTimeRange'
 import {
   PieChart as PieChartIcon,
   TrendingUp,
@@ -31,9 +31,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from 'recharts'
-import { useSSE } from '../hooks/useSSE'
 import { useTimeFormat } from '../hooks/useTimeFormat'
-import { api } from '../lib/api'
 
 /* ── Helpers ──────────────────────────────────────────────────── */
 
@@ -111,7 +109,7 @@ function UpstreamStatCard({ icon: Icon, count, label, colorClass }) {
   return (
     <div className="flex flex-col items-center gap-1.5 rounded-lg p-4 bg-panda-bg border border-panda-border">
       <Icon size={18} className={activeColor} />
-      <span className={`font-mono text-2xl font-semibold ${activeColor}`}>{count}</span>
+      <span className={`font-mono text-xl sm:text-2xl font-semibold ${activeColor}`}>{count}</span>
       <span className="text-sm text-panda-dim">{label}</span>
     </div>
   )
@@ -121,14 +119,10 @@ function UpstreamStatCard({ icon: Icon, count, label, colorClass }) {
 
 
 export default function Logs() {
-  const { data: sseLogStats, loading } = useSSE('logstats', api.getLogStats)
-  const isLive = sseLogStats != null
+  const { activeLogStats, fetchingRange } = useTimeRange()
 
   /* All hooks MUST be called before any early return */
   const { formatTime } = useTimeFormat()
-  const [timeRange, setTimeRange] = useState(720)
-  const [statsCache, setStatsCache] = useState({})
-  const [fetchingRange, setFetchingRange] = useState(false)
   const [serviceSortKey, setServiceSortKey] = useState('bytes')
   const [serviceSortDir, setServiceSortDir] = useState('desc')
   const [errorSortKey, setErrorSortKey] = useState('time')
@@ -136,43 +130,7 @@ export default function Logs() {
   const [nosliceSortKey, setNosliceSortKey] = useState('time')
   const [nosliceSortDir, setNosliceSortDir] = useState('desc')
 
-  // When time range changes, fetch filtered data from REST API.
-  // For 30d (720h), SSE provides live data; all other ranges use REST + client cache.
-  const apiLogStats = timeRange === 720 ? sseLogStats : (statsCache[timeRange] ?? null)
-
-  async function handleTimeRangeChange(hours) {
-    setTimeRange(hours)
-    if (hours === 720) return  // SSE handles 30d — no REST fetch needed
-
-    // If we already have cached data for this range, show it immediately.
-    // Still re-fetch in the background so data stays fresh.
-    setFetchingRange(true)
-    const result = await api.getLogStatsByHours(hours)
-    // Guard: only store if the selected range hasn't changed while we were fetching
-    setStatsCache((prev) => {
-      // Always store the result (even null→empty) so the loading state resolves.
-      // Use the fetched data when available, otherwise keep existing cache entry.
-      if (result != null) {
-        return { ...prev, [hours]: result }
-      }
-      // Fetch failed — preserve any existing cached data for this range
-      return prev
-    })
-    setFetchingRange(false)
-  }
-
-  if (loading) {
-    return (
-      <div className="flex flex-col gap-5 animate-fade-in">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-panda-text">Logs</h1>
-          <p className="mt-1 text-base text-panda-dim">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
-  const logStats = apiLogStats ?? { cache_status: [], error_rate: [], recent_errors: [], noslice_events: [], upstream_health: { total_errors: 0, timeouts: 0, conn_refused: 0, dns_failures: 0, other: 0, top_hosts: [] }, bandwidth: { total_served: 0, bandwidth_saved: 0, hit_rate_bytes: 0, unique_clients: 0 }, services: [] }
+  const logStats = activeLogStats
 
   const totalRequests = logStats.cache_status.reduce((sum, item) => sum + item.count, 0)
   const hasErrors = logStats.error_rate.some(b => b.errors > 0)
@@ -236,41 +194,10 @@ export default function Logs() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-bold text-panda-text">Logs</h1>
-            {!isLive && (
-              <span className="text-sm text-warn bg-warn/10 border border-warn/25 px-3 py-1.5 rounded-full">
-                Mock Data
-              </span>
-            )}
-          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-panda-text">Logs</h1>
           <p className="mt-1 text-base text-panda-dim">
             Operational analytics — upstream performance &amp; error monitoring
           </p>
-        </div>
-        <div className="flex items-center gap-2 sm:shrink-0 w-full sm:w-auto">
-          {fetchingRange && (
-            <span className="flex items-center gap-2 text-sm text-panda-dim">
-              <span className="h-2 w-2 rounded-full bg-bamboo animate-pulse" />
-              Loading...
-            </span>
-          )}
-          <div className="flex flex-wrap rounded-xl bg-panda-elevated/50 border border-panda-border p-1 gap-0.5">
-            {TIME_RANGES.map(({ label, hours }) => (
-              <button
-                key={hours}
-                onClick={() => handleTimeRangeChange(hours)}
-                className={[
-                  'px-3.5 py-1.5 text-sm font-medium rounded-lg transition-all duration-200',
-                  timeRange === hours
-                    ? 'bg-bamboo/20 text-bamboo shadow-sm'
-                    : 'text-panda-dim hover:text-panda-text hover:bg-panda-elevated',
-                ].join(' ')}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
@@ -331,7 +258,7 @@ export default function Logs() {
       <div className="rounded-xl bg-panda-surface border border-panda-border p-5 [&_.recharts-wrapper]:outline-none">
         <div className="mb-4 flex items-center gap-3">
           <TrendingUp size={18} className="text-err" />
-          <h2 className="text-base font-semibold text-panda-text">Error Rate ({TIME_RANGES.find(r => r.hours === timeRange)?.label ?? '30 Days'})</h2>
+          <h2 className="text-base font-semibold text-panda-text">Error Rate</h2>
         </div>
 
         {hasErrors ? (
@@ -440,7 +367,7 @@ export default function Logs() {
                 errors in <span className="font-mono text-panda-text">upstream-error.log</span>
               </p>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <UpstreamStatCard icon={AlertTriangle} count={uh.timeouts} label="Timeouts" colorClass="text-warn" />
                 <UpstreamStatCard icon={Wifi} count={uh.conn_refused} label="Conn Refused" colorClass="text-err" />
                 <UpstreamStatCard icon={Globe} count={uh.dns_failures} label="DNS Failures" colorClass="text-info" />
@@ -474,7 +401,7 @@ export default function Logs() {
           </div>
 
           <div className="overflow-x-auto rounded-lg border border-panda-border">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[600px] text-sm">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-panda-elevated border-b border-panda-border">
                   <th
@@ -554,7 +481,7 @@ export default function Logs() {
         </div>
 
         <div className="overflow-auto rounded-lg border border-panda-border" style={{ maxHeight: '400px' }}>
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[500px] text-sm">
             <thead className="sticky top-0 z-10">
               <tr className="bg-panda-elevated border-b border-panda-border">
                 <th
@@ -625,7 +552,7 @@ export default function Logs() {
           </div>
         ) : (
           <div className="overflow-auto rounded-lg border border-panda-border" style={{ maxHeight: '350px' }}>
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[500px] text-sm">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-panda-elevated border-b border-panda-border">
                   <th

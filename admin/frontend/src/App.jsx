@@ -6,6 +6,7 @@ import Config from './pages/Config'
 import Upstream from './pages/Upstream'
 import Logs from './pages/Logs'
 import { EmptyState } from './components'
+import { TimeRangeProvider } from './hooks/useTimeRange'
 
 function NotFound() {
   return (
@@ -41,28 +42,30 @@ export default function App() {
   }
 
   return (
-    <div className="noise-bg flex h-screen overflow-hidden bg-panda-bg">
-      <Sidebar />
-      <main className="flex-1 overflow-y-scroll overflow-x-hidden p-4 pb-20 lg:p-6 lg:pb-6">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="max-w-[1600px] mx-auto pb-20"
-          >
-            <Routes location={location}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/config" element={<Config />} />
-              <Route path="/upstream" element={<Upstream />} />
-              <Route path="/logs" element={<Logs />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </motion.div>
-        </AnimatePresence>
-      </main>
-    </div>
+    <TimeRangeProvider>
+      <div className="noise-bg flex h-screen overflow-hidden bg-panda-bg">
+        <Sidebar />
+        <main className="flex-1 overflow-y-scroll overflow-x-hidden p-4 pb-20 lg:p-6 lg:pb-6">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="max-w-[1600px] mx-auto pb-20"
+            >
+              <Routes location={location}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/config" element={<Config />} />
+                <Route path="/upstream" element={<Upstream />} />
+                <Route path="/logs" element={<Logs />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </motion.div>
+          </AnimatePresence>
+        </main>
+      </div>
+    </TimeRangeProvider>
   )
 }

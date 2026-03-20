@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 
 import { StatusBadge, AnimatedCounter } from '../components'
+import Tooltip from '../components/Tooltip'
 import { useSSE } from '../hooks/useSSE'
 import { api } from '../lib/api'
 import { getGreeting, getHealthMessage } from '../lib/greetings'
@@ -125,7 +126,9 @@ export default function Dashboard() {
         <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex flex-col justify-center">
           <div className="flex items-center gap-1.5 mb-1.5">
             <p className="text-sm uppercase tracking-wider text-panda-dim">Reading</p>
-            <Info size={12} className="text-panda-dim/50 shrink-0" title={NGINX_METRIC_DEFINITIONS.Reading} />
+            <Tooltip content={NGINX_METRIC_DEFINITIONS.Reading} position="top">
+                <Info size={12} className="text-panda-dim/50 shrink-0 cursor-help" />
+              </Tooltip>
           </div>
           <p className="text-3xl font-bold text-info font-mono">{nginx.reading}</p>
         </div>
@@ -133,7 +136,9 @@ export default function Dashboard() {
         <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex flex-col justify-center">
           <div className="flex items-center gap-1.5 mb-1.5">
             <p className="text-sm uppercase tracking-wider text-panda-dim">Writing</p>
-            <Info size={12} className="text-panda-dim/50 shrink-0" title={NGINX_METRIC_DEFINITIONS.Writing} />
+            <Tooltip content={NGINX_METRIC_DEFINITIONS.Writing} position="top">
+                <Info size={12} className="text-panda-dim/50 shrink-0 cursor-help" />
+              </Tooltip>
           </div>
           <p className="text-3xl font-bold text-bamboo font-mono">{nginx.writing}</p>
         </div>
@@ -141,7 +146,9 @@ export default function Dashboard() {
         <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex flex-col justify-center">
           <div className="flex items-center gap-1.5 mb-1.5">
             <p className="text-sm uppercase tracking-wider text-panda-dim">Waiting</p>
-            <Info size={12} className="text-panda-dim/50 shrink-0" title={NGINX_METRIC_DEFINITIONS.Waiting} />
+            <Tooltip content={NGINX_METRIC_DEFINITIONS.Waiting} position="top">
+                <Info size={12} className="text-panda-dim/50 shrink-0 cursor-help" />
+              </Tooltip>
           </div>
           <p className="text-3xl font-bold text-panda-muted font-mono">{nginx.waiting}</p>
         </div>
@@ -149,7 +156,9 @@ export default function Dashboard() {
         <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex flex-col justify-center">
           <div className="flex items-center gap-1.5 mb-1.5">
             <p className="text-sm uppercase tracking-wider text-panda-dim">Requests</p>
-            <Info size={12} className="text-panda-dim/50 shrink-0" title={NGINX_METRIC_DEFINITIONS.Requests} />
+            <Tooltip content={NGINX_METRIC_DEFINITIONS.Requests} position="top">
+                <Info size={12} className="text-panda-dim/50 shrink-0 cursor-help" />
+              </Tooltip>
           </div>
           <p className="text-xl font-bold text-panda-text font-mono">{nginx.requests.toLocaleString()}</p>
         </div>

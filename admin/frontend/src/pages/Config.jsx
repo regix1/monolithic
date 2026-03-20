@@ -548,7 +548,7 @@ export default function Config() {
       ))}
 
       {/* CONFIGHASH management */}
-      <ConfigHashSection />
+      {groups.length > 0 && <ConfigHashSection />}
     </div>
   )
 }

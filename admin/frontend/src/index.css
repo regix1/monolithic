@@ -248,3 +248,27 @@ body {
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: 8px;
 }
+
+/* Custom scrollbar styling */
+main::-webkit-scrollbar {
+  width: 8px;
+}
+
+main::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+main::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+main::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+/* Firefox */
+main {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}

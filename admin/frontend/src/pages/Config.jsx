@@ -518,7 +518,7 @@ export default function Config() {
 
       {/* Unsaved changes banner */}
       {dirtyCount > 0 && !saved && (
-        <div className="rounded-xl border border-warn/30 bg-warn/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="sticky top-0 z-30 rounded-xl border border-warn/30 bg-warn/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-md backdrop-blur-sm">
           <div className="flex items-center gap-2.5">
             <AlertTriangle size={14} className="text-warn shrink-0" />
             <p className="text-sm font-semibold text-warn">

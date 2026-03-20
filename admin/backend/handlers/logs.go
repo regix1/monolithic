@@ -8,21 +8,6 @@ import (
 	"github.com/lancachenet/monolithic/admin/services"
 )
 
-func LogErrors(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
-	entries, err := services.ParseErrorLog(services.ErrorLogPath, 50, time.Time{})
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to read error log: "+err.Error())
-		return
-	}
-
-	writeJSON(w, entries)
-}
-
 func LogUpstream(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")

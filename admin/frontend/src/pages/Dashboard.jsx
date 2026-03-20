@@ -33,6 +33,7 @@ export default function Dashboard() {
   const { data: apiStats, loading: loadingStats } = useSSE('stats', api.getStats)
   const { data: apiFs } = useSSE('filesystem', api.getFilesystem, 60000)
   const { data: apiNoslice } = useSSE('noslice', api.getNoslice)
+  const { data: logStats } = useSSE('logstats', api.getLogStats)
 
   const initialLoading = loadingHealth || loadingStats
   const isLive = apiHealth !== null
@@ -44,7 +45,7 @@ export default function Dashboard() {
   const ns = apiNoslice ?? { enabled: false, blocked_count: 0, blocked_hosts: [], state: {} }
   const greeting = getGreeting()
   const allRunning = health.processes.every(p => p.status === 'RUNNING')
-  const healthCheck = rawStats.health ?? { status: 'ok', warnings: [], disk_warning: false, disk_critical: false, errors_recent: 0, upstream_errors: 0 }
+  const healthCheck = rawStats.health ?? { status: 'ok', warnings: [], disk_warning: false, disk_critical: false }
   const overallHealthy = healthCheck.status === 'ok' && allRunning
   const healthStatus = !allRunning ? 'warning' : healthCheck.status
   const healthWarnings = healthCheck.warnings || []
@@ -52,6 +53,10 @@ export default function Dashboard() {
     const stopped = health.processes.filter(p => p.status !== 'RUNNING').map(p => p.name)
     healthWarnings.unshift(`Services not running: ${stopped.join(', ')}`)
   }
+  const recentErrorCount = logStats?.recent_errors?.length ?? 0
+  const upstreamErrorCount = logStats?.upstream_health?.total_errors ?? 0
+  if (recentErrorCount > 0) healthWarnings.push(`${recentErrorCount} recent error${recentErrorCount === 1 ? '' : 's'} in logs`)
+  if (upstreamErrorCount > 0) healthWarnings.push(`${upstreamErrorCount} upstream error${upstreamErrorCount === 1 ? '' : 's'} detected`)
 
   function handleCopy() {
     navigator.clipboard.writeText(configHash).catch(() => {})
@@ -262,17 +267,14 @@ export default function Dashboard() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
             {rawStats.upstream.pools.map((pool) => {
-              const hasIps = Array.isArray(pool.ips) && pool.ips.length > 0
               return (
                 <div key={pool.domain}
                   className="flex items-center justify-between rounded-lg bg-panda-bg px-4 py-3.5">
                   <div className="flex items-center gap-3">
-                    <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${hasIps ? 'bg-bamboo breathe-green' : 'bg-err breathe-red'}`} />
+                    <div className="w-2.5 h-2.5 rounded-full shrink-0 bg-bamboo breathe-green" />
                     <div>
                       <p className="text-base font-medium text-panda-text font-mono">{pool.domain}</p>
-                      <p className="text-xs text-panda-dim leading-snug">
-                        {hasIps ? `${pool.ips.length} ${pool.ips.length === 1 ? 'endpoint' : 'endpoints'}` : 'no endpoints resolved'}
-                      </p>
+                      <p className="text-xs text-panda-dim leading-snug">configured upstream</p>
                       <p className="text-sm text-panda-muted mt-0.5">
                         {pool.keepalive ? `keepalive ${pool.keepalive}` : ''}
                         {pool.keepalive && pool.timeout ? ' · ' : ''}
@@ -280,7 +282,7 @@ export default function Dashboard() {
                       </p>
                     </div>
                   </div>
-                  <StatusBadge status={hasIps ? 'running' : 'stopped'} label={hasIps ? 'ACTIVE' : 'DOWN'} />
+                  <StatusBadge status="running" label="CONFIGURED" />
                 </div>
               )
             })}

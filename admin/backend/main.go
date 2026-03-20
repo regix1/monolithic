@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/lancachenet/monolithic/admin/handlers"
 	"github.com/lancachenet/monolithic/admin/middleware"
@@ -12,6 +13,10 @@ import (
 
 func main() {
 	services.LoadAdminOverrides()
+
+	// Precompute log stats synchronously once, then refresh every 15 seconds in the
+	// background. This ensures the SSE endpoint serves cached data instantly.
+	services.StartLogStatsWorker(15 * time.Second)
 
 	port := os.Getenv("ADMIN_API_PORT")
 	if port == "" {
@@ -56,6 +61,14 @@ func main() {
 		handlers.NginxReload(w, r)
 	})
 
+	mux.HandleFunc("/api/nginx/apply", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		handlers.ApplyConfig(w, r)
+	})
+
 	mux.HandleFunc("/api/container/restart", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -66,7 +79,7 @@ func main() {
 
 	mux.HandleFunc("/api/supervisor", handlers.HealthHandler)
 
-	mux.HandleFunc("/api/logs/errors", handlers.LogErrors)
+
 	mux.HandleFunc("/api/logs/upstream", handlers.LogUpstream)
 	mux.HandleFunc("/api/logs/stats", handlers.LogStats)
 

@@ -26,26 +26,54 @@ const (
 // ---------- log stats cache ----------
 
 var (
-	logStatsCache     *models.LogStatsResponse
-	logStatsCacheTime time.Time
-	logStatsCacheTTL  = 30 * time.Second
-	logStatsMu        sync.Mutex
+	logStatsCache   *models.LogStatsResponse
+	logStatsReady   bool
+	logStatsMu      sync.RWMutex
 )
 
+// GetCachedLogStats returns the precomputed log stats, or nil if not yet ready.
 func GetCachedLogStats() *models.LogStatsResponse {
-	logStatsMu.Lock()
-	defer logStatsMu.Unlock()
-	if logStatsCache != nil && time.Since(logStatsCacheTime) < logStatsCacheTTL {
-		return logStatsCache
+	logStatsMu.RLock()
+	defer logStatsMu.RUnlock()
+	if !logStatsReady {
+		return nil
 	}
-	return nil
+	return logStatsCache
 }
 
+// CacheLogStats stores a log stats result in the cache (used by the REST handler
+// for the default 720h view so it also benefits from on-demand population).
 func CacheLogStats(resp *models.LogStatsResponse) {
 	logStatsMu.Lock()
 	defer logStatsMu.Unlock()
 	logStatsCache = resp
-	logStatsCacheTime = time.Now()
+	logStatsReady = true
+}
+
+// recomputeLogStats computes the default 30-day log stats and stores them in the cache.
+func recomputeLogStats() {
+	since := time.Now().Add(-720 * time.Hour)
+	stats := ComputeAllLogStats(AccessLogPath, ErrorLogPath, UpstreamErrorLogPath, 720, since)
+
+	logStatsMu.Lock()
+	logStatsCache = &stats
+	logStatsReady = true
+	logStatsMu.Unlock()
+}
+
+// StartLogStatsWorker starts a background goroutine that recomputes log stats
+// periodically. It computes once synchronously before returning so that the
+// cache is warm before the HTTP server begins accepting connections.
+func StartLogStatsWorker(interval time.Duration) {
+	recomputeLogStats()
+
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for range ticker.C {
+			recomputeLogStats()
+		}
+	}()
 }
 
 // ---------- regex ----------
@@ -378,92 +406,6 @@ func extractCacheStatus(line string) string {
 	return ""
 }
 
-// ---------- error rate (adaptive buckets) ----------
-
-// ComputeErrorRate computes error counts in time buckets over the given duration.
-// Bucket size adapts: <=24h uses hourly buckets, >24h uses daily buckets.
-func ComputeErrorRate(path string, hours int) []models.ErrorRateBucket {
-	lines, err := tailFile(path, 20000)
-	if err != nil {
-		return []models.ErrorRateBucket{}
-	}
-
-	now := time.Now()
-	since := now.Add(-time.Duration(hours) * time.Hour)
-
-	// Choose bucket size and count based on duration
-	var bucketDuration time.Duration
-	var bucketCount int
-	var labelFormat string
-
-	if hours <= 24 {
-		bucketDuration = time.Hour
-		bucketCount = hours
-		labelFormat = "15:00"
-	} else {
-		bucketDuration = 24 * time.Hour
-		bucketCount = hours / 24
-		labelFormat = "Jan 2"
-	}
-
-	// Round start down to bucket boundary
-	var bucketStart time.Time
-	if hours <= 24 {
-		bucketStart = time.Date(since.Year(), since.Month(), since.Day(), since.Hour(), 0, 0, 0, since.Location())
-	} else {
-		bucketStart = time.Date(since.Year(), since.Month(), since.Day(), 0, 0, 0, 0, since.Location())
-	}
-
-	buckets := make(map[string]int)
-	bucketTimes := make([]string, 0, bucketCount)
-
-	for i := 0; i < bucketCount; i++ {
-		t := bucketStart.Add(time.Duration(i) * bucketDuration)
-		label := t.Format(labelFormat)
-		buckets[label] = 0
-		bucketTimes = append(bucketTimes, label)
-	}
-
-	for _, line := range lines {
-		match := errorLogRegex.FindStringSubmatch(line)
-		if match == nil {
-			continue
-		}
-
-		t, err := time.ParseInLocation("2006/01/02 15:04:05", match[1], time.Local)
-		if err != nil {
-			continue
-		}
-
-		if t.Before(since) {
-			continue
-		}
-
-		// Round down to bucket
-		var bucketTime time.Time
-		if hours <= 24 {
-			bucketTime = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
-		} else {
-			bucketTime = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
-		}
-		label := bucketTime.Format(labelFormat)
-
-		if _, ok := buckets[label]; ok {
-			buckets[label]++
-		}
-	}
-
-	result := make([]models.ErrorRateBucket, 0, len(bucketTimes))
-	for _, label := range bucketTimes {
-		result = append(result, models.ErrorRateBucket{
-			Time:   label,
-			Errors: buckets[label],
-		})
-	}
-
-	return result
-}
-
 // ---------- noslice events ----------
 
 func FindNosliceEvents(path string, since time.Time) []models.NosliceEvent {
@@ -621,12 +563,12 @@ func ComputeAllLogStats(accessLogPath, errorLogPath, upstreamErrorLogPath string
 	// Read each file once — scale line count by time range
 	var n, nErr int
 	if since.IsZero() {
-		n = 100000
-		nErr = 50000
+		n = 50000
+		nErr = 25000
 	} else {
 		h := time.Since(since).Hours()
-		n = int(math.Min(h*5000, 500000))
-		nErr = int(math.Min(h*2500, 250000))
+		n = int(math.Min(h*1500, 150000))
+		nErr = int(math.Min(h*750, 75000))
 		if n < 1000 {
 			n = 1000
 		}
@@ -651,7 +593,6 @@ func ComputeAllLogStats(accessLogPath, errorLogPath, upstreamErrorLogPath string
 		ErrorRate:      errorRate,
 		RecentErrors:   recentErrors,
 		NosliceEvents:  nosliceEvents,
-		ResponseTimes:  models.ResponseTimes{Avg: "-", P95: "-", P99: "-"},
 		UpstreamHealth: upstreamHealth,
 		Bandwidth:      bandwidth,
 		Services:       svcStats,
@@ -825,7 +766,7 @@ func processErrorLog(lines []string, hours int, since time.Time) ([]models.Error
 	now := time.Now()
 	rateSince := now.Add(-time.Duration(hours) * time.Hour)
 
-	// ---- set up error-rate buckets (same logic as ComputeErrorRate) ----
+	// ---- set up error-rate buckets ----
 	var bucketDuration time.Duration
 	var bucketCount int
 	var labelFormat string
@@ -942,149 +883,5 @@ func processErrorLog(lines []string, hours int, since time.Time) ([]models.Error
 	}
 
 	return errorRate, recentErrors, nosliceEvents
-}
-
-// ---------- bandwidth stats ----------
-
-func ComputeBandwidthStats(path string, n int, since time.Time) (models.BandwidthSummary, []models.ServiceStats) {
-	lines, err := tailFile(path, n)
-	if err != nil {
-		return models.BandwidthSummary{}, []models.ServiceStats{}
-	}
-
-	var totalBytes, hitBytes uint64
-	clients := make(map[string]bool)
-
-	type svcAccum struct {
-		requests int
-		bytes    uint64
-		bytesHit uint64
-	}
-	services := make(map[string]*svcAccum)
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-
-		// Filter by time window
-		if !since.IsZero() {
-			if t, ok := parseAccessLogTime(line); ok && t.Before(since) {
-				continue
-			}
-		}
-
-		// Try text format
-		if line[0] == '[' {
-			match := bandwidthLogRegex.FindStringSubmatch(line)
-			if match == nil {
-				continue
-			}
-
-			cacheID := match[1]
-			clientIP := match[2]
-			bytesStr := match[3]
-			cacheStatus := strings.ToUpper(strings.TrimSpace(match[4]))
-
-			bytes, err := strconv.ParseUint(bytesStr, 10, 64)
-			if err != nil {
-				continue
-			}
-
-			totalBytes += bytes
-			if cacheStatus == "HIT" {
-				hitBytes += bytes
-			}
-			clients[clientIP] = true
-
-			svc, ok := services[cacheID]
-			if !ok {
-				svc = &svcAccum{}
-				services[cacheID] = svc
-			}
-			svc.requests++
-			svc.bytes += bytes
-			if cacheStatus == "HIT" {
-				svc.bytesHit += bytes
-			}
-			continue
-		}
-
-		// Try JSON format
-		if line[0] == '{' {
-			var entry struct {
-				CacheIdentifier string `json:"cache_identifier"`
-				RemoteAddr      string `json:"remote_addr"`
-				BytesSent       uint64 `json:"bytes_sent"`
-				CacheStatus     string `json:"upstream_cache_status"`
-			}
-			if err := json.Unmarshal([]byte(line), &entry); err != nil {
-				continue
-			}
-
-			totalBytes += entry.BytesSent
-			status := strings.ToUpper(entry.CacheStatus)
-			if status == "HIT" {
-				hitBytes += entry.BytesSent
-			}
-			if entry.RemoteAddr != "" {
-				clients[entry.RemoteAddr] = true
-			}
-
-			cacheID := entry.CacheIdentifier
-			if cacheID == "" {
-				cacheID = "unknown"
-			}
-			svc, ok := services[cacheID]
-			if !ok {
-				svc = &svcAccum{}
-				services[cacheID] = svc
-			}
-			svc.requests++
-			svc.bytes += entry.BytesSent
-			if status == "HIT" {
-				svc.bytesHit += entry.BytesSent
-			}
-		}
-	}
-
-	// Compute hit rate
-	var hitRate float64
-	if totalBytes > 0 {
-		hitRate = float64(hitBytes) / float64(totalBytes) * 100
-		hitRate = math.Round(hitRate*10) / 10
-	}
-
-	bandwidth := models.BandwidthSummary{
-		TotalServed:    totalBytes,
-		BandwidthSaved: hitBytes,
-		HitRateBytes:   hitRate,
-		UniqueClients:  len(clients),
-	}
-
-	// Convert services map to sorted slice
-	svcList := make([]models.ServiceStats, 0, len(services))
-	for name, acc := range services {
-		var hr float64
-		if acc.bytes > 0 {
-			hr = float64(acc.bytesHit) / float64(acc.bytes) * 100
-			hr = math.Round(hr*10) / 10
-		}
-		svcList = append(svcList, models.ServiceStats{
-			Service:  name,
-			Requests: acc.requests,
-			Bytes:    acc.bytes,
-			BytesHit: acc.bytesHit,
-			HitRate:  hr,
-		})
-	}
-
-	// Sort by bytes descending
-	sort.Slice(svcList, func(i, j int) bool {
-		return svcList[i].Bytes > svcList[j].Bytes
-	})
-
-	return bandwidth, svcList
 }
 

@@ -37,12 +37,10 @@ type UpstreamStats struct {
 }
 
 type HealthCheck struct {
-	Status         string   `json:"status"`          // "ok", "warning", "critical"
-	Warnings       []string `json:"warnings"`        // list of warning/critical messages
-	DiskWarning    bool     `json:"disk_warning"`    // true if disk > 85%
-	DiskCritical   bool     `json:"disk_critical"`   // true if disk > 95%
-	ErrorsRecent   int      `json:"errors_recent"`   // error count in last hour
-	UpstreamErrors int      `json:"upstream_errors"` // total upstream errors
+	Status       string   `json:"status"`       // "ok", "warning", "critical"
+	Warnings     []string `json:"warnings"`     // list of warning/critical messages
+	DiskWarning  bool     `json:"disk_warning"` // true if disk > 85%
+	DiskCritical bool     `json:"disk_critical"` // true if disk > 95%
 }
 
 type StatsResponse struct {

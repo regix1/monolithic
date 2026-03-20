@@ -32,12 +32,6 @@ type NosliceEvent struct {
 	Error    string `json:"error"`
 }
 
-type ResponseTimes struct {
-	Avg string `json:"avg"`
-	P95 string `json:"p95"`
-	P99 string `json:"p99"`
-}
-
 type UpstreamErrorEntry struct {
 	Time      string `json:"time"`
 	Level     string `json:"level"`
@@ -80,9 +74,9 @@ type LogStatsResponse struct {
 	ErrorRate      []ErrorRateBucket     `json:"error_rate"`
 	RecentErrors   []ErrorLogEntry       `json:"recent_errors"`
 	NosliceEvents  []NosliceEvent        `json:"noslice_events"`
-	ResponseTimes  ResponseTimes         `json:"response_times"`
+
 	UpstreamHealth UpstreamHealthSummary `json:"upstream_health"`
-	FallbackCount  int                   `json:"fallback_count"`
+
 	Bandwidth      BandwidthSummary      `json:"bandwidth"`
 	Services       []ServiceStats        `json:"services"`
 }

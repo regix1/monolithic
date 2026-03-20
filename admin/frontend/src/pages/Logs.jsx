@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { TIME_RANGES } from '../lib/constants'
 import {
   PieChart as PieChartIcon,
   TrendingUp,
@@ -118,12 +119,6 @@ function UpstreamStatCard({ icon: Icon, count, label, colorClass }) {
 
 /* ── Main Component ───────────────────────────────────────────── */
 
-const TIME_RANGES = [
-  { label: '1h', hours: 1 },
-  { label: '24h', hours: 24 },
-  { label: '7d', hours: 168 },
-  { label: '30d', hours: 720 },
-]
 
 export default function Logs() {
   const { data: sseLogStats, loading } = useSSE('logstats', api.getLogStats)

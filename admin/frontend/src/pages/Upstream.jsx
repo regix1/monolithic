@@ -1,15 +1,9 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { Network, AlertTriangle, FolderTree, ChevronDown, ChevronRight, Wifi, WifiOff } from 'lucide-react'
 import { Card, StatCard } from '../components'
 import { useSSE } from '../hooks/useSSE'
 import { api } from '../lib/api'
-
-const TIME_RANGES = [
-  { label: '1h', hours: 1 },
-  { label: '24h', hours: 24 },
-  { label: '7d', hours: 168 },
-  { label: '30d', hours: 720 },
-]
+import { TIME_RANGES } from '../lib/constants'
 
 function FallbackStatusBadge({ status }) {
   const map = {
@@ -102,11 +96,12 @@ function DomainTreeItem({ service, data }) {
 export default function Upstream() {
   const { data: apiStats, loading: loadingStats } = useSSE('stats', api.getStats)
   const { data: apiDomains } = useSSE('domains', api.getDomains, 60000)
+  const { data: logStats } = useSSE('logstats', api.getLogStats)
   const loading = loadingStats
 
   const [selectedHours, setSelectedHours] = useState(720)
   const [fetchingRange, setFetchingRange] = useState(false)
-  const statsCache = useRef({})
+  const [statsCache, setStatsCache] = useState({})
 
   const apiData = apiStats ? { stats: apiStats, domains: apiDomains } : null
 
@@ -114,13 +109,17 @@ export default function Upstream() {
     setSelectedHours(hours)
     if (hours === 720) return  // SSE data handles 30d
 
-    // Check cache first
-    if (statsCache.current[hours]) return
-
+    // Show cached data immediately, re-fetch in background to refresh
     setFetchingRange(true)
-    const result = await api.getLogUpstreamByHours(hours)
-    if (result) {
-      statsCache.current = { ...statsCache.current, [hours]: result }
+    const [logStatsResult, fallbackResult] = await Promise.all([
+      api.getLogStatsByHours(hours),
+      api.getLogUpstreamByHours(hours),
+    ])
+    if (logStatsResult || fallbackResult) {
+      setStatsCache((prev) => ({
+        ...prev,
+        [hours]: { logStats: logStatsResult, fallbackEvents: fallbackResult ?? [] },
+      }))
     }
     setFetchingRange(false)
   }
@@ -147,10 +146,14 @@ export default function Upstream() {
     domains: apiData.domains ?? {},
   } : emptyUpstream
 
-  // Use time-filtered data for fallback events when not in default 30d SSE mode
-  // getLogUpstreamByHours returns []UpstreamLogEntry directly (an array, not an object)
-  const cachedData = selectedHours !== 720 ? statsCache.current[selectedHours] : null
-  const activeFallbackEvents = cachedData ? (Array.isArray(cachedData) ? cachedData : (cachedData.fallback_events ?? [])) : upstream.fallback_events
+  // For non-30d ranges: use cached logStats for upstream_health summary, cached fallbackEvents for the events table
+  const cachedEntry = selectedHours !== 720 ? statsCache[selectedHours] : null
+  const activeFallbackEvents = cachedEntry ? (cachedEntry.fallbackEvents ?? []) : upstream.fallback_events
+
+  // Upstream health summary: use logstats SSE for 30d, cached logStats for filtered ranges
+  const activeUpstreamHealth = selectedHours === 720
+    ? logStats?.upstream_health ?? null
+    : cachedEntry?.logStats?.upstream_health ?? null
 
   return (
     <div className="flex flex-col gap-5 animate-fade-in">

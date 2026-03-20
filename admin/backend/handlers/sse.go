@@ -102,7 +102,6 @@ func sendFastData(w http.ResponseWriter, flusher http.Flusher) {
 	upstream := services.FetchUpstreamStats()
 
 	// Health checks
-	oneHourAgo := time.Now().Add(-1 * time.Hour)
 	warnings := []string{}
 	diskWarning := disk.Percent >= 85
 	diskCritical := disk.Percent >= 95
@@ -110,26 +109,6 @@ func sendFastData(w http.ResponseWriter, flusher http.Flusher) {
 		warnings = append(warnings, fmt.Sprintf("Disk critically full: %.1f%% used", disk.Percent))
 	} else if diskWarning {
 		warnings = append(warnings, fmt.Sprintf("Disk space low: %.1f%% used", disk.Percent))
-	}
-	recentErrors, _ := services.ParseErrorLog(services.ErrorLogPath, 200, time.Time{})
-	errorsLastHour := 0
-	for _, e := range recentErrors {
-		if t, err := time.ParseInLocation("2006-01-02 15:04:05", e.Time, time.Local); err == nil {
-			if t.After(oneHourAgo) {
-				errorsLastHour++
-			}
-		}
-	}
-	if errorsLastHour > 50 {
-		warnings = append(warnings, fmt.Sprintf("High error rate: %d errors in last hour", errorsLastHour))
-	} else if errorsLastHour > 10 {
-		warnings = append(warnings, fmt.Sprintf("Elevated errors: %d in last hour", errorsLastHour))
-	}
-	upstreamHealth := services.ComputeUpstreamHealth(services.UpstreamErrorLogPath, 5000, oneHourAgo)
-	if upstreamHealth.TotalErrors > 50 {
-		warnings = append(warnings, fmt.Sprintf("High upstream errors: %d in last hour", upstreamHealth.TotalErrors))
-	} else if upstreamHealth.TotalErrors > 10 {
-		warnings = append(warnings, fmt.Sprintf("Upstream errors: %d in last hour", upstreamHealth.TotalErrors))
 	}
 	status := "ok"
 	if len(warnings) > 0 {
@@ -145,12 +124,10 @@ func sendFastData(w http.ResponseWriter, flusher http.Flusher) {
 		ConfigHash: configHash,
 		Upstream:   upstream,
 		Health: models.HealthCheck{
-			Status:         status,
-			Warnings:       warnings,
-			DiskWarning:    diskWarning,
-			DiskCritical:   diskCritical,
-			ErrorsRecent:   errorsLastHour,
-			UpstreamErrors: upstreamHealth.TotalErrors,
+			Status:       status,
+			Warnings:     warnings,
+			DiskWarning:  diskWarning,
+			DiskCritical: diskCritical,
 		},
 	})
 
@@ -194,16 +171,10 @@ func sendSlowData(w http.ResponseWriter, flusher http.Flusher) {
 		sendEvent(w, flusher, "filesystem", fsResp)
 	}
 
-	// Log stats (default 30 days for SSE) — single-pass computation
-	sseSince := time.Now().Add(-720 * time.Hour)
-	logStats := services.ComputeAllLogStats(
-		services.AccessLogPath,
-		services.ErrorLogPath,
-		services.UpstreamErrorLogPath,
-		720,
-		sseSince,
-	)
-	sendEvent(w, flusher, "logstats", logStats)
+	// Log stats (default 30 days for SSE) — served from background precomputed cache
+	if logStats := services.GetCachedLogStats(); logStats != nil {
+		sendEvent(w, flusher, "logstats", logStats)
+	}
 
 	// Domains
 	domains := services.LoadDomains("/data/cachedomains")

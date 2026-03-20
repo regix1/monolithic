@@ -77,12 +77,10 @@ func StatsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	health := models.HealthCheck{
-		Status:         status,
-		Warnings:       warnings,
-		DiskWarning:    diskWarning,
-		DiskCritical:   diskCritical,
-		ErrorsRecent:   errorsLastHour,
-		UpstreamErrors: upstreamHealth.TotalErrors,
+		Status:       status,
+		Warnings:     warnings,
+		DiskWarning:  diskWarning,
+		DiskCritical: diskCritical,
 	}
 
 	resp := models.StatsResponse{

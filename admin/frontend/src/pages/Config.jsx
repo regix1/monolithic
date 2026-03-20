@@ -437,8 +437,8 @@ export default function Config() {
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
 
-    // Reload nginx to apply config changes
-    api.reloadNginx()
+    // Run setup hooks + nginx reload to apply config changes
+    api.applyConfig()
   }
 
   async function handleRestart() {
@@ -485,7 +485,7 @@ export default function Config() {
             className="flex items-center gap-1.5 rounded-lg bg-bamboo px-3 py-2 text-sm font-semibold text-panda-bg hover:bg-bamboo-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Save size={13} />
-            Save
+            Save &amp; Apply
           </button>
           <button
             onClick={handleRestart}
@@ -555,7 +555,7 @@ export default function Config() {
               className="flex items-center gap-1.5 rounded-lg bg-bamboo px-4 py-2 text-sm font-semibold text-panda-bg hover:bg-bamboo-hover transition-colors"
             >
               <Save size={13} />
-              Save
+              Save &amp; Apply
             </button>
             <button
               type="button"

@@ -18,6 +18,7 @@ import {
   ChevronDown,
   Download,
   Shield,
+  RefreshCw,
 } from 'lucide-react'
 import {
   PieChart,
@@ -119,7 +120,7 @@ function UpstreamStatCard({ icon: Icon, count, label, colorClass }) {
 
 
 export default function Logs() {
-  const { activeLogStats, fetchingRange } = useTimeRange()
+  const { activeLogStats, fetchingRange, logStatsLoading, showingStaleLogStats } = useTimeRange()
 
   /* All hooks MUST be called before any early return */
   const { formatTime } = useTimeFormat()
@@ -131,7 +132,8 @@ export default function Logs() {
   const [nosliceSortDir, setNosliceSortDir] = useState('desc')
 
   const logStats = activeLogStats
-  const isLogStatsLoading = !logStats || logStats.status === 'loading'
+  const isLogStatsLoading = !logStats
+  const isRefreshingLogStats = fetchingRange || showingStaleLogStats
 
   const totalRequests = isLogStatsLoading ? 0 : (logStats.cache_status ?? []).reduce((sum, item) => sum + item.count, 0)
   const hasErrors = isLogStatsLoading ? false : (logStats.error_rate ?? []).some(b => b.errors > 0)
@@ -195,7 +197,15 @@ export default function Logs() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-panda-text">Logs</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold text-panda-text">Logs</h1>
+            {(isRefreshingLogStats || isLogStatsLoading) && (
+              <span className="inline-flex items-center gap-2 rounded-full border border-info/20 bg-info/10 px-3 py-1.5 text-sm text-info">
+                <RefreshCw size={14} className="animate-spin" />
+                {isRefreshingLogStats ? 'Updating time range...' : 'Loading log stats...'}
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-base text-panda-dim">
             Operational analytics — upstream performance &amp; error monitoring
           </p>
@@ -203,7 +213,7 @@ export default function Logs() {
       </div>
 
       {/* Data area — dims during fetch, shows skeleton when loading */}
-      <div className={`flex flex-col gap-5 transition-opacity duration-300 ${fetchingRange && !isLogStatsLoading ? 'opacity-50' : ''}`}>
+      <div className={`flex flex-col gap-5 transition-opacity duration-300 ${isRefreshingLogStats && !isLogStatsLoading ? 'opacity-50' : ''}`}>
 
       {/* ── Loading Skeleton ──────────────────────────────────────── */}
       {isLogStatsLoading ? (
@@ -250,7 +260,7 @@ export default function Logs() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {/* Bandwidth Saved — hero metric */}
         <div className="rounded-xl bg-panda-surface border border-bamboo/20 p-5 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-bamboo/5 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-linear-to-br from-bamboo/5 to-transparent pointer-events-none" />
           <div className="relative">
             <div className="flex items-center gap-2 text-sm uppercase tracking-wider text-panda-dim mb-2">
               <Download size={16} className="text-bamboo" />

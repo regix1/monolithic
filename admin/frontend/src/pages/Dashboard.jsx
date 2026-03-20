@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   Server, Activity, HardDrive, Database, Fingerprint, Shield,
   CheckCircle, AlertTriangle, Copy, Check, Info, Globe,
+  RefreshCw,
 } from 'lucide-react'
 
 import { StatusBadge, AnimatedCounter } from '../components'
@@ -30,7 +31,7 @@ function SIcon({ icon: Icon, color = '#4ade80' }) {
 export default function Dashboard() {
   const [copied, setCopied] = useState(false)
 
-  const { activeLogStats, fetchingRange } = useTimeRange()
+  const { activeLogStats, fetchingRange, logStatsLoading, showingStaleLogStats } = useTimeRange()
 
   const { data: apiHealth, loading: loadingHealth } = useSSE('health', api.getHealth)
   const { data: apiStats, loading: loadingStats } = useSSE('stats', api.getStats)
@@ -50,15 +51,17 @@ export default function Dashboard() {
   const healthCheck = rawStats.health ?? { status: 'ok', warnings: [], disk_warning: false, disk_critical: false }
   const overallHealthy = healthCheck.status === 'ok' && allRunning
   const healthStatus = !allRunning ? 'warning' : healthCheck.status
-  const healthWarnings = healthCheck.warnings || []
-  if (!allRunning) {
-    const stopped = health.processes.filter(p => p.status !== 'RUNNING').map(p => p.name)
-    healthWarnings.unshift(`Services not running: ${stopped.join(', ')}`)
-  }
+  const stoppedServices = health.processes.filter(p => p.status !== 'RUNNING').map(p => p.name)
   const recentErrorCount = activeLogStats?.recent_errors?.length ?? 0
   const upstreamErrorCount = activeLogStats?.upstream_health?.total_errors ?? 0
-  if (recentErrorCount > 0) healthWarnings.push(`${recentErrorCount} recent error${recentErrorCount === 1 ? '' : 's'} in logs`)
-  if (upstreamErrorCount > 0) healthWarnings.push(`${upstreamErrorCount} upstream error${upstreamErrorCount === 1 ? '' : 's'} detected`)
+  const healthWarnings = [
+    ...(stoppedServices.length > 0 ? [`Services not running: ${stoppedServices.join(', ')}`] : []),
+    ...(healthCheck.warnings ?? []),
+    ...(recentErrorCount > 0 ? [`${recentErrorCount} recent error${recentErrorCount === 1 ? '' : 's'} in logs`] : []),
+    ...(upstreamErrorCount > 0 ? [`${upstreamErrorCount} upstream error${upstreamErrorCount === 1 ? '' : 's'} detected`] : []),
+  ]
+  const isRefreshingLogStats = fetchingRange || showingStaleLogStats
+  const showLogStatsStatus = isRefreshingLogStats || (logStatsLoading && !activeLogStats)
 
   function handleCopy() {
     navigator.clipboard.writeText(configHash).catch(() => {})
@@ -83,6 +86,12 @@ export default function Dashboard() {
       <div className="shrink-0">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl sm:text-3xl font-bold text-panda-text">{greeting.greeting} {greeting.emoji}</h1>
+          {showLogStatsStatus && (
+            <span className="inline-flex items-center gap-2 rounded-full border border-info/20 bg-info/10 px-3 py-1.5 text-sm text-info">
+              <RefreshCw size={14} className="animate-spin" />
+              {isRefreshingLogStats ? 'Updating time range...' : 'Loading log stats...'}
+            </span>
+          )}
           {!isLive && (
             <span className="text-sm text-warn bg-warn/10 border border-warn/25 px-3 py-1.5 rounded-full">
               Mock Data
@@ -95,7 +104,7 @@ export default function Dashboard() {
       </div>
 
       {/* Health warnings banner */}
-      <div className={`transition-opacity duration-300 ${fetchingRange ? 'opacity-50' : ''}`}>
+      <div className={`transition-opacity duration-300 ${isRefreshingLogStats ? 'opacity-50' : ''}`}>
       {healthWarnings.length > 0 && (
         <div className={`rounded-xl border px-5 py-4 flex flex-col gap-2 ${
           healthStatus === 'critical'

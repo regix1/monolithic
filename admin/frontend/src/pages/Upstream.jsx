@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Network, AlertTriangle, FolderTree, ChevronDown, ChevronRight, Wifi, WifiOff } from 'lucide-react'
+import { Network, AlertTriangle, FolderTree, ChevronDown, ChevronRight, Wifi, WifiOff, RefreshCw } from 'lucide-react'
 import { Card, StatCard } from '../components'
 import { useSSE } from '../hooks/useSSE'
 import { api } from '../lib/api'
@@ -98,15 +98,30 @@ export default function Upstream() {
   const { data: apiDomains } = useSSE('domains', api.getDomains, 60000)
   const loading = loadingStats
 
-  const { timeRange, activeLogStats, fetchingRange } = useTimeRange()
+  const { timeRange, fetchingRange, logStatsLoading, showingStaleLogStats } = useTimeRange()
 
-  const [fallbackEvents, setFallbackEvents] = useState([])
+  const [fallbackEventCache, setFallbackEventCache] = useState({})
+  const [loadingFallbackEvents, setLoadingFallbackEvents] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    api.getLogUpstreamByHours(timeRange).then((result) => {
-      if (!cancelled) setFallbackEvents(result ?? [])
-    })
+    setLoadingFallbackEvents(true)
+    api.getLogUpstreamByHours(timeRange)
+      .then((result) => {
+        if (cancelled) {
+          return
+        }
+
+        setFallbackEventCache(prev => ({
+          ...prev,
+          [timeRange]: result ?? [],
+        }))
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingFallbackEvents(false)
+        }
+      })
     return () => { cancelled = true }
   }, [timeRange])
 
@@ -134,16 +149,23 @@ export default function Upstream() {
     domains: apiData.domains ?? {},
   } : emptyUpstream
 
-  const activeFallbackEvents = fallbackEvents.length > 0 ? fallbackEvents : upstream.fallback_events
-
-  const activeUpstreamHealth = activeLogStats?.upstream_health ?? null
+  const hasCachedFallbackEvents = Object.prototype.hasOwnProperty.call(fallbackEventCache, timeRange)
+  const activeFallbackEvents = hasCachedFallbackEvents ? fallbackEventCache[timeRange] : upstream.fallback_events
+  const isRefreshingLogStats = fetchingRange || showingStaleLogStats
+  const isUpdatingRangeData = isRefreshingLogStats || loadingFallbackEvents
 
   return (
-    <div className={`flex flex-col gap-5 animate-fade-in transition-opacity duration-300 ${fetchingRange ? 'opacity-50' : ''}`}>
+    <div className={`flex flex-col gap-5 animate-fade-in transition-opacity duration-300 ${isUpdatingRangeData ? 'opacity-50' : ''}`}>
       {/* Header */}
       <div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl sm:text-3xl font-bold text-panda-text">Upstream</h1>
+          {(isUpdatingRangeData || logStatsLoading) && (
+            <span className="inline-flex items-center gap-2 rounded-full border border-info/20 bg-info/10 px-3 py-1.5 text-sm text-info">
+              <RefreshCw size={14} className="animate-spin" />
+              {isUpdatingRangeData ? 'Updating time range...' : 'Loading range data...'}
+            </span>
+          )}
           {!isLive && (
             <span className="text-sm text-warn bg-warn/10 border border-warn/25 px-3 py-1.5 rounded-full">
               Mock Data

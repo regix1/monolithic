@@ -38,10 +38,13 @@ func SSEHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Then send updates on intervals
 	// Fast data (stats, health): every 5 seconds
-	// Slow data (config, filesystem, logs): every 30 seconds
+	// Log stats: every 15 seconds to match the backend worker cadence
+	// Slow data (config, filesystem, domains): every 30 seconds
 	fastTicker := time.NewTicker(5 * time.Second)
+	logStatsTicker := time.NewTicker(15 * time.Second)
 	slowTicker := time.NewTicker(30 * time.Second)
 	defer fastTicker.Stop()
+	defer logStatsTicker.Stop()
 	defer slowTicker.Stop()
 
 	for {
@@ -50,6 +53,8 @@ func SSEHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		case <-fastTicker.C:
 			sendFastData(w, flusher)
+		case <-logStatsTicker.C:
+			sendLogStatsData(w, flusher)
 		case <-slowTicker.C:
 			sendSlowData(w, flusher)
 		}
@@ -69,6 +74,7 @@ func sendEvent(w http.ResponseWriter, flusher http.Flusher, topic string, data i
 
 func sendAllData(w http.ResponseWriter, flusher http.Flusher) {
 	sendFastData(w, flusher)
+	sendLogStatsData(w, flusher)
 	sendSlowData(w, flusher)
 }
 
@@ -171,17 +177,20 @@ func sendSlowData(w http.ResponseWriter, flusher http.Flusher) {
 		sendEvent(w, flusher, "filesystem", fsResp)
 	}
 
-	// Log stats (default 30 days for SSE) — served from background precomputed cache
-	if logStats := services.GetCachedLogStats(); logStats != nil {
-		sendEvent(w, flusher, "logstats", logStats)
-	} else {
-		sendEvent(w, flusher, "logstats", map[string]interface{}{
-			"status":  "loading",
-			"message": "Computing log statistics...",
-		})
-	}
-
 	// Domains
 	domains := services.LoadDomains("/data/cachedomains")
 	sendEvent(w, flusher, "domains", domains)
+}
+
+func sendLogStatsData(w http.ResponseWriter, flusher http.Flusher) {
+	// Log stats (default 30 days for SSE) — served from background precomputed cache
+	if logStats := services.GetCachedLogStats(); logStats != nil {
+		sendEvent(w, flusher, "logstats", logStats)
+		return
+	}
+
+	sendEvent(w, flusher, "logstats", map[string]interface{}{
+		"status":  "loading",
+		"message": "Computing log statistics...",
+	})
 }

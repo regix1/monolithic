@@ -57,8 +57,7 @@ func LogStats(w http.ResponseWriter, r *http.Request) {
 	// rather than computing on-demand (which would timeout through nginx).
 	for _, r := range []int{1, 24, 168, 720} {
 		if hours == r {
-			w.WriteHeader(http.StatusAccepted)
-			writeJSON(w, map[string]interface{}{"loading": true, "status": "loading", "message": "stats are being computed, try again shortly"})
+			writeJSONStatus(w, http.StatusAccepted, map[string]interface{}{"loading": true, "status": "loading", "message": "stats are being computed, try again shortly"})
 			return
 		}
 	}

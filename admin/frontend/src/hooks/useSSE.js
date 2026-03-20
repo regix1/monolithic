@@ -7,6 +7,10 @@ let sharedSource = null
 let subscribers = new Map() // topic -> Set of callbacks
 let refCount = 0
 
+function isLoadingPayload(payload) {
+  return payload && (payload.status === 'loading' || payload.loading === true)
+}
+
 function getSource() {
   if (!sharedSource || sharedSource.readyState === EventSource.CLOSED) {
     sharedSource = new EventSource(SSE_URL)
@@ -67,43 +71,80 @@ export function useSSE(topic, fetchFn, fallbackInterval = 30000) {
   fetchFnRef.current = fetchFn
 
   const handleData = useCallback((newData) => {
+    // Ignore sentinel loading responses — keep previous data and allow
+    // the 10s fallback poller to fire so it can retry until real data arrives.
+    if (isLoadingPayload(newData)) {
+      return
+    }
     setData(newData)
     setLoading(false)
     receivedRef.current = true
     if (fallbackRef.current) {
-      clearInterval(fallbackRef.current)
+      clearTimeout(fallbackRef.current)
       fallbackRef.current = null
     }
   }, [])
 
   useEffect(() => {
+    receivedRef.current = false
     const unsubscribe = subscribe(topic, handleData)
+    let cancelled = false
+
+    const stopPolling = () => {
+      if (fallbackRef.current) {
+        clearTimeout(fallbackRef.current)
+        fallbackRef.current = null
+      }
+    }
+
+    const schedulePoll = (delay) => {
+      stopPolling()
+      fallbackRef.current = setTimeout(async () => {
+        if (cancelled || receivedRef.current) {
+          return
+        }
+
+        try {
+          const result = await fetchFnRef.current()
+          if (cancelled || receivedRef.current) {
+            return
+          }
+
+          if (result == null) {
+            schedulePoll(fallbackInterval)
+            return
+          }
+
+          // Don't treat "loading" responses as valid data — keep retrying
+          // quickly until the backend has real data ready.
+          if (isLoadingPayload(result)) {
+            schedulePoll(3000)
+            return
+          }
+
+          setData(result)
+          setLoading(false)
+          receivedRef.current = true
+          stopPolling()
+        } catch (error) {
+          console.warn(`[SSE] Poll for "${topic}" failed:`, error)
+          schedulePoll(fallbackInterval)
+        }
+      }, delay)
+    }
 
     const fallbackTimeout = setTimeout(() => {
       if (!receivedRef.current) {
         console.warn(`[SSE] No data for "${topic}" after 10s, falling back to polling`)
-        const poll = async () => {
-          const result = await fetchFnRef.current()
-          if (result !== null) {
-            // Don't treat "loading" responses as valid data
-            if (result && result.status === 'loading') {
-              return // keep previous data
-            }
-            setData(result)
-            setLoading(false)
-          }
-        }
-        poll()
-        fallbackRef.current = setInterval(poll, fallbackInterval)
+        schedulePoll(0)
       }
     }, 10000)
 
     return () => {
+      cancelled = true
       unsubscribe()
       clearTimeout(fallbackTimeout)
-      if (fallbackRef.current) {
-        clearInterval(fallbackRef.current)
-      }
+      stopPolling()
     }
   }, [topic, handleData, fallbackInterval])
 

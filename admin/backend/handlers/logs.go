@@ -47,16 +47,14 @@ func LogStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Skip cache if custom time range
-	if hours == 720 {
-		if cached := services.GetCachedLogStats(); cached != nil {
-			writeJSON(w, cached)
-			return
-		}
+	// Serve from precomputed cache if available (covers 1h, 24h, 7d, 30d).
+	if cached := services.GetCachedLogStatsByHours(hours); cached != nil {
+		writeJSON(w, cached)
+		return
 	}
 
+	// Fallback: compute on demand for non-standard ranges.
 	since := time.Now().Add(-time.Duration(hours) * time.Hour)
-
 	resp := services.ComputeAllLogStats(
 		services.AccessLogPath,
 		services.ErrorLogPath,
@@ -64,11 +62,5 @@ func LogStats(w http.ResponseWriter, r *http.Request) {
 		hours,
 		since,
 	)
-
-	// Only cache the default (30d) response — filtered responses must not
-	// contaminate the cache that the SSE handler reads.
-	if hours == 720 {
-		services.CacheLogStats(&resp)
-	}
 	writeJSON(w, resp)
 }

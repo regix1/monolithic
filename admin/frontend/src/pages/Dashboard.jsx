@@ -9,6 +9,7 @@ import Tooltip from '../components/Tooltip'
 import { useSSE } from '../hooks/useSSE'
 import { api } from '../lib/api'
 import { getGreeting, getHealthMessage } from '../lib/greetings'
+import { TIME_RANGES } from '../lib/constants'
 
 const NGINX_METRIC_DEFINITIONS = {
   Reading:  'Connections currently being read by nginx. This is an instantaneous gauge — on low-traffic systems it will typically show 0.',
@@ -28,12 +29,17 @@ function SIcon({ icon: Icon, color = '#4ade80' }) {
 
 export default function Dashboard() {
   const [copied, setCopied] = useState(false)
+  const [timeRange, setTimeRange] = useState(720)
+  const [statsCache, setStatsCache] = useState({})
+  const [fetchingRange, setFetchingRange] = useState(false)
 
   const { data: apiHealth, loading: loadingHealth } = useSSE('health', api.getHealth)
   const { data: apiStats, loading: loadingStats } = useSSE('stats', api.getStats)
   const { data: apiFs } = useSSE('filesystem', api.getFilesystem, 60000)
   const { data: apiNoslice } = useSSE('noslice', api.getNoslice)
-  const { data: logStats } = useSSE('logstats', api.getLogStats)
+  const { data: sseLogStats } = useSSE('logstats', api.getLogStats)
+
+  const activeLogStats = timeRange === 720 ? sseLogStats : (statsCache[timeRange] ?? null)
 
   const initialLoading = loadingHealth || loadingStats
   const isLive = apiHealth !== null
@@ -53,8 +59,8 @@ export default function Dashboard() {
     const stopped = health.processes.filter(p => p.status !== 'RUNNING').map(p => p.name)
     healthWarnings.unshift(`Services not running: ${stopped.join(', ')}`)
   }
-  const recentErrorCount = logStats?.recent_errors?.length ?? 0
-  const upstreamErrorCount = logStats?.upstream_health?.total_errors ?? 0
+  const recentErrorCount = activeLogStats?.recent_errors?.length ?? 0
+  const upstreamErrorCount = activeLogStats?.upstream_health?.total_errors ?? 0
   if (recentErrorCount > 0) healthWarnings.push(`${recentErrorCount} recent error${recentErrorCount === 1 ? '' : 's'} in logs`)
   if (upstreamErrorCount > 0) healthWarnings.push(`${upstreamErrorCount} upstream error${upstreamErrorCount === 1 ? '' : 's'} detected`)
 
@@ -62,6 +68,19 @@ export default function Dashboard() {
     navigator.clipboard.writeText(configHash).catch(() => {})
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  async function handleTimeRangeChange(hours) {
+    setTimeRange(hours)
+    if (hours === 720) return
+    if (statsCache[hours]) return
+    setFetchingRange(true)
+    try {
+      const result = await api.getLogStatsByHours(hours)
+      setStatsCache(prev => ({ ...prev, [hours]: result }))
+    } finally {
+      setFetchingRange(false)
+    }
   }
 
   if (initialLoading) {
@@ -92,7 +111,34 @@ export default function Dashboard() {
         </p>
       </div>
 
+      {/* Time range selector for log-based stats */}
+      <div className="flex flex-wrap items-center gap-3">
+        {fetchingRange && (
+          <span className="flex items-center gap-2 text-sm text-panda-dim">
+            <span className="h-2 w-2 rounded-full bg-bamboo animate-pulse" />
+            Loading...
+          </span>
+        )}
+        <div className="flex flex-wrap rounded-xl bg-panda-elevated/50 border border-panda-border p-1 gap-0.5">
+          {TIME_RANGES.map(({ label, hours }) => (
+            <button
+              key={hours}
+              onClick={() => handleTimeRangeChange(hours)}
+              className={[
+                'px-3.5 py-1.5 text-sm font-medium rounded-lg transition-all duration-200',
+                timeRange === hours
+                  ? 'bg-bamboo/20 text-bamboo shadow-sm'
+                  : 'text-panda-dim hover:text-panda-text hover:bg-panda-elevated',
+              ].join(' ')}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Health warnings banner */}
+      <div className={`transition-opacity duration-300 ${fetchingRange ? 'opacity-50' : ''}`}>
       {healthWarnings.length > 0 && (
         <div className={`rounded-xl border px-5 py-4 flex flex-col gap-2 ${
           healthStatus === 'critical'
@@ -114,6 +160,7 @@ export default function Dashboard() {
           </ul>
         </div>
       )}
+      </div>
 
       {/* Row 1: Quick stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">

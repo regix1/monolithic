@@ -25,53 +25,54 @@ const (
 
 // ---------- log stats cache ----------
 
+// precomputedRanges are the time ranges (in hours) that the background worker
+// precomputes so the REST and SSE endpoints can serve them instantly.
+var precomputedRanges = []int{1, 24, 168, 720}
+
 var (
-	logStatsCache   *models.LogStatsResponse
-	logStatsReady   bool
-	logStatsMu      sync.RWMutex
+	logStatsCache map[int]*models.LogStatsResponse // keyed by hours
+	logStatsMu    sync.RWMutex
 )
 
-// GetCachedLogStats returns the precomputed log stats, or nil if not yet ready.
+func init() {
+	logStatsCache = make(map[int]*models.LogStatsResponse)
+}
+
+// GetCachedLogStats returns the precomputed 30d log stats for SSE, or nil if not yet ready.
 func GetCachedLogStats() *models.LogStatsResponse {
+	return GetCachedLogStatsByHours(720)
+}
+
+// GetCachedLogStatsByHours returns precomputed stats for the given hour range, or nil.
+func GetCachedLogStatsByHours(hours int) *models.LogStatsResponse {
 	logStatsMu.RLock()
 	defer logStatsMu.RUnlock()
-	if !logStatsReady {
-		return nil
+	return logStatsCache[hours]
+}
+
+// recomputeAllLogStats computes log stats for every precomputed range.
+func recomputeAllLogStats() {
+	for _, hours := range precomputedRanges {
+		since := time.Now().Add(-time.Duration(hours) * time.Hour)
+		stats := ComputeAllLogStats(AccessLogPath, ErrorLogPath, UpstreamErrorLogPath, hours, since)
+
+		logStatsMu.Lock()
+		logStatsCache[hours] = &stats
+		logStatsMu.Unlock()
 	}
-	return logStatsCache
 }
 
-// CacheLogStats stores a log stats result in the cache (used by the REST handler
-// for the default 720h view so it also benefits from on-demand population).
-func CacheLogStats(resp *models.LogStatsResponse) {
-	logStatsMu.Lock()
-	defer logStatsMu.Unlock()
-	logStatsCache = resp
-	logStatsReady = true
-}
-
-// recomputeLogStats computes the default 30-day log stats and stores them in the cache.
-func recomputeLogStats() {
-	since := time.Now().Add(-720 * time.Hour)
-	stats := ComputeAllLogStats(AccessLogPath, ErrorLogPath, UpstreamErrorLogPath, 720, since)
-
-	logStatsMu.Lock()
-	logStatsCache = &stats
-	logStatsReady = true
-	logStatsMu.Unlock()
-}
-
-// StartLogStatsWorker starts a background goroutine that recomputes log stats
-// periodically. It computes once synchronously before returning so that the
-// cache is warm before the HTTP server begins accepting connections.
+// StartLogStatsWorker starts a background goroutine that precomputes log stats
+// for all standard time ranges (1h, 24h, 7d, 30d) periodically. The HTTP server
+// starts immediately; SSE/REST serve nil until the first computation completes.
 func StartLogStatsWorker(interval time.Duration) {
-	recomputeLogStats()
-
 	go func() {
+		recomputeAllLogStats()
+
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for range ticker.C {
-			recomputeLogStats()
+			recomputeAllLogStats()
 		}
 	}()
 }

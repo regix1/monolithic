@@ -22,3 +22,22 @@ type UpdateConfigResponse struct {
 	OK      bool   `json:"ok"`
 	Message string `json:"message"`
 }
+
+type ConfigHashComponents struct {
+	GenericCacheVersion string `json:"genericcache_version"`
+	CacheMode           string `json:"cache_mode"`
+	CacheSliceSize      string `json:"cache_slice_size"`
+	CacheKey            string `json:"cache_key"`
+}
+
+type ConfigHashResponse struct {
+	Exists      bool                 `json:"exists"`
+	Raw         string               `json:"raw"`
+	Components  ConfigHashComponents `json:"components"`
+	Description string               `json:"description"`
+}
+
+type DeleteConfigHashResponse struct {
+	OK      bool   `json:"ok"`
+	Message string `json:"message"`
+}

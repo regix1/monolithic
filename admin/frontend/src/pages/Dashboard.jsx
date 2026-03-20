@@ -1,12 +1,20 @@
 import { useState } from 'react'
 import {
   Server, Activity, HardDrive, Database, Fingerprint, Shield,
-  CheckCircle, AlertTriangle, Copy, Check,
+  CheckCircle, AlertTriangle, Copy, Check, Info,
 } from 'lucide-react'
+
 import { StatusBadge, AnimatedCounter } from '../components'
 import { useSSE } from '../hooks/useSSE'
 import { api } from '../lib/api'
 import { getGreeting, getHealthMessage } from '../lib/greetings'
+
+const NGINX_METRIC_DEFINITIONS = {
+  Reading:  'Active connections reading request headers',
+  Writing:  'Active connections sending responses',
+  Waiting:  'Idle keepalive connections',
+  Requests: 'Total requests since nginx started',
+}
 
 function SIcon({ icon: Icon, color = '#4ade80' }) {
   return (
@@ -115,22 +123,34 @@ export default function Dashboard() {
         </div>
         {/* Reading */}
         <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex flex-col justify-center">
-          <p className="text-sm uppercase tracking-wider text-panda-dim mb-1.5">Reading</p>
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <p className="text-sm uppercase tracking-wider text-panda-dim">Reading</p>
+            <Info size={12} className="text-panda-dim/50 shrink-0" title={NGINX_METRIC_DEFINITIONS.Reading} />
+          </div>
           <p className="text-3xl font-bold text-info font-mono">{nginx.reading}</p>
         </div>
         {/* Writing */}
         <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex flex-col justify-center">
-          <p className="text-sm uppercase tracking-wider text-panda-dim mb-1.5">Writing</p>
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <p className="text-sm uppercase tracking-wider text-panda-dim">Writing</p>
+            <Info size={12} className="text-panda-dim/50 shrink-0" title={NGINX_METRIC_DEFINITIONS.Writing} />
+          </div>
           <p className="text-3xl font-bold text-bamboo font-mono">{nginx.writing}</p>
         </div>
         {/* Waiting */}
         <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex flex-col justify-center">
-          <p className="text-sm uppercase tracking-wider text-panda-dim mb-1.5">Waiting</p>
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <p className="text-sm uppercase tracking-wider text-panda-dim">Waiting</p>
+            <Info size={12} className="text-panda-dim/50 shrink-0" title={NGINX_METRIC_DEFINITIONS.Waiting} />
+          </div>
           <p className="text-3xl font-bold text-panda-muted font-mono">{nginx.waiting}</p>
         </div>
         {/* Requests */}
         <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex flex-col justify-center">
-          <p className="text-sm uppercase tracking-wider text-panda-dim mb-1.5">Requests</p>
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <p className="text-sm uppercase tracking-wider text-panda-dim">Requests</p>
+            <Info size={12} className="text-panda-dim/50 shrink-0" title={NGINX_METRIC_DEFINITIONS.Requests} />
+          </div>
           <p className="text-xl font-bold text-panda-text font-mono">{nginx.requests.toLocaleString()}</p>
         </div>
       </div>

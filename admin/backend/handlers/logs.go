@@ -29,7 +29,17 @@ func LogUpstream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entries, err := services.ParseUpstreamLog(services.UpstreamFallbackLogPath, 50)
+	// Parse hours parameter — if provided, filter by time window; otherwise return last 50 entries
+	var since time.Time
+	n := 50
+	if h := r.URL.Query().Get("hours"); h != "" {
+		if parsed, err := strconv.Atoi(h); err == nil && parsed > 0 {
+			since = time.Now().Add(-time.Duration(parsed) * time.Hour)
+			n = 5000
+		}
+	}
+
+	entries, err := services.ParseUpstreamLog(services.UpstreamFallbackLogPath, n, since)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to read upstream log: "+err.Error())
 		return

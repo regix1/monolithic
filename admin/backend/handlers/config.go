@@ -99,3 +99,71 @@ func UpdateConfig(w http.ResponseWriter, r *http.Request) {
 		Message: "Configuration saved. Restart required to apply.",
 	})
 }
+
+const configHashPath = "/data/cache/CONFIGHASH"
+const configHashDescription = "Config hash guards against cache invalidation from config changes. Delete and restart container to regenerate."
+
+func parseConfigHashComponents(raw string) models.ConfigHashComponents {
+	components := models.ConfigHashComponents{}
+	for _, part := range strings.Split(raw, ";") {
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(strings.ToLower(kv[0]))
+		val := strings.TrimSpace(kv[1])
+		switch key {
+		case "genericcache_version":
+			components.GenericCacheVersion = val
+		case "cache_mode":
+			components.CacheMode = val
+		case "cache_slice_size":
+			components.CacheSliceSize = val
+		case "cache_key":
+			components.CacheKey = val
+		}
+	}
+	return components
+}
+
+func GetConfigHash(w http.ResponseWriter, r *http.Request) {
+	data, err := os.ReadFile(configHashPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			writeJSON(w, models.ConfigHashResponse{
+				Exists:      false,
+				Raw:         "",
+				Components:  models.ConfigHashComponents{},
+				Description: configHashDescription,
+			})
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to read CONFIGHASH: "+err.Error())
+		return
+	}
+
+	raw := strings.TrimSpace(string(data))
+	writeJSON(w, models.ConfigHashResponse{
+		Exists:      true,
+		Raw:         raw,
+		Components:  parseConfigHashComponents(raw),
+		Description: configHashDescription,
+	})
+}
+
+func DeleteConfigHash(w http.ResponseWriter, r *http.Request) {
+	if err := os.Remove(configHashPath); err != nil {
+		if os.IsNotExist(err) {
+			writeError(w, http.StatusNotFound, "CONFIGHASH file does not exist")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to delete CONFIGHASH: "+err.Error())
+		return
+	}
+
+	fmt.Printf("[ADMIN] CONFIGHASH deleted via API\n")
+	writeJSON(w, models.DeleteConfigHashResponse{
+		OK:      true,
+		Message: "CONFIGHASH deleted. Restart the container to regenerate it.",
+	})
+}

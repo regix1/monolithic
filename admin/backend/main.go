@@ -34,6 +34,17 @@ func main() {
 		}
 	})
 
+	mux.HandleFunc("/api/config/confighash", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			handlers.GetConfigHash(w, r)
+		case http.MethodDelete:
+			handlers.DeleteConfigHash(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	mux.HandleFunc("/api/filesystem", handlers.FilesystemHandler)
 
 	mux.HandleFunc("/api/nginx/status", handlers.NginxStatus)

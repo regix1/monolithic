@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/lancachenet/monolithic/admin/models"
 )
@@ -87,7 +88,7 @@ func FetchUpstreamStats() models.UpstreamStats {
 		pools = ParseUpstreamPools("/etc/nginx/conf.d/40_upstream_pools.conf")
 	}
 
-	fallbackEvents, _ := ParseUpstreamLog(UpstreamFallbackLogPath, 20)
+	fallbackEvents, _ := ParseUpstreamLog(UpstreamFallbackLogPath, 20, time.Time{})
 	if fallbackEvents == nil {
 		fallbackEvents = []models.UpstreamLogEntry{}
 	}

@@ -8,6 +8,8 @@ import {
   ChevronDown,
   ChevronRight,
   Zap,
+  Trash2,
+  Hash,
 } from 'lucide-react'
 import { Card, Toggle } from '../components'
 import Dropdown from '../components/Dropdown'
@@ -142,6 +144,174 @@ function ConfigGroup({ group, originalValues, onChangeVar, tagOptions }) {
         </AnimatePresence>
       </Card>
     </div>
+  )
+}
+
+function ConfigHashSection() {
+  const [hashData, setHashData] = useState(null)
+  const [hashLoading, setHashLoading] = useState(true)
+  const [hashError, setHashError] = useState(null)
+  const [deleteStatus, setDeleteStatus] = useState(null) // 'success' | 'error' | null
+
+  async function fetchHash() {
+    setHashLoading(true)
+    setHashError(null)
+    try {
+      const data = await api.getConfigHash()
+      setHashData(data)
+    } catch (err) {
+      setHashError('Failed to load CONFIGHASH data')
+    } finally {
+      setHashLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchHash()
+  }, [])
+
+  async function handleDeleteHash() {
+    const confirmed = window.confirm(
+      [
+        'Are you sure? This will delete the CONFIGHASH file.',
+        '',
+        'The container must be restarted after deletion to regenerate it.',
+        '',
+        'If your config has changed, existing cached data may be invalidated.',
+      ].join('\n')
+    )
+    if (!confirmed) return
+
+    setDeleteStatus(null)
+    try {
+      await api.deleteConfigHash()
+      setDeleteStatus('success')
+      await fetchHash()
+      setTimeout(() => setDeleteStatus(null), 3000)
+    } catch (err) {
+      setDeleteStatus('error')
+    }
+  }
+
+  const componentRows = [
+    { label: 'GENERICCACHE_VERSION', key: 'genericcache_version' },
+    { label: 'CACHE_MODE', key: 'cache_mode' },
+    { label: 'CACHE_SLICE_SIZE', key: 'cache_slice_size' },
+    { label: 'CACHE_KEY', key: 'cache_key' },
+  ]
+
+  return (
+    <Card className="p-0 overflow-hidden">
+      {/* Section header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-panda-border">
+        <div className="flex items-center gap-3">
+          <Hash size={16} className="text-bamboo shrink-0" />
+          <div>
+            <span className="text-base font-semibold text-panda-text">Config Hash</span>
+            <p className="text-xs text-panda-dim mt-0.5">Guards against cache invalidation from config changes</p>
+          </div>
+        </div>
+
+        {/* Status badge */}
+        {!hashLoading && hashData && (
+          hashData.exists ? (
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-bamboo px-2.5 py-1 rounded-full bg-bamboo-glow border border-bamboo/25">
+              <CheckCircle size={11} />
+              Present
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-warn px-2.5 py-1 rounded-full bg-warn/10 border border-warn/25">
+              <AlertTriangle size={11} />
+              Will regenerate on restart
+            </span>
+          )
+        )}
+      </div>
+
+      <div className="px-4 py-4 flex flex-col gap-4">
+        {hashLoading && (
+          <p className="text-sm text-panda-dim">Loading…</p>
+        )}
+
+        {hashError && (
+          <div className="flex items-center gap-2 text-sm text-err">
+            <AlertTriangle size={14} className="shrink-0" />
+            {hashError}
+          </div>
+        )}
+
+        {!hashLoading && hashData && hashData.exists && (
+          <>
+            {/* Raw hash display */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-panda-muted uppercase tracking-wide">Raw Hash</span>
+              <div className="flex items-center gap-2 rounded-lg border border-panda-border bg-panda-elevated px-4 py-2.5 font-mono text-sm text-panda-text break-all">
+                {hashData.raw}
+              </div>
+            </div>
+
+            {/* Parsed components table */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-panda-muted uppercase tracking-wide">Components</span>
+              <div className="rounded-lg border border-panda-border overflow-hidden">
+                {componentRows.map(({ label, key }, idx) => (
+                  <div
+                    key={key}
+                    className={[
+                      'grid grid-cols-[1fr_1fr] gap-4 px-4 py-2.5 text-sm',
+                      idx > 0 ? 'border-t border-panda-border' : '',
+                      'bg-panda-bg',
+                    ].join(' ')}
+                  >
+                    <span className="font-mono text-panda-muted text-xs font-semibold self-center">{label}</span>
+                    <span className="font-mono text-panda-text text-xs self-center break-all">
+                      {hashData.components?.[key] ?? '—'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {!hashLoading && hashData && !hashData.exists && (
+          <p className="text-sm text-panda-muted italic">No CONFIGHASH file found. It will be created on the next container start.</p>
+        )}
+
+        {/* Info text */}
+        <p className="text-xs text-panda-dim leading-relaxed">
+          This file is auto-generated on container startup from your environment variables.
+          If it gets out of sync, delete it and restart the container to regenerate.
+        </p>
+
+        {/* Feedback banners */}
+        {deleteStatus === 'success' && (
+          <div className="flex items-center gap-2 text-sm text-bamboo rounded-lg border border-bamboo/25 bg-bamboo-glow px-3 py-2">
+            <CheckCircle size={14} className="shrink-0" />
+            CONFIGHASH deleted. Restart the container to regenerate.
+          </div>
+        )}
+        {deleteStatus === 'error' && (
+          <div className="flex items-center gap-2 text-sm text-err rounded-lg border border-err/30 bg-err/10 px-3 py-2">
+            <AlertTriangle size={14} className="shrink-0" />
+            Failed to delete CONFIGHASH — check browser console for details.
+          </div>
+        )}
+
+        {/* Delete & Regenerate button */}
+        <div className="flex justify-end pt-1">
+          <button
+            type="button"
+            onClick={handleDeleteHash}
+            disabled={hashLoading || (hashData && !hashData.exists)}
+            className="flex items-center gap-1.5 rounded-lg border border-err/40 bg-err/10 px-4 py-2 text-sm font-semibold text-err hover:bg-err/20 hover:border-err/60 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Trash2 size={13} />
+            Delete &amp; Regenerate
+          </button>
+        </div>
+      </div>
+    </Card>
   )
 }
 
@@ -347,6 +517,9 @@ export default function Config() {
           tagOptions={serviceNames}
         />
       ))}
+
+      {/* CONFIGHASH management */}
+      <ConfigHashSection />
     </div>
   )
 }

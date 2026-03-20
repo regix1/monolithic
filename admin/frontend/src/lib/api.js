@@ -53,4 +53,7 @@ export const api = {
   getNoslice: () => fetchJson('/noslice'),
   resetNoslice: () => postJson('/noslice/reset'),
   getDomains: () => fetchJson('/domains'),
+  getLogUpstreamByHours: (hours) => fetchJson('/logs/upstream?hours=' + hours),
+  getConfigHash: () => fetchJson('/config/confighash'),
+  deleteConfigHash: () => fetch(`${BASE}/config/confighash`, { method: 'DELETE' }).then(r => r.ok ? r.json() : null),
 }

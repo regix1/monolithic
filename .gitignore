@@ -5,6 +5,8 @@ reports
 
 # Claude Code
 .claude
+.claude-flow
+CLAUDE.md
 
 # Serena
 .serena/

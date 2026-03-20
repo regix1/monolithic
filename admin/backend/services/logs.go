@@ -180,7 +180,7 @@ func convertErrorTimestamp(ts string) string {
 
 // ---------- upstream log parsing ----------
 
-func ParseUpstreamLog(path string, n int) ([]models.UpstreamLogEntry, error) {
+func ParseUpstreamLog(path string, n int, since time.Time) ([]models.UpstreamLogEntry, error) {
 	lines, err := tailFile(path, n)
 	if err != nil {
 		return nil, err
@@ -191,6 +191,17 @@ func ParseUpstreamLog(path string, n int) ([]models.UpstreamLogEntry, error) {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
+		}
+
+		// Filter by time window using the raw timestamp from the log line
+		if !since.IsZero() {
+			if m := upstreamCombinedRegex.FindStringSubmatch(line); m != nil {
+				if t, err := time.Parse("02/Jan/2006:15:04:05 -0700", m[2]); err == nil {
+					if t.Before(since) {
+						continue
+					}
+				}
+			}
 		}
 
 		entry := parseUpstreamLine(line)

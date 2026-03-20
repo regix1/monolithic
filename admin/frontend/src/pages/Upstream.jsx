@@ -1,8 +1,15 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Network, AlertTriangle, FolderTree, ChevronDown, ChevronRight, Wifi, WifiOff } from 'lucide-react'
 import { Card, StatCard } from '../components'
 import { useSSE } from '../hooks/useSSE'
 import { api } from '../lib/api'
+
+const TIME_RANGES = [
+  { label: '1h', hours: 1 },
+  { label: '24h', hours: 24 },
+  { label: '7d', hours: 168 },
+  { label: '30d', hours: 720 },
+]
 
 function FallbackStatusBadge({ status }) {
   const map = {
@@ -96,7 +103,27 @@ export default function Upstream() {
   const { data: apiStats, loading: loadingStats } = useSSE('stats', api.getStats)
   const { data: apiDomains } = useSSE('domains', api.getDomains, 60000)
   const loading = loadingStats
+
+  const [selectedHours, setSelectedHours] = useState(720)
+  const [fetchingRange, setFetchingRange] = useState(false)
+  const statsCache = useRef({})
+
   const apiData = apiStats ? { stats: apiStats, domains: apiDomains } : null
+
+  async function fetchRange(hours) {
+    setSelectedHours(hours)
+    if (hours === 720) return  // SSE data handles 30d
+
+    // Check cache first
+    if (statsCache.current[hours]) return
+
+    setFetchingRange(true)
+    const result = await api.getLogUpstreamByHours(hours)
+    if (result) {
+      statsCache.current = { ...statsCache.current, [hours]: result }
+    }
+    setFetchingRange(false)
+  }
 
   if (loading) {
     return (
@@ -120,21 +147,52 @@ export default function Upstream() {
     domains: apiData.domains ?? {},
   } : emptyUpstream
 
+  // Use time-filtered data for fallback events when not in default 30d SSE mode
+  // getLogUpstreamByHours returns []UpstreamLogEntry directly (an array, not an object)
+  const cachedData = selectedHours !== 720 ? statsCache.current[selectedHours] : null
+  const activeFallbackEvents = cachedData ? (Array.isArray(cachedData) ? cachedData : (cachedData.fallback_events ?? [])) : upstream.fallback_events
+
   return (
     <div className="flex flex-col gap-5 animate-fade-in">
       {/* Header */}
-      <div>
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-panda-text">Upstream</h1>
-          {!isLive && (
-            <span className="text-sm text-warn bg-warn/10 border border-warn/25 px-3 py-1.5 rounded-full">
-              Mock Data
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-panda-text">Upstream</h1>
+            {!isLive && (
+              <span className="text-sm text-warn bg-warn/10 border border-warn/25 px-3 py-1.5 rounded-full">
+                Mock Data
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-base text-panda-dim">
+            Keepalive connection pools &amp; CDN routing
+          </p>
+        </div>
+        <div className="flex items-center gap-2 sm:shrink-0 w-full sm:w-auto">
+          {fetchingRange && (
+            <span className="flex items-center gap-2 text-sm text-panda-dim">
+              <span className="h-2 w-2 rounded-full bg-bamboo animate-pulse" />
+              Loading...
             </span>
           )}
+          <div className="flex rounded-xl bg-panda-elevated/50 border border-panda-border p-1 gap-0.5">
+            {TIME_RANGES.map(({ label, hours }) => (
+              <button
+                key={hours}
+                onClick={() => fetchRange(hours)}
+                className={[
+                  'px-3.5 py-1.5 text-sm font-medium rounded-lg transition-all duration-200',
+                  selectedHours === hours
+                    ? 'bg-bamboo/20 text-bamboo shadow-sm'
+                    : 'text-panda-dim hover:text-panda-text hover:bg-panda-elevated',
+                ].join(' ')}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
-        <p className="mt-1 text-base text-panda-dim">
-          Keepalive connection pools &amp; CDN routing
-        </p>
       </div>
 
       {/* Status row */}
@@ -158,7 +216,7 @@ export default function Upstream() {
 
         <StatCard label="Pools" value={upstream.pool_count} />
         <StatCard label="Excluded" value={upstream.excluded.length} />
-        <StatCard label="Fallbacks" value={upstream.fallback_events.length} color="#f9a825" />
+        <StatCard label="Fallbacks" value={activeFallbackEvents.length} color="#f9a825" />
       </div>
 
       {/* Upstream Pools — collapsible with scrollable table */}
@@ -203,11 +261,11 @@ export default function Upstream() {
       <CollapsibleSection
         title="Recent Fallback Events"
         icon={AlertTriangle}
-        defaultOpen={upstream.fallback_events.length > 0}
+        defaultOpen={activeFallbackEvents.length > 0}
         badge={
-          upstream.fallback_events.length > 0 ? (
+          activeFallbackEvents.length > 0 ? (
             <span className="rounded-full px-3 py-1 text-sm bg-warn/10 text-warn font-medium">
-              {upstream.fallback_events.length} events
+              {activeFallbackEvents.length} events
             </span>
           ) : (
             <span className="rounded-full px-3 py-1 text-sm bg-bamboo/10 text-bamboo font-medium">
@@ -221,7 +279,7 @@ export default function Upstream() {
             Requests that bypassed the keepalive upstream pool due to 502/504 errors and were retried via direct connection to the CDN.
           </p>
         </div>
-        {upstream.fallback_events.length === 0 ? (
+        {activeFallbackEvents.length === 0 ? (
           <div className="flex items-center gap-2 px-5 py-4 text-sm text-bamboo">
             No fallback events — upstream connections healthy
           </div>
@@ -236,7 +294,7 @@ export default function Upstream() {
                 </tr>
               </thead>
               <tbody>
-                {upstream.fallback_events.map((event, index) => (
+                {activeFallbackEvents.map((event, index) => (
                   <tr
                     key={`${event.time}-${index}`}
                     className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}

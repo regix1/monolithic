@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"math"
 	"os"
@@ -50,22 +51,71 @@ func GetCachedLogStatsByHours(hours int) *models.LogStatsResponse {
 	return logStatsCache[hours]
 }
 
-// recomputeAllLogStats computes log stats for every precomputed range in parallel.
+// recomputeAllLogStats reads each log file ONCE, then computes stats for every
+// precomputed range by filtering the in-memory slices. Ranges are processed
+// shortest-first (1h → 24h → 7d → 30d) so the cache is populated with fast
+// results before slower ones finish.
 func recomputeAllLogStats() {
-	var wg sync.WaitGroup
-	for _, hours := range precomputedRanges {
-		wg.Add(1)
-		go func(h int) {
-			defer wg.Done()
-			since := time.Now().Add(-time.Duration(h) * time.Hour)
-			stats := ComputeAllLogStats(AccessLogPath, ErrorLogPath, UpstreamErrorLogPath, h, since)
+	// Read each file once — use the largest line budget (30d / 720h).
+	allAccessLines, _ := tailFile(AccessLogPath, 150000)
+	allErrorLines, _ := tailFile(ErrorLogPath, 75000)
+	allUpstreamLines, _ := tailFile(UpstreamErrorLogPath, 5000)
 
-			logStatsMu.Lock()
-			logStatsCache[h] = &stats
-			logStatsMu.Unlock()
-		}(hours)
+	// Process ranges shortest-first for fast initial cache population.
+	for _, hours := range precomputedRanges {
+		h := hours
+		since := time.Now().Add(-time.Duration(h) * time.Hour)
+
+		// Filter in-memory slices to the time window for this range.
+		accessLines := filterAccessLinesSince(allAccessLines, since)
+		errorLines := filterErrorLinesSince(allErrorLines, since)
+		upstreamLines := filterErrorLinesSince(allUpstreamLines, since)
+
+		stats := ComputeAllLogStatsFromLines(accessLines, errorLines, upstreamLines, h, since)
+
+		logStatsMu.Lock()
+		logStatsCache[h] = &stats
+		logStatsMu.Unlock()
 	}
-	wg.Wait()
+}
+
+// filterAccessLinesSince returns only access log lines with a timestamp >= since.
+// Lines without a parseable timestamp are kept (safe default).
+func filterAccessLinesSince(lines []string, since time.Time) []string {
+	if since.IsZero() {
+		return lines
+	}
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if t, ok := parseAccessLogTime(line); ok {
+			if t.Before(since) {
+				continue
+			}
+		}
+		out = append(out, line)
+	}
+	return out
+}
+
+// filterErrorLinesSince returns only error log lines with a timestamp >= since.
+// Lines without a parseable timestamp are kept (safe default).
+func filterErrorLinesSince(lines []string, since time.Time) []string {
+	if since.IsZero() {
+		return lines
+	}
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		m := errorLogRegex.FindStringSubmatch(line)
+		if m != nil {
+			if t, err := time.ParseInLocation("2006/01/02 15:04:05", m[1], time.Local); err == nil {
+				if t.Before(since) {
+					continue
+				}
+			}
+		}
+		out = append(out, line)
+	}
+	return out
 }
 
 // StartLogStatsWorker starts a background goroutine that precomputes log stats
@@ -483,14 +533,27 @@ func extractHostFromMessage(msg string) string {
 
 // ---------- upstream health ----------
 
+// ComputeUpstreamHealth reads upstream-error.log and delegates to
+// computeUpstreamHealthFromLines with deduplication.
 func ComputeUpstreamHealth(path string, n int, since time.Time) models.UpstreamHealthSummary {
 	lines, err := tailFile(path, n)
 	if err != nil {
 		return models.UpstreamHealthSummary{TopHosts: []models.UpstreamErrorHost{}}
 	}
+	return computeUpstreamHealthFromLines(lines, since)
+}
 
+// computeUpstreamHealthFromLines computes upstream health stats from pre-loaded
+// lines. Nginx writes 2-4 error lines per failed upstream request; lines sharing
+// the same second-level timestamp AND client IP are deduplicated so each failed
+// request counts as exactly one error.
+func computeUpstreamHealthFromLines(lines []string, since time.Time) models.UpstreamHealthSummary {
 	summary := models.UpstreamHealthSummary{TopHosts: []models.UpstreamErrorHost{}}
 	hostCounts := make(map[string]int)
+
+	// seen deduplicates lines by "unix_second:clientIP" so that multiple nginx
+	// error lines emitted for the same upstream request count as one error.
+	seen := make(map[string]bool)
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -503,19 +566,30 @@ func ComputeUpstreamHealth(path string, n int, since time.Time) models.UpstreamH
 			continue
 		}
 
-		// Filter by time window (skip if since is zero — no filter)
-		if !since.IsZero() {
-			if t, err := time.ParseInLocation("2006/01/02 15:04:05", match[1], time.Local); err == nil {
-				if t.Before(since) {
-					continue
-				}
-			}
+		// Parse timestamp (required for both time-filter and dedup key).
+		t, err := time.ParseInLocation("2006/01/02 15:04:05", match[1], time.Local)
+		if err != nil {
+			continue
+		}
+
+		// Filter by time window.
+		if !since.IsZero() && t.Before(since) {
+			continue
 		}
 
 		msg := match[3]
+		clientIP := extractClientIP(msg)
+
+		// Deduplicate: same second + same client IP → same upstream request.
+		dedupKey := fmt.Sprintf("%d:%s", t.Unix(), clientIP)
+		if seen[dedupKey] {
+			continue
+		}
+		seen[dedupKey] = true
+
 		summary.TotalErrors++
 
-		// Classify error type
+		// Classify error type.
 		lower := strings.ToLower(msg)
 		if strings.Contains(lower, "timed out") {
 			summary.Timeouts++
@@ -527,14 +601,14 @@ func ComputeUpstreamHealth(path string, n int, since time.Time) models.UpstreamH
 			summary.Other++
 		}
 
-		// Extract host from message
+		// Extract host from message.
 		host := extractHostFromMessage(msg)
 		if host != "" {
 			hostCounts[host]++
 		}
 	}
 
-	// Build top hosts list sorted by count
+	// Build top hosts list sorted by count.
 	type hostCount struct {
 		host  string
 		count int
@@ -563,11 +637,12 @@ func ComputeUpstreamHealth(path string, n int, since time.Time) models.UpstreamH
 
 // ---------- combined single-pass log stats ----------
 
-// ComputeAllLogStats reads access.log and error.log once each, then computes
-// all log statistics in a single pass per file. Upstream-error.log is handled
-// separately because it is a different file.
+// ComputeAllLogStats reads access.log, error.log, and upstream-error.log once
+// each, then computes all log statistics in a single pass per file.
+// This is the on-demand path (used for non-standard hour ranges from the REST
+// handler). The precomputed-cache path uses ComputeAllLogStatsFromLines directly.
 func ComputeAllLogStats(accessLogPath, errorLogPath, upstreamErrorLogPath string, hours int, since time.Time) models.LogStatsResponse {
-	// Read each file once — scale line count by time range
+	// Scale line count by time range
 	var n, nErr int
 	if since.IsZero() {
 		n = 50000
@@ -585,15 +660,22 @@ func ComputeAllLogStats(accessLogPath, errorLogPath, upstreamErrorLogPath string
 	}
 	accessLines, _ := tailFile(accessLogPath, n)
 	errorLines, _ := tailFile(errorLogPath, nErr)
+	upstreamLines, _ := tailFile(upstreamErrorLogPath, 5000)
 
+	return ComputeAllLogStatsFromLines(accessLines, errorLines, upstreamLines, hours, since)
+}
+
+// ComputeAllLogStatsFromLines computes all log statistics from pre-loaded line
+// slices. The slices are read-only; goroutines may safely pass sub-slices.
+func ComputeAllLogStatsFromLines(accessLines, errorLines, upstreamLines []string, hours int, since time.Time) models.LogStatsResponse {
 	// Single pass over access.log
 	cacheStatus, bandwidth, svcStats := processAccessLog(accessLines, since)
 
 	// Single pass over error.log
 	errorRate, recentErrors, nosliceEvents := processErrorLog(errorLines, hours, since)
 
-	// Upstream errors (separate file, cannot combine)
-	upstreamHealth := ComputeUpstreamHealth(upstreamErrorLogPath, 5000, since)
+	// Upstream errors — deduplicated by (second, clientIP)
+	upstreamHealth := computeUpstreamHealthFromLines(upstreamLines, since)
 
 	return models.LogStatsResponse{
 		CacheStatus:    cacheStatus,

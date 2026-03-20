@@ -174,6 +174,11 @@ func sendSlowData(w http.ResponseWriter, flusher http.Flusher) {
 	// Log stats (default 30 days for SSE) — served from background precomputed cache
 	if logStats := services.GetCachedLogStats(); logStats != nil {
 		sendEvent(w, flusher, "logstats", logStats)
+	} else {
+		sendEvent(w, flusher, "logstats", map[string]interface{}{
+			"status":  "loading",
+			"message": "Computing log statistics...",
+		})
 	}
 
 	// Domains

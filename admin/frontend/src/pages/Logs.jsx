@@ -131,13 +131,14 @@ export default function Logs() {
   const [nosliceSortDir, setNosliceSortDir] = useState('desc')
 
   const logStats = activeLogStats
+  const isLogStatsLoading = !logStats || logStats.status === 'loading'
 
-  const totalRequests = logStats.cache_status.reduce((sum, item) => sum + item.count, 0)
-  const hasErrors = logStats.error_rate.some(b => b.errors > 0)
-  const uh = logStats.upstream_health ?? { total_errors: 0, timeouts: 0, conn_refused: 0, dns_failures: 0, other: 0, top_hosts: [] }
-  const bw = logStats.bandwidth ?? { total_served: 0, bandwidth_saved: 0, hit_rate_bytes: 0, unique_clients: 0 }
+  const totalRequests = isLogStatsLoading ? 0 : (logStats.cache_status ?? []).reduce((sum, item) => sum + item.count, 0)
+  const hasErrors = isLogStatsLoading ? false : (logStats.error_rate ?? []).some(b => b.errors > 0)
+  const uh = logStats?.upstream_health ?? { total_errors: 0, timeouts: 0, conn_refused: 0, dns_failures: 0, other: 0, top_hosts: [] }
+  const bw = logStats?.bandwidth ?? { total_served: 0, bandwidth_saved: 0, hit_rate_bytes: 0, unique_clients: 0 }
 
-  const sortedServices = [...(logStats.services ?? [])].sort((a, b) => {
+  const sortedServices = isLogStatsLoading ? [] : [...(logStats.services ?? [])].sort((a, b) => {
     const dir = serviceSortDir === 'asc' ? 1 : -1
     return (a[serviceSortKey] > b[serviceSortKey] ? 1 : -1) * dir
   })
@@ -151,7 +152,7 @@ export default function Logs() {
     }
   }
 
-  const sortedErrors = [...(logStats.recent_errors ?? [])].sort((a, b) => {
+  const sortedErrors = isLogStatsLoading ? [] : [...(logStats.recent_errors ?? [])].sort((a, b) => {
     const dir = errorSortDir === 'asc' ? 1 : -1
     return (a[errorSortKey] > b[errorSortKey] ? 1 : -1) * dir
   })
@@ -165,7 +166,7 @@ export default function Logs() {
     }
   }
 
-  const sortedNoslice = [...(logStats.noslice_events ?? [])].sort((a, b) => {
+  const sortedNoslice = isLogStatsLoading ? [] : [...(logStats.noslice_events ?? [])].sort((a, b) => {
     const dir = nosliceSortDir === 'asc' ? 1 : -1
     return (a[nosliceSortKey] > b[nosliceSortKey] ? 1 : -1) * dir
   })
@@ -201,8 +202,49 @@ export default function Logs() {
         </div>
       </div>
 
-      {/* Data area — dims during fetch */}
-      <div className={`flex flex-col gap-5 transition-opacity duration-300 ${fetchingRange ? 'opacity-50' : ''}`}>
+      {/* Data area — dims during fetch, shows skeleton when loading */}
+      <div className={`flex flex-col gap-5 transition-opacity duration-300 ${fetchingRange && !isLogStatsLoading ? 'opacity-50' : ''}`}>
+
+      {/* ── Loading Skeleton ──────────────────────────────────────── */}
+      {isLogStatsLoading ? (
+        <div className="flex flex-col gap-5">
+          {/* KPI cards skeleton */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="rounded-xl bg-panda-surface border border-panda-border p-5">
+                <div className="h-3 w-24 bg-panda-elevated rounded animate-pulse mb-3" />
+                <div className="h-8 w-20 bg-panda-elevated rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+          {/* Chart skeleton */}
+          <div className="rounded-xl bg-panda-surface border border-panda-border p-5">
+            <div className="h-4 w-28 bg-panda-elevated rounded animate-pulse mb-4" />
+            <div className="h-48 w-full bg-panda-elevated rounded animate-pulse" />
+          </div>
+          {/* Two-column skeleton */}
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="rounded-xl bg-panda-surface border border-panda-border p-5">
+                <div className="h-4 w-32 bg-panda-elevated rounded animate-pulse mb-4" />
+                <div className="h-56 w-full bg-panda-elevated rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+          {/* Table skeleton */}
+          {[...Array(2)].map((_, i) => (
+            <div key={i} className="rounded-xl bg-panda-surface border border-panda-border p-5">
+              <div className="h-4 w-36 bg-panda-elevated rounded animate-pulse mb-4" />
+              <div className="flex flex-col gap-2">
+                {[...Array(4)].map((_, j) => (
+                  <div key={j} className="h-10 w-full bg-panda-elevated rounded animate-pulse" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+      <>
 
       {/* ── Row 1: KPI Cards ──────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -298,7 +340,7 @@ export default function Logs() {
             <h2 className="text-base font-semibold text-panda-text">Cache Status Distribution</h2>
           </div>
 
-          {logStats.cache_status.length > 0 && totalRequests > 0 ? (
+          {(logStats.cache_status?.length ?? 0) > 0 && totalRequests > 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center">
               <div className="relative flex items-center justify-center h-[280px] sm:h-[340px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -476,7 +518,7 @@ export default function Logs() {
           <AlertCircle size={18} className="text-err" />
           <h2 className="text-base font-semibold text-panda-text">Recent Errors</h2>
           <span className="ml-auto rounded-full px-3 py-1 text-sm bg-panda-elevated text-panda-dim">
-            {logStats.recent_errors.length} entries
+            {(logStats?.recent_errors?.length ?? 0)} entries
           </span>
         </div>
 
@@ -539,14 +581,14 @@ export default function Logs() {
         <div className="mb-4 flex items-center gap-3">
           <Ban size={18} className="text-warn" />
           <h2 className="text-base font-semibold text-panda-text">No-Slice Events</h2>
-          {logStats.noslice_events.length > 0 && (
+          {(logStats?.noslice_events?.length ?? 0) > 0 && (
             <span className="ml-auto rounded-full px-3 py-1 text-sm bg-warn/10 text-warn font-medium">
               {logStats.noslice_events.length} detected
             </span>
           )}
         </div>
 
-        {logStats.noslice_events.length === 0 ? (
+        {(logStats?.noslice_events?.length ?? 0) === 0 ? (
           <div className="flex items-center gap-2.5 rounded-lg px-5 py-4 text-base bg-bamboo/5 border border-bamboo/20 text-bamboo">
             No slice failures detected
           </div>
@@ -608,6 +650,8 @@ export default function Logs() {
           </div>
         )}
       </div>
+      </>
+      )}{/* end isLogStatsLoading conditional */}
       </div>{/* end data area wrapper */}
     </div>
   )

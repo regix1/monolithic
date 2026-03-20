@@ -85,6 +85,10 @@ export function useSSE(topic, fetchFn, fallbackInterval = 30000) {
         const poll = async () => {
           const result = await fetchFnRef.current()
           if (result !== null) {
+            // Don't treat "loading" responses as valid data
+            if (result && result.status === 'loading') {
+              return // keep previous data
+            }
             setData(result)
             setLoading(false)
           }

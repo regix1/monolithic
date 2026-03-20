@@ -139,7 +139,7 @@ export default function Upstream() {
   const activeUpstreamHealth = activeLogStats?.upstream_health ?? null
 
   return (
-    <div className="flex flex-col gap-5 animate-fade-in">
+    <div className={`flex flex-col gap-5 animate-fade-in transition-opacity duration-300 ${fetchingRange ? 'opacity-50' : ''}`}>
       {/* Header */}
       <div>
         <div className="flex items-center gap-3">

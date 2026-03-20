@@ -58,7 +58,7 @@ func LogStats(w http.ResponseWriter, r *http.Request) {
 	for _, r := range []int{1, 24, 168, 720} {
 		if hours == r {
 			w.WriteHeader(http.StatusAccepted)
-			writeJSON(w, map[string]string{"status": "loading", "message": "stats are being computed, try again shortly"})
+			writeJSON(w, map[string]interface{}{"loading": true, "status": "loading", "message": "stats are being computed, try again shortly"})
 			return
 		}
 	}

@@ -11,7 +11,7 @@ import { api } from '../lib/api'
 import { getGreeting, getHealthMessage } from '../lib/greetings'
 
 const NGINX_METRIC_DEFINITIONS = {
-  Reading:  'Active connections reading request headers',
+  Reading:  'Connections currently being read by nginx. This is an instantaneous gauge — on low-traffic systems it will typically show 0.',
   Writing:  'Active connections sending responses',
   Waiting:  'Idle keepalive connections',
   Requests: 'Total requests since nginx started',

@@ -304,7 +304,7 @@ func ComputeCacheStatus(path string, n int, since time.Time) []models.CacheStatu
 	for _, line := range lines {
 		// Filter by time window
 		if !since.IsZero() {
-			if t, ok := parseAccessLogTime(line); !ok || t.Before(since) {
+			if t, ok := parseAccessLogTime(line); ok && t.Before(since) {
 				continue
 			}
 		}
@@ -331,6 +331,9 @@ func ComputeCacheStatus(path string, n int, since time.Time) []models.CacheStatu
 		pct = math.Round(pct*10) / 10
 
 		color := cacheStatusColors[name]
+		if color == "" {
+			color = "#888888"
+		}
 		entries = append(entries, models.CacheStatusEntry{
 			Name:  name,
 			Value: pct,
@@ -615,9 +618,24 @@ func ComputeUpstreamHealth(path string, n int, since time.Time) models.UpstreamH
 // all log statistics in a single pass per file. Upstream-error.log is handled
 // separately because it is a different file.
 func ComputeAllLogStats(accessLogPath, errorLogPath, upstreamErrorLogPath string, hours int, since time.Time) models.LogStatsResponse {
-	// Read each file once
-	accessLines, _ := tailFile(accessLogPath, 20000)
-	errorLines, _ := tailFile(errorLogPath, 10000)
+	// Read each file once — scale line count by time range
+	var n, nErr int
+	if since.IsZero() {
+		n = 100000
+		nErr = 50000
+	} else {
+		h := time.Since(since).Hours()
+		n = int(math.Min(h*5000, 500000))
+		nErr = int(math.Min(h*2500, 250000))
+		if n < 1000 {
+			n = 1000
+		}
+		if nErr < 500 {
+			nErr = 500
+		}
+	}
+	accessLines, _ := tailFile(accessLogPath, n)
+	errorLines, _ := tailFile(errorLogPath, nErr)
 
 	// Single pass over access.log
 	cacheStatus, bandwidth, svcStats := processAccessLog(accessLines, since)
@@ -666,7 +684,7 @@ func processAccessLog(lines []string, since time.Time) ([]models.CacheStatusEntr
 
 		// Time-window filter (shared between cache status and bandwidth)
 		if !since.IsZero() {
-			if t, ok := parseAccessLogTime(line); !ok || t.Before(since) {
+			if t, ok := parseAccessLogTime(line); ok && t.Before(since) {
 				continue
 			}
 		}
@@ -752,11 +770,15 @@ func processAccessLog(lines []string, since time.Time) ([]models.CacheStatusEntr
 			}
 			pct := float64(count) / float64(csTotal) * 100
 			pct = math.Round(pct*10) / 10
+			csColor := cacheStatusColors[name]
+			if csColor == "" {
+				csColor = "#888888"
+			}
 			csEntries = append(csEntries, models.CacheStatusEntry{
 				Name:  name,
 				Value: pct,
 				Count: count,
-				Color: cacheStatusColors[name],
+				Color: csColor,
 			})
 		}
 	}
@@ -880,18 +902,13 @@ func processErrorLog(lines []string, hours int, since time.Time) ([]models.Error
 
 		clientIP := extractClientIP(msg)
 
-		// ---- recent errors (keep last 50) ----
-		if len(recentErrors) < 50 {
-			recentErrors = append(recentErrors, models.ErrorLogEntry{
-				Time:     ts,
-				Level:    level,
-				ClientIP: clientIP,
-				Message:  msg,
-			})
-		} else {
-			// We're reading tail lines (newest last), so keep all — they
-			// are already the most recent. We just cap at 50.
-		}
+		// ---- recent errors (accumulate all, trim to newest 50 after loop) ----
+		recentErrors = append(recentErrors, models.ErrorLogEntry{
+			Time:     ts,
+			Level:    level,
+			ClientIP: clientIP,
+			Message:  msg,
+		})
 
 		// ---- noslice events ----
 		lower := strings.ToLower(line)
@@ -913,6 +930,11 @@ func processErrorLog(lines []string, hours int, since time.Time) ([]models.Error
 			Time:   label,
 			Errors: buckets[label],
 		})
+	}
+
+	// Keep only the newest 50 errors
+	if len(recentErrors) > 50 {
+		recentErrors = recentErrors[len(recentErrors)-50:]
 	}
 
 	if recentErrors == nil {
@@ -948,7 +970,7 @@ func ComputeBandwidthStats(path string, n int, since time.Time) (models.Bandwidt
 
 		// Filter by time window
 		if !since.IsZero() {
-			if t, ok := parseAccessLogTime(line); !ok || t.Before(since) {
+			if t, ok := parseAccessLogTime(line); ok && t.Before(since) {
 				continue
 			}
 		}

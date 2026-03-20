@@ -346,8 +346,8 @@ function ConfigHashSection() {
 
 export default function Config() {
   const { data: apiConfig } = useSSE('config', api.getConfig)
-  const { data: apiFs } = useSSE('filesystem', api.getFilesystem, 60000)
-  const { data: apiDomains } = useSSE('domains', api.getDomains, 60000)
+  const { data: apiFs } = useSSE('filesystem', api.getFilesystem, 60000, 35000)
+  const { data: apiDomains } = useSSE('domains', api.getDomains, 60000, 35000)
 
   const serviceNames = useMemo(() => {
     if (!apiDomains) return []

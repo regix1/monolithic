@@ -57,12 +57,13 @@ function subscribe(topic, callback) {
 
 /**
  * Subscribe to an SSE topic. Returns the same shape as usePolling.
- * Falls back to polling if SSE fails to deliver data within 10 seconds.
+ * Falls back to polling if SSE fails to deliver data within initialTimeout ms.
  * @param {string} topic - SSE topic name (health, stats, config, filesystem, noslice, logstats, domains)
  * @param {() => Promise} fetchFn - Fallback fetch function from api.js
  * @param {number} [fallbackInterval] - Polling interval if SSE fails (ms)
+ * @param {number} [initialTimeout] - How long to wait for first SSE data before falling back (ms, default 10000)
  */
-export function useSSE(topic, fetchFn, fallbackInterval = 30000) {
+export function useSSE(topic, fetchFn, fallbackInterval = 30000, initialTimeout = 10000) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const fallbackRef = useRef(null)
@@ -140,10 +141,10 @@ export function useSSE(topic, fetchFn, fallbackInterval = 30000) {
 
     const fallbackTimeout = setTimeout(() => {
       if (!receivedRef.current) {
-        console.warn(`[SSE] No data for "${topic}" after 10s, falling back to polling`)
+        console.warn(`[SSE] No data for "${topic}" after ${initialTimeout}ms, falling back to polling`)
         schedulePoll(0)
       }
-    }, 10000)
+    }, initialTimeout)
 
     return () => {
       cancelled = true
@@ -151,7 +152,7 @@ export function useSSE(topic, fetchFn, fallbackInterval = 30000) {
       clearTimeout(fallbackTimeout)
       stopPolling()
     }
-  }, [topic, handleData, fallbackInterval])
+  }, [topic, handleData, fallbackInterval, initialTimeout])
 
   return { data, loading }
 }

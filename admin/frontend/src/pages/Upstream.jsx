@@ -95,7 +95,7 @@ function DomainTreeItem({ service, data }) {
 
 export default function Upstream() {
   const { data: apiStats, loading: loadingStats } = useSSE('stats', api.getStats)
-  const { data: apiDomains } = useSSE('domains', api.getDomains, 60000)
+  const { data: apiDomains } = useSSE('domains', api.getDomains, 60000, 35000)
   const loading = loadingStats
 
   const { timeRange, fetchingRange, logStatsLoading, showingStaleLogStats } = useTimeRange()

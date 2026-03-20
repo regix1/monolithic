@@ -7,16 +7,26 @@ import (
 )
 
 var FsRecommendations = map[string]models.FsRecommendation{
-	"ext4":  {Sendfile: "on"},
-	"xfs":   {Sendfile: "on"},
-	"tmpfs": {Sendfile: "on"},
-	"btrfs": {Sendfile: "off", Warning: "btrfs CoW can cause I/O errors with sendfile"},
-	"zfs":   {Sendfile: "off", Warning: "ZFS ARC conflicts with kernel page cache"},
-	"nfs":   {Sendfile: "off", Warning: "NFS can serve wrong content with sendfile (nginx ticket #1750)"},
-	"nfs4":  {Sendfile: "off", Warning: "NFS can serve wrong content with sendfile (nginx ticket #1750)"},
-	"cifs":  {Sendfile: "off", Warning: "CIFS/SMB has stale file handle issues"},
-	"smb3":  {Sendfile: "off", Warning: "CIFS/SMB has stale file handle issues"},
-	"fuse":  {Sendfile: "off", Warning: "FUSE filesystems may not support sendfile correctly"},
+	"bcachefs":  {Sendfile: "on"},
+	"btrfs":     {Sendfile: "off", Warning: "Btrfs copy-on-write — sendfile may cause data corruption with CoW reflinks"},
+	"cifs":      {Sendfile: "off", Warning: "Windows network share — sendfile not supported over SMB protocol. Consider local storage"},
+	"ecryptfs":  {Sendfile: "off", Warning: "Encrypted filesystem layer — sendfile bypasses encryption"},
+	"ext2":      {Sendfile: "on"},
+	"ext3":      {Sendfile: "on"},
+	"ext4":      {Sendfile: "on", Warning: "Native Linux filesystem — sendfile supported. Best performance for lancache"},
+	"fuse":      {Sendfile: "off", Warning: "FUSE filesystems may not support sendfile correctly"},
+	"fuseblk":   {Sendfile: "off", Warning: "FUSE block device (often ntfs-3g) — sendfile unreliable"},
+	"glusterfs": {Sendfile: "off", Warning: "Network distributed filesystem — sendfile unreliable"},
+	"nfs":       {Sendfile: "off", Warning: "Network filesystem — sendfile not supported. Consider local storage for best performance. NFS adds ~30-50% throughput overhead vs local mounts"},
+	"nfs4":      {Sendfile: "off", Warning: "Network filesystem — sendfile not supported. Consider local storage for best performance. NFS adds ~30-50% throughput overhead vs local mounts"},
+	"ntfs":      {Sendfile: "off", Warning: "NTFS via ntfs-3g FUSE — sendfile unreliable"},
+	"overlay":   {Sendfile: "on"},
+	"overlayfs": {Sendfile: "on"},
+	"smb3":      {Sendfile: "off", Warning: "Windows network share — sendfile not supported over SMB protocol. Consider local storage"},
+	"tmpfs":     {Sendfile: "on", Warning: "RAM-backed filesystem — sendfile supported. Fastest possible cache but volatile (lost on reboot)"},
+	"virtiofs":  {Sendfile: "off", Warning: "VM shared folders — sendfile may cause silent corruption"},
+	"xfs":       {Sendfile: "on", Warning: "Native Linux filesystem — sendfile supported. Best performance for lancache"},
+	"zfs":       {Sendfile: "off", Warning: "ZFS uses copy-on-write — sendfile incompatible. ZFS RAIDZ1 random reads limited to single-drive speed (~80-120 MB/s)"},
 }
 
 func DetectFilesystem(path string) (models.FilesystemResponse, error) {
@@ -30,7 +40,7 @@ func DetectFilesystem(path string) (models.FilesystemResponse, error) {
 	sendfileCurrent := EnvOrDefault("NGINX_SENDFILE", "on")
 
 	sendfileRecommended := "on"
-	warning := ""
+	warning := "Unknown filesystem — defaulting to sendfile=on. If you experience corruption, set NGINX_SENDFILE=off"
 
 	if rec, ok := FsRecommendations[fsType]; ok {
 		sendfileRecommended = rec.Sendfile

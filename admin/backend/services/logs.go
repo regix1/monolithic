@@ -272,6 +272,26 @@ var cacheStatusOrder = []string{"HIT", "MISS", "EXPIRED", "STALE", "BYPASS", "UP
 // accessLogTimeRegex extracts the nginx timestamp from access log lines: [02/Jan/2006:15:04:05 -0700]
 var accessLogTimeRegex = regexp.MustCompile(`\[(\d{2}/\w{3}/\d{4}:\d{2}:\d{2}:\d{2}\s+[^\]]+)\]`)
 
+// jsonTimeLocalRegex extracts time_local from JSON access log lines: "time_local":"17/Mar/2026:14:22:01 +0000"
+var jsonTimeLocalRegex = regexp.MustCompile(`"time_local"\s*:\s*"([^"]+)"`)
+
+// parseAccessLogTime extracts and parses the timestamp from an access log line (text or JSON format).
+func parseAccessLogTime(line string) (time.Time, bool) {
+	if m := accessLogTimeRegex.FindStringSubmatch(line); m != nil {
+		if t, err := time.Parse("02/Jan/2006:15:04:05 -0700", m[1]); err == nil {
+			return t, true
+		}
+	}
+	if len(line) > 0 && line[0] == '{' {
+		if m := jsonTimeLocalRegex.FindStringSubmatch(line); m != nil {
+			if t, err := time.Parse("02/Jan/2006:15:04:05 -0700", m[1]); err == nil {
+				return t, true
+			}
+		}
+	}
+	return time.Time{}, false
+}
+
 func ComputeCacheStatus(path string, n int, since time.Time) []models.CacheStatusEntry {
 	lines, err := tailFile(path, n)
 	if err != nil {
@@ -284,12 +304,8 @@ func ComputeCacheStatus(path string, n int, since time.Time) []models.CacheStatu
 	for _, line := range lines {
 		// Filter by time window
 		if !since.IsZero() {
-			if m := accessLogTimeRegex.FindStringSubmatch(line); m != nil {
-				if t, err := time.Parse("02/Jan/2006:15:04:05 -0700", m[1]); err == nil {
-					if t.Before(since) {
-						continue
-					}
-				}
+			if t, ok := parseAccessLogTime(line); ok && t.Before(since) {
+				continue
 			}
 		}
 
@@ -650,12 +666,8 @@ func processAccessLog(lines []string, since time.Time) ([]models.CacheStatusEntr
 
 		// Time-window filter (shared between cache status and bandwidth)
 		if !since.IsZero() {
-			if m := accessLogTimeRegex.FindStringSubmatch(line); m != nil {
-				if t, err := time.Parse("02/Jan/2006:15:04:05 -0700", m[1]); err == nil {
-					if t.Before(since) {
-						continue
-					}
-				}
+			if t, ok := parseAccessLogTime(line); ok && t.Before(since) {
+				continue
 			}
 		}
 
@@ -936,12 +948,8 @@ func ComputeBandwidthStats(path string, n int, since time.Time) (models.Bandwidt
 
 		// Filter by time window
 		if !since.IsZero() {
-			if m := accessLogTimeRegex.FindStringSubmatch(line); m != nil {
-				if t, err := time.Parse("02/Jan/2006:15:04:05 -0700", m[1]); err == nil {
-					if t.Before(since) {
-						continue
-					}
-				}
+			if t, ok := parseAccessLogTime(line); ok && t.Before(since) {
+				continue
 			}
 		}
 

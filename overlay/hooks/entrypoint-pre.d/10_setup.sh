@@ -12,6 +12,7 @@ UPSTREAM_DNS="$(echo -n "${UPSTREAM_DNS}" | sed 's/[;]/ /g')"
 echo "worker_processes ${NGINX_WORKER_PROCESSES};" > /etc/nginx/workers.conf
 sed -i "s/^user .*/user ${WEBUSER};/" /etc/nginx/nginx.conf
 sed -i "s/sendfile NGINX_SENDFILE/sendfile ${NGINX_SENDFILE:-on}/" /etc/nginx/nginx.conf
+sed -i "s/worker_connections NGINX_WORKER_CONNECTIONS/worker_connections ${NGINX_WORKER_CONNECTIONS:-4096}/" /etc/nginx/nginx.conf
 sed -i "s/CACHE_INDEX_SIZE/${CACHE_INDEX_SIZE}/"  /etc/nginx/conf.d/20_proxy_cache_path.conf
 sed -i "s/CACHE_DISK_SIZE/${CACHE_DISK_SIZE}/" /etc/nginx/conf.d/20_proxy_cache_path.conf
 sed -i "s/MIN_FREE_DISK/${MIN_FREE_DISK}/" /etc/nginx/conf.d/20_proxy_cache_path.conf

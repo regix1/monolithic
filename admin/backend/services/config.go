@@ -42,6 +42,7 @@ var EnvVarGroups = []models.ConfigGroup{
 	}},
 	{Name: "Nginx", Vars: []models.EnvVar{
 		{Key: "NGINX_WORKER_PROCESSES", Default: "auto", Description: "Number of nginx worker processes", Type: "text"},
+		{Key: "NGINX_WORKER_CONNECTIONS", Default: "4096", Description: "Max simultaneous connections per worker process. Total capacity = worker_processes × this value. Increasing this does not improve download speeds — it only determines how many concurrent clients can connect. The default of 4096 is sufficient for most LAN environments.", Type: "text"},
 		{Key: "NGINX_LOG_FORMAT", Default: "cachelog", Description: "Log format: cachelog (text) or cachelog-json", Type: "select", Options: []string{"cachelog", "cachelog-json"}},
 		{Key: "NGINX_LOG_TO_STDOUT", Default: "false", Description: "Mirror access log to container stdout", Type: "bool"},
 		{Key: "NGINX_SENDFILE", Default: "on", Description: "Set to off for btrfs, ZFS, NFS, or CIFS cache volumes", Type: "select", Options: []string{"on", "off"}},

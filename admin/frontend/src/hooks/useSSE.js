@@ -71,9 +71,14 @@ export function useSSE(topic, fetchFn, fallbackInterval = 30000) {
   fetchFnRef.current = fetchFn
 
   const handleData = useCallback((newData) => {
-    // Ignore sentinel loading responses — keep previous data and allow
-    // the 10s fallback poller to fire so it can retry until real data arrives.
+    // A loading sentinel still proves the SSE stream is alive, so suppress the
+    // initial 10s polling fallback even though we keep waiting for real data.
     if (isLoadingPayload(newData)) {
+      receivedRef.current = true
+      if (fallbackRef.current) {
+        clearTimeout(fallbackRef.current)
+        fallbackRef.current = null
+      }
       return
     }
     setData(newData)

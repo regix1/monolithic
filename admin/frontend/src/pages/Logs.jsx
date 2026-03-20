@@ -307,15 +307,15 @@ export default function Logs() {
       </div>
 
       {/* ── Row 2: Error Rate Chart ───────────────────────────────── */}
-      <div className="rounded-xl bg-panda-surface border border-panda-border p-5 [&_.recharts-wrapper]:outline-none">
+      <div className="rounded-xl bg-panda-surface border border-panda-border p-5 min-w-0 [&_.recharts-wrapper]:outline-none">
         <div className="mb-4 flex items-center gap-3">
           <TrendingUp size={18} className="text-err" />
           <h2 className="text-base font-semibold text-panda-text">Error Rate</h2>
         </div>
 
         {hasErrors ? (
-          <div style={{ height: '200px' }}>
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="min-w-0" style={{ height: '200px' }}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
               <AreaChart data={logStats.error_rate} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="errorGrad" x1="0" y1="0" x2="0" y2="1">
@@ -344,16 +344,16 @@ export default function Logs() {
       {/* ── Row 3: Cache Donut + Upstream Health ──────────────────── */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         {/* Cache Status Distribution */}
-        <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex flex-col [&_.recharts-wrapper]:outline-none">
+        <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex flex-col min-w-0 [&_.recharts-wrapper]:outline-none">
           <div className="mb-4 flex items-center gap-3">
             <PieChartIcon size={18} className="text-bamboo" />
             <h2 className="text-base font-semibold text-panda-text">Cache Status Distribution</h2>
           </div>
 
           {(logStats.cache_status?.length ?? 0) > 0 && totalRequests > 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center">
-              <div className="relative flex items-center justify-center h-[280px] sm:h-[340px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
+            <div className="flex-1 flex flex-col items-center justify-center min-w-0">
+              <div className="relative flex items-center justify-center h-[280px] sm:h-[340px] w-full min-w-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={280}>
                   <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                     <Pie
                       data={logStats.cache_status}

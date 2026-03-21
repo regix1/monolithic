@@ -56,6 +56,7 @@ func SSEHandler(w http.ResponseWriter, r *http.Request) {
 		case <-logStatsTicker.C:
 			sendLogStatsData(w, flusher)
 		case <-slowTicker.C:
+			sendConfigData(w, flusher)
 			sendSlowData(w, flusher)
 		}
 	}
@@ -74,6 +75,7 @@ func sendEvent(w http.ResponseWriter, flusher http.Flusher, topic string, data i
 
 func sendAllData(w http.ResponseWriter, flusher http.Flusher) {
 	sendFastData(w, flusher)
+	sendConfigData(w, flusher)
 	sendLogStatsData(w, flusher)
 	sendSlowData(w, flusher)
 }
@@ -148,8 +150,7 @@ func sendFastData(w http.ResponseWriter, flusher http.Flusher) {
 	})
 }
 
-func sendSlowData(w http.ResponseWriter, flusher http.Flusher) {
-	// Config
+func sendConfigData(w http.ResponseWriter, flusher http.Flusher) {
 	overrides := services.LoadOverrides()
 	groups := make([]models.ConfigGroup, len(services.EnvVarGroups))
 	for i, group := range services.EnvVarGroups {
@@ -170,7 +171,9 @@ func sendSlowData(w http.ResponseWriter, flusher http.Flusher) {
 		groups[i] = models.ConfigGroup{Name: group.Name, Vars: vars}
 	}
 	sendEvent(w, flusher, "config", models.ConfigResponse{Groups: groups})
+}
 
+func sendSlowData(w http.ResponseWriter, flusher http.Flusher) {
 	// Filesystem
 	fsResp, err := services.DetectFilesystem("/data/cache")
 	if err == nil {

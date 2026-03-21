@@ -6,6 +6,7 @@ const SSE_URL = '/api/events'
 let sharedSource = null
 let subscribers = new Map() // topic -> Set of callbacks
 let refCount = 0
+const dataCache = new Map() // topic -> last known good data (survives component unmount)
 
 function isLoadingPayload(payload) {
   return payload && (payload.status === 'loading' || payload.loading === true)
@@ -64,8 +65,9 @@ function subscribe(topic, callback) {
  * @param {number} [initialTimeout] - How long to wait for first SSE data before falling back (ms, default 10000)
  */
 export function useSSE(topic, fetchFn, fallbackInterval = 30000, initialTimeout = 10000) {
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const cached = dataCache.get(topic)
+  const [data, setData] = useState(cached ?? null)
+  const [loading, setLoading] = useState(!cached)
   const fallbackRef = useRef(null)
   const receivedRef = useRef(false)
   const fetchFnRef = useRef(fetchFn)
@@ -82,6 +84,7 @@ export function useSSE(topic, fetchFn, fallbackInterval = 30000, initialTimeout 
       }
       return
     }
+    dataCache.set(topic, newData)
     setData(newData)
     setLoading(false)
     receivedRef.current = true
@@ -89,7 +92,7 @@ export function useSSE(topic, fetchFn, fallbackInterval = 30000, initialTimeout 
       clearTimeout(fallbackRef.current)
       fallbackRef.current = null
     }
-  }, [])
+  }, [topic])
 
   useEffect(() => {
     receivedRef.current = false
@@ -128,6 +131,7 @@ export function useSSE(topic, fetchFn, fallbackInterval = 30000, initialTimeout 
             return
           }
 
+          dataCache.set(topic, result)
           setData(result)
           setLoading(false)
           receivedRef.current = true
@@ -137,6 +141,11 @@ export function useSSE(topic, fetchFn, fallbackInterval = 30000, initialTimeout 
           schedulePoll(fallbackInterval)
         }
       }, delay)
+    }
+
+    // If we have cached data, mark as received so fallback doesn't fire
+    if (dataCache.has(topic)) {
+      receivedRef.current = true
     }
 
     const fallbackTimeout = setTimeout(() => {

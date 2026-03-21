@@ -29,8 +29,6 @@ function SIcon({ icon: Icon, color = '#4ade80' }) {
 export default function Dashboard() {
   const [copied, setCopied] = useState(false)
 
-  const { data: logStats } = useSSE('logstats', api.getLogStats)
-
   const { data: apiHealth, loading: loadingHealth } = useSSE('health', api.getHealth)
   const { data: apiStats, loading: loadingStats } = useSSE('stats', api.getStats)
   const { data: apiFs } = useSSE('filesystem', api.getFilesystem, 60000, 35000)
@@ -50,13 +48,9 @@ export default function Dashboard() {
   const overallHealthy = healthCheck.status === 'ok' && allRunning
   const healthStatus = !allRunning ? 'warning' : healthCheck.status
   const stoppedServices = health.processes.filter(p => p.status !== 'RUNNING').map(p => p.name)
-  const recentErrorCount = logStats?.recent_errors?.length ?? 0
-  const upstreamErrorCount = logStats?.upstream_health?.total_errors ?? 0
   const healthWarnings = [
     ...(stoppedServices.length > 0 ? [`Services not running: ${stoppedServices.join(', ')}`] : []),
     ...(healthCheck.warnings ?? []),
-    ...(recentErrorCount > 0 ? [`${recentErrorCount} recent error${recentErrorCount === 1 ? '' : 's'} in logs`] : []),
-    ...(upstreamErrorCount > 0 ? [`${upstreamErrorCount} upstream error${upstreamErrorCount === 1 ? '' : 's'} detected`] : []),
   ]
   function handleCopy() {
     navigator.clipboard.writeText(configHash).catch(() => {})

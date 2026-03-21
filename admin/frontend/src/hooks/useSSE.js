@@ -18,6 +18,10 @@ function getSource() {
     sharedSource.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data)
+        // Cache every non-loading payload so pages that mount later get instant data
+        if (!isLoadingPayload(msg.data)) {
+          dataCache.set(msg.topic, msg.data)
+        }
         const callbacks = subscribers.get(msg.topic)
         if (callbacks) {
           callbacks.forEach(cb => cb(msg.data))

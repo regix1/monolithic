@@ -345,7 +345,7 @@ function ConfigHashSection() {
 }
 
 export default function Config() {
-  const { data: apiConfig } = useSSE('config', api.getConfig)
+  const { data: apiConfig, loading: loadingConfig } = useSSE('config', api.getConfig)
   const { data: apiFs } = useSSE('filesystem', api.getFilesystem, 60000, 35000)
   const { data: apiDomains } = useSSE('domains', api.getDomains, 60000, 35000)
 
@@ -445,6 +445,17 @@ export default function Config() {
     setRestarting(true)
     await api.containerRestart()
     // Container is restarting — show message indefinitely (page will reload when it comes back)
+  }
+
+  if (loadingConfig) {
+    return (
+      <div className="flex flex-col gap-5 animate-fade-in">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-panda-text">Configuration</h1>
+          <p className="text-base text-panda-dim mt-1">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

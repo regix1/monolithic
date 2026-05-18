@@ -358,6 +358,8 @@ export default function Config() {
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [restarting, setRestarting] = useState(false)
+  const [restartError, setRestartError] = useState(null)
+  const [showRestartModal, setShowRestartModal] = useState(false)
   const initializedRef = useRef(false)
 
   // Track the original values as they came from the API (or mock)
@@ -442,9 +444,20 @@ export default function Config() {
   }
 
   async function handleRestart() {
+    setShowRestartModal(false)
+    setRestartError(null)
     setRestarting(true)
-    await api.containerRestart()
-    // Container is restarting — show message indefinitely (page will reload when it comes back)
+    const result = await api.containerRestart()
+    if (!result || !result.ok) {
+      setRestarting(false)
+      setRestartError(
+        (result && result.error) ||
+          'Restart failed — check browser console (F12) for details.'
+      )
+      return
+    }
+    // Restart accepted — the container is going down. Keep the banner up; the
+    // page reconnects on its own once nginx is serving again.
   }
 
   if (loadingConfig) {
@@ -460,6 +473,47 @@ export default function Config() {
 
   return (
     <div className="flex flex-col gap-5 animate-fade-in">
+      {/* Restart confirmation */}
+      <Modal
+        opened={showRestartModal}
+        onClose={() => setShowRestartModal(false)}
+        title="Restart Container"
+        size="sm"
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start gap-3 rounded-lg bg-warn/10 px-4 py-3">
+            <AlertTriangle size={16} className="text-warn shrink-0 mt-0.5" />
+            <div className="flex flex-col gap-1.5 text-sm text-warn">
+              <p>This stops the <span className="font-semibold">entire container</span> — it sends SIGTERM to PID 1 (supervisord), not just an nginx reload.</p>
+              <p>It only comes back automatically if the monolithic service has a Docker restart policy of <span className="font-mono">always</span> or <span className="font-mono">unless-stopped</span>.</p>
+              <p>All cache traffic is interrupted until the container has fully started again.</p>
+            </div>
+          </div>
+          <p className="text-xs text-panda-dim leading-relaxed">
+            Refused automatically if the nginx config is currently invalid, or if Docker
+            reports a restart policy that would leave the container stopped. For most setting
+            changes use Save &amp; Apply instead — it applies changes with no downtime.
+          </p>
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setShowRestartModal(false)}
+              className="rounded-lg border border-panda-border px-4 py-2 text-sm font-semibold text-panda-muted hover:text-panda-text hover:border-panda-elevated transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleRestart}
+              className="flex items-center gap-1.5 rounded-lg bg-err hover:bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors"
+            >
+              <RotateCcw size={13} />
+              Restart Container
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Page header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -499,7 +553,7 @@ export default function Config() {
             Save &amp; Apply
           </button>
           <button
-            onClick={handleRestart}
+            onClick={() => setShowRestartModal(true)}
             disabled={restarting}
             className="flex items-center gap-1.5 rounded-lg bg-err px-3 py-2 text-sm font-semibold text-white hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
@@ -522,6 +576,14 @@ export default function Config() {
         <div className="rounded-xl border border-err/30 bg-err/10 px-4 py-3 flex items-center gap-2.5">
           <RotateCcw size={15} className="text-err shrink-0 animate-spin" />
           <p className="text-sm font-semibold text-err">Container restarting… please wait. The page will become available again shortly.</p>
+        </div>
+      )}
+
+      {/* Restart refused / failed banner */}
+      {restartError && (
+        <div className="rounded-xl border border-err/30 bg-err/10 px-4 py-3 flex items-start gap-2.5">
+          <AlertTriangle size={15} className="text-err shrink-0 mt-0.5" />
+          <p className="text-sm font-semibold text-err whitespace-pre-wrap">{restartError}</p>
         </div>
       )}
 
@@ -570,7 +632,7 @@ export default function Config() {
             </button>
             <button
               type="button"
-              onClick={handleRestart}
+              onClick={() => setShowRestartModal(true)}
               disabled={restarting}
               className="flex items-center gap-1.5 rounded-lg bg-err px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >

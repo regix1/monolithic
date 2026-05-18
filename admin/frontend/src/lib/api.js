@@ -47,7 +47,17 @@ export const api = {
   getNginxStatus: () => fetchJson('/nginx/status'),
   reloadNginx: () => postJson('/nginx/reload'),
   applyConfig: () => postJson('/nginx/apply'),
-  containerRestart: () => postJson('/container/restart'),
+  containerRestart: async () => {
+    const res = await fetch(`${BASE}/container/restart`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const data = await res.json().catch(() => null)
+    if (!res.ok) {
+      return { ok: false, error: (data && data.error) || `Restart failed (HTTP ${res.status})` }
+    }
+    return { ok: true, ...data }
+  },
   getSupervisor: () => fetchJson('/supervisor'),
 
   getLogUpstream: () => fetchJson('/logs/upstream'),

@@ -33,11 +33,19 @@ check_depending_env () {
 # in the Dockerfile for the same file. If you want to disable a hook, rename it.
 chmod +x /init/setup /hooks/{entrypoint-pre.d/*,entrypoint-run,entrypoint-exec,supervisord-pre.d/*,supervisord-ready} 2> /dev/null || true
 
-# Load admin UI overrides (these take precedence over Docker env vars)
+# Load admin UI overrides (these take precedence over Docker env vars).
+# This file is written by the admin UI; the entrypoint runs under `set -e`, so a
+# malformed line here must NOT abort container startup. Syntax-check it first and
+# guard the source with `|| ...` so errexit can never trip on it.
 if [ -f /data/config/admin-overrides.env ]; then
-    set -a
-    . /data/config/admin-overrides.env
-    set +a
+    if bash -n /data/config/admin-overrides.env 2>/dev/null; then
+        set -a
+        . /data/config/admin-overrides.env || echo "WARNING: failed to apply /data/config/admin-overrides.env — ignoring it"
+        set +a
+    else
+        echo "WARNING: /data/config/admin-overrides.env has a syntax error — ignoring it." >&2
+        echo "         Fix or delete it from the admin UI Config page, then restart." >&2
+    fi
 fi
 
 entrypoint_pre=$(ls /hooks/entrypoint-pre.d/* 2>/dev/null | sort -n )

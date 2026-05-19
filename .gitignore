@@ -25,3 +25,6 @@ data/
 
 # Windows artifacts
 nul
+
+# stray smoke-test directories
+tmp.*

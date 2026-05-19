@@ -4,7 +4,7 @@ import {
   CheckCircle, AlertTriangle, Copy, Check, Info, Globe,
 } from 'lucide-react'
 
-import { StatusBadge, AnimatedCounter } from '../components'
+import { StatusBadge, AnimatedCounter, EpicCacheCard } from '../components'
 import Tooltip from '../components/Tooltip'
 import { useSSE } from '../hooks/useSSE'
 import { api } from '../lib/api'
@@ -33,6 +33,7 @@ export default function Dashboard() {
   const { data: apiStats, loading: loadingStats } = useSSE('stats', api.getStats)
   const { data: apiFs } = useSSE('filesystem', api.getFilesystem, 60000, 35000)
   const { data: apiNoslice } = useSSE('noslice', api.getNoslice)
+  const { data: apiEpic } = useSSE('epic', api.getEpic, 60000, 35000)
 
   const initialLoading = loadingHealth || loadingStats
   const isLive = apiHealth !== null
@@ -41,7 +42,8 @@ export default function Dashboard() {
   const { nginx, disk } = rawStats
   const configHash = rawStats.config_hash || ''
   const fs = apiFs ?? { type: '', mount_point: '', device: '', sendfile_current: '', sendfile_recommended: '', mismatch: false, warning: '' }
-  const ns = apiNoslice ?? { enabled: false, blocked_count: 0, blocked_hosts: [], state: {} }
+  const ns = apiNoslice ?? { enabled: false, mode: 'log', blocked_count: 0, blocked_hosts: [], state: {} }
+  const epic = apiEpic ?? null
   const greeting = getGreeting()
   const allRunning = health.processes.every(p => p.status === 'RUNNING')
   const healthCheck = rawStats.health ?? { status: 'ok', warnings: [], disk_warning: false, disk_critical: false }
@@ -178,11 +180,8 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
               {health.processes.map((proc) => {
                 const desc = {
-                  'nginx': 'Reverse proxy & cache engine',
-                  'heartbeat': 'Health check ping service',
-                  'log-watcher': 'Log rotation monitor',
-                  'noslice-detector': 'Slice error auto-detection',
-                  'lancache-admin': 'Admin UI backend',
+                  'nginx': 'Reverse proxy, cache engine, heartbeat + noslice detection (njs)',
+                  'lancache-admin': 'Admin UI backend (also handles log rotation reopen)',
                 }[proc.name] || ''
 
                 return (
@@ -283,6 +282,11 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Row 2c: Epic / Fortnite Cache Health */}
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-5">
+        <EpicCacheCard diagnostic={epic} />
+      </div>
 
       {/* Row 3: Filesystem + Config Hash + Noslice */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">

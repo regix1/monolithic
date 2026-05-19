@@ -64,6 +64,7 @@ export const api = {
   getLogStats: () => fetchJson('/logs/stats'),
   getNoslice: () => fetchJson('/noslice'),
   resetNoslice: () => postJson('/noslice/reset'),
+  getEpic: () => fetchJson('/epic'),
   getDomains: () => fetchJson('/domains'),
   getLogUpstreamByHours: (hours) => fetchJson('/logs/upstream?hours=' + hours),
   getLogStatsByHours: (hours) => fetchJson('/logs/stats?hours=' + hours),

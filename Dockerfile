@@ -22,6 +22,9 @@ LABEL description="Single caching container for caching game content at LAN part
 LABEL maintainer="LanCache.Net Team <team@lancache.net>"
 
 # Install required packages
+# nginx-module-njs ships the ngx_http_js_module.so used by the noslice/heartbeat
+# njs runtime under /etc/nginx/njs/. Build fails loudly if the module .so is
+# absent (acceptance criterion 1 — "the njs module is installed and loaded").
 RUN apk add --no-cache \
     bash \
     supervisor \
@@ -34,7 +37,10 @@ RUN apk add --no-cache \
     coreutils \
     shadow \
     openssl \
-    bind-tools
+    bind-tools \
+    nginx-module-njs \
+ && test -f /etc/nginx/modules/ngx_http_js_module.so \
+      || (echo "FATAL: nginx-module-njs installed but ngx_http_js_module.so missing" >&2; exit 1)
 
 ENV GENERICCACHE_VERSION=2 \
     CACHE_MODE=monolithic \
@@ -61,6 +67,11 @@ ENV GENERICCACHE_VERSION=2 \
     NGINX_SENDFILE=on \
     NOSLICE_FALLBACK=false \
     NOSLICE_THRESHOLD=3 \
+    NOSLICE_DETECT_MODE=log \
+    NOSLICE_SCAN_INTERVAL=10s \
+    NOSLICE_STATIC_HOSTS="" \
+    DECAY_INTERVAL=86400 \
+    EPIC_FORCE_NOSLICE=false \
     ENABLE_UPSTREAM_KEEPALIVE=false \
     UPSTREAM_KEEPALIVE_CONNECTIONS=16 \
     UPSTREAM_KEEPALIVE_REQUESTS=10000 \
@@ -97,6 +108,7 @@ RUN rm -f /etc/nginx/sites-enabled/* /etc/nginx/stream-enabled/* 2>/dev/null || 
     ln -sf /etc/nginx/sites-available/10_cache.conf /etc/nginx/sites-enabled/10_generic.conf; \
     ln -sf /etc/nginx/sites-available/20_upstream.conf /etc/nginx/sites-enabled/20_upstream.conf; \
     ln -sf /etc/nginx/sites-available/30_metrics.conf /etc/nginx/sites-enabled/30_metrics.conf; \
+    ln -sf /etc/nginx/sites-available/50_njs_periodics.conf /etc/nginx/sites-enabled/50_njs_periodics.conf; \
     ln -sf /etc/nginx/stream-available/10_sni.conf /etc/nginx/stream-enabled/10_sni.conf; \
     mkdir -m 755 -p /data/cachedomains; \
     mkdir -m 755 -p /tmp/nginx

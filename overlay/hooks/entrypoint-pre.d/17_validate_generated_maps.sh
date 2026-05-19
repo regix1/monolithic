@@ -15,9 +15,8 @@ if ! grep -Eq '^[[:space:]]*map[[:space:]].*\$cacheidentifier[[:space:]]*\{' "${
 	exit 1
 fi
 
-if ! grep -Eq '^[[:space:]]*map[[:space:]].*\$noslice_host[[:space:]]*\{' "${MAP_FILE}"; then
-	echo "ERROR: Missing \$noslice_host map definition in ${MAP_FILE}"
-	exit 1
-fi
+# Note: $noslice_host is no longer a generated `map` block — it is a `js_set`
+# variable exposed by the njs `lancache` module (see overlay/etc/nginx/conf.d/05_njs.conf).
+# Validating the njs binding belongs to the runtime `nginx -t` check, not here.
 
 echo "Generated maps validation passed"

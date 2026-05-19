@@ -7,6 +7,9 @@ import (
 	"github.com/lancachenet/monolithic/admin/services"
 )
 
+// NosliceHandler dispatches based on method:
+//   - GET  /api/noslice        → handleNosliceGet (reads from njs internal HTTP endpoint)
+//   - POST /api/noslice/reset  → handleNosliceReset (calls the njs reset endpoint)
 func NosliceHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -19,27 +22,18 @@ func NosliceHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleNosliceGet(w http.ResponseWriter) {
-	enabled := services.EnvOrDefault("NOSLICE_FALLBACK", "false") == "true"
-
-	state := services.ReadNosliceState()
-	blockedHosts := services.ReadBlockedHosts()
-
-	resp := models.NosliceResponse{
-		Enabled:      enabled,
-		BlockedCount: len(blockedHosts),
-		BlockedHosts: blockedHosts,
-		State:        state,
-	}
-
+	resp := services.BuildNosliceResponse()
 	writeJSON(w, resp)
 }
 
 func handleNosliceReset(w http.ResponseWriter) {
-	_, err := services.ResetNoslice()
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "noslice reset failed")
+	if err := services.ResetNoslice(); err != nil {
+		writeError(w, http.StatusInternalServerError, "noslice reset failed: "+err.Error())
 		return
 	}
 
-	writeJSON(w, map[string]string{"status": "ok", "message": "noslice state reset"})
+	writeJSON(w, models.NosliceResetResponse{
+		Status:  "ok",
+		Message: "noslice state reset",
+	})
 }

@@ -30,7 +30,7 @@ func ParseSupervisorStatus() ([]models.ProcessInfo, int64) {
 		output, err = RunCommand("supervisorctl", "-s", "unix:///var/run/supervisor.sock", "status")
 	}
 	if err != nil && output == "" {
-		output, _ = RunCommand("sh", "-c", "ps aux | grep -E '(nginx|heartbeat|log-watcher|noslice|lancache)' | grep -v grep")
+		output, _ = RunCommand("sh", "-c", "ps aux | grep -E '(nginx|lancache)' | grep -v grep")
 	}
 
 	processes := []models.ProcessInfo{}
@@ -73,7 +73,7 @@ func ParseSupervisorStatus() ([]models.ProcessInfo, int64) {
 }
 
 func FallbackProcessList() []models.ProcessInfo {
-	expected := []string{"nginx", "heartbeat", "log-watcher", "noslice-detector", "lancache-admin"}
+	expected := []string{"nginx", "lancache-admin"}
 	processes := []models.ProcessInfo{}
 
 	psOutput, _ := RunCommand("sh", "-c", "ps -eo args")

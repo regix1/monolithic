@@ -1,6 +1,11 @@
   # No-slice location for hosts that don't support HTTP Range requests
-  # Automatically enabled when NOSLICE_FALLBACK=true
-  # Hosts are added to /data/noslice-hosts.map by the noslice-detector script
+  # Automatically enabled when NOSLICE_FALLBACK=true.
+  #
+  # Hosts land here via `error_page 460 @noslice` in 05_noslice_routing.conf
+  # when `$noslice_host == 1`. `$noslice_host` is now a `js_set` variable
+  # (see overlay/etc/nginx/conf.d/05_njs.conf + njs/noslice.js) — there's no
+  # generated map and no `nginx -s reload`. The blocklist lives in the
+  # `lancache` shared dict zone (state persisted to /data/noslice.dict).
 
   # Named location for no-slice caching
   location @noslice {

@@ -63,7 +63,7 @@ function subscribe(topic, callback) {
 /**
  * Subscribe to an SSE topic. Returns the same shape as usePolling.
  * Falls back to polling if SSE fails to deliver data within initialTimeout ms.
- * @param {string} topic - SSE topic name (health, stats, config, filesystem, noslice, logstats, domains)
+ * @param {string} topic - SSE topic name (health, stats, config, filesystem, noslice, epic, logstats, domains)
  * @param {() => Promise} fetchFn - Fallback fetch function from api.js
  * @param {number} [fallbackInterval] - Polling interval if SSE fails (ms)
  * @param {number} [initialTimeout] - How long to wait for first SSE data before falling back (ms, default 10000)

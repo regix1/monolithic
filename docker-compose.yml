@@ -1,4 +1,34 @@
+# "always" survives a graceful daemon shutdown — "unless-stopped" can be silently
+# inhibited if the daemon marks the container stopped during host power-loss.
+# For hosts where the cache disk is slow to mount (ZFS, mdadm, NFS, external USB),
+# also install contrib/lancache.service so systemd waits for the mount before
+# bringing the stack up.
+x-restart-policy: &restart-policy "always"
+
 services:
+  # ---------------------------------------------------------------------------
+  # monolithic
+  #
+  # All container configuration lives in .env (see .env.example). The most
+  # commonly overridden env vars:
+  #
+  #   No-Slice Fallback:
+  #     NOSLICE_FALLBACK        Enable the noslice detector (default false).
+  #     NOSLICE_DETECT_MODE     log | response | both (default log).
+  #     NOSLICE_THRESHOLD       Failures before a host is blocklisted (default 3).
+  #     NOSLICE_SCAN_INTERVAL   Periodic scan interval, e.g. 10s (default 10s).
+  #     NOSLICE_STATIC_HOSTS    Comma-separated hosts to blocklist at boot.
+  #     DECAY_INTERVAL          Seconds before failure counts decay (default 86400).
+  #
+  #   Epic / Fortnite:
+  #     EPIC_FORCE_NOSLICE      Pre-route Epic CDN hosts via @noslice (default false).
+  #
+  #   Boot reliability:
+  #     VOLUME_WAIT_TIMEOUT     Seconds to wait for /data/* mounts (default 120).
+  #
+  #   Background tasks:
+  #     BEAT_TIME               Heartbeat ping interval (default 1h).
+  # ---------------------------------------------------------------------------
   monolithic:
     # For local builds, use:
     # build:
@@ -9,7 +39,7 @@ services:
     image: ghcr.io/regix1/monolithic:latest
     env_file:
       - .env
-    restart: unless-stopped
+    restart: *restart-policy
     network_mode: host
     volumes:
       - ./data/cache:/data/cache

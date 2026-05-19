@@ -5,11 +5,17 @@ reports
 
 # Claude Code
 .claude
+.claude/swarm/
 .claude-flow
-CLAUDE.md
+
+# Markdown files
+*.md
 
 # Serena
 .serena/
+
+# Firecrawl
+.firecrawl/
 
 # Docker volumes and data
 data/

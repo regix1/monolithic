@@ -57,14 +57,9 @@ jq -r '.cache_domains | to_entries[] | .key' cache_domains.json | while read -r 
 	done
 done
 echo "}" >> "${OUTPUTFILE}"
-## Append the noslice_host map (must be in the same generated file)
-echo "" >> "${OUTPUTFILE}"
-echo "# Map for hosts that don't support HTTP Range requests (causes slice errors)" >> "${OUTPUTFILE}"
-echo "# The setup script switches the include target based on NOSLICE_FALLBACK" >> "${OUTPUTFILE}"
-echo 'map $http_host $noslice_host {' >> "${OUTPUTFILE}"
-echo "    default 0;" >> "${OUTPUTFILE}"
-echo "    include /etc/nginx/conf.d/noslice-hosts.map;" >> "${OUTPUTFILE}"
-echo "}" >> "${OUTPUTFILE}"
+# Note: the former `map $http_host $noslice_host { … }` block has been removed.
+# `$noslice_host` is now a `js_set` variable backed by the njs `lancache` module
+# and its shared-dict zone — see overlay/etc/nginx/conf.d/05_njs.conf.
 
 cat "${OUTPUTFILE}"
 cp "${OUTPUTFILE}" /etc/nginx/maps.d/30_maps.conf

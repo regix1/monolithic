@@ -39,6 +39,10 @@ var EnvVarGroups = []models.ConfigGroup{
 		{Key: "NOSLICE_FALLBACK", Default: "false", Description: "Auto-detect CDNs that do not support Range requests", Type: "bool"},
 		{Key: "NOSLICE_THRESHOLD", Default: "3", Description: "Failure count before blocklisting a host", Type: "text"},
 		{Key: "DECAY_INTERVAL", Default: "86400", Description: "Seconds before noslice failure counts decay by 1", Type: "text"},
+		{Key: "NOSLICE_DETECT_MODE", Default: "log", Description: "Detection mode: log (Design A), response (Design B), or both", Type: "select", Options: []string{"log", "response", "both"}},
+		{Key: "NOSLICE_SCAN_INTERVAL", Default: "10s", Description: "How often the njs scanErrorLog js_periodic task runs", Type: "text"},
+		{Key: "NOSLICE_STATIC_HOSTS", Default: "", Description: "Comma-separated hosts to always route via @noslice", Type: "tags"},
+		{Key: "EPIC_FORCE_NOSLICE", Default: "false", Description: "Force Epic CDN hosts to bypass the slice filter", Type: "bool"},
 	}},
 	{Name: "Nginx", Vars: []models.EnvVar{
 		{Key: "NGINX_WORKER_PROCESSES", Default: "auto", Description: "Number of nginx worker processes", Type: "text"},

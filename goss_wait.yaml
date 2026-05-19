@@ -6,3 +6,12 @@ process:
 port:
   tcp:80:
     listening: true
+http:
+  # Wait for the internal noslice endpoint to come up before goss runs its
+  # assertions. The dict loads from /data/noslice.dict via the state= directive,
+  # which can take a moment after nginx reloads.
+  http://127.0.0.1:8080/lancache-internal/noslice:
+    status: 200
+    allow-insecure: false
+    no-follow-redirects: false
+    timeout: 30000

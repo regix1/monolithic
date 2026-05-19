@@ -1,0 +1,27 @@
+# Force LF line endings on shell scripts and config files so they execute on
+# Linux even when the working tree is checked out on Windows.
+* text=auto eol=lf
+*.sh        text eol=lf
+*.bash      text eol=lf
+*.conf      text eol=lf
+*.template  text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.json      text eol=lf
+*.js        text eol=lf
+*.go        text eol=lf
+
+# Files without an extension that must be LF on Linux
+overlay/init/entrypoint       text eol=lf
+overlay/init/supervisord      text eol=lf
+overlay/hooks/**/*            text eol=lf
+overlay/scripts/**/*          text eol=lf
+
+# Windows-targeted helpers stay CRLF.
+*.ps1       text eol=crlf
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+
+# Binary files
+*.png   binary
+*.svg   text eol=lf

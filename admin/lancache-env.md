@@ -36,6 +36,20 @@ CACHE_SLICE_SIZE=1m
 NOSLICE_FALLBACK=true
 NOSLICE_THRESHOLD=2
 DECAY_INTERVAL=86400
+# Detection strategy: log | response | both
+NOSLICE_DETECT_MODE=log
+# How often the background detector scans for new error-log entries
+NOSLICE_SCAN_INTERVAL=10s
+# Comma-separated hosts to blocklist at startup (skips detection)
+NOSLICE_STATIC_HOSTS=
+
+# Pre-route the known Epic Games CDN hosts via @noslice (paired with the
+# client-side Engine.ini fix in contrib/lancache-epic-fix.ps1)
+EPIC_FORCE_NOSLICE=false
+
+# Seconds the entrypoint waits for /data/cache, /data/logs, /data/config to be
+# writable before failing. Raise for slow-to-mount cache disks (ZFS, mdadm, NFS).
+VOLUME_WAIT_TIMEOUT=120
 
 # -----------------------------------------------------------------------------
 # CACHE DOMAINS CONFIGURATION
@@ -105,3 +119,8 @@ NETWORK_MODE=host
 | `DECAY_INTERVAL` | *(missing)* | `86400` | Noslice failure counts decay after 24h, prevents permanent blocklisting |
 | `NGINX_SENDFILE` | *(missing)* | `on` | Set to `off` for NFS/ZFS/btrfs/CIFS filesystems |
 | `UPSTREAM_REFRESH_INTERVAL` | `1h` | *(removed)* | Not a real container env var |
+| `NOSLICE_DETECT_MODE` | *(missing)* | `log` | Where the detector looks for slice failures. `log` scans `error.log`, `response` inspects upstream headers in real time, `both` runs both. |
+| `NOSLICE_SCAN_INTERVAL` | *(missing)* | `10s` | Interval between detector passes. Accepts any nginx time literal. |
+| `NOSLICE_STATIC_HOSTS` | *(missing)* | *(empty)* | Comma-separated hostnames pre-loaded into the no-slice blocklist at startup. |
+| `EPIC_FORCE_NOSLICE` | *(missing)* | `false` | Pre-route known Epic Games CDN hosts via `@noslice` without waiting for the detector to learn them. |
+| `VOLUME_WAIT_TIMEOUT` | *(missing)* | `120` | Seconds the entrypoint waits for `/data/cache`, `/data/logs`, and `/data/config` to be writable. Raise on slow-to-mount cache disks. |

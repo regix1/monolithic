@@ -1,0 +1,66 @@
+# lancache.service — systemd unit for the LANCache monolithic stack.
+#
+# WHEN YOU NEED THIS UNIT
+# -----------------------
+# Install this if your cache directory lives on a disk that is NOT ready by the
+# time the Docker daemon starts on boot. Common cases:
+#
+#   * ZFS pool imports — `zfs-import-cache.service` finishes after `docker.service`
+#     starts on most distros, so bind mounts into the pool resolve to an empty
+#     directory and the container fails or starts with no cache.
+#   * Linux software RAID (mdadm) — array assembly can be slow on large arrays.
+#   * External USB / eSATA drives — enumerated late in boot.
+#   * NFS / SMB / iSCSI mounts — depend on the network being up.
+#   * Encrypted volumes (LUKS, ZFS encryption) requiring late unlock.
+#
+# Symptoms this unit fixes: after a power cycle the `monolithic` container does
+# not come back up, but containers without bind mounts (e.g. lancache-dns) do.
+#
+# WHAT TO EDIT BEFORE INSTALLING
+# ------------------------------
+# Replace the two `/srv/lancache` paths below with:
+#   1. The parent directory of your cache mount — set on `RequiresMountsFor=`.
+#      Use the actual mount point (e.g. `/mnt/cache`, `/tank/lancache`), NOT
+#      the bind-source subdirectories.
+#   2. The directory containing your `docker-compose.yml` — set on `WorkingDirectory=`
+#      and the two `docker compose -f ...` paths.
+#
+# INSTALL
+# -------
+#   sudo cp contrib/lancache.service /etc/systemd/system/lancache.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now lancache.service
+#
+# Verify with: `systemctl status lancache.service` and `docker compose ps`.
+
+[Unit]
+Description=LANCache monolithic stack (docker compose)
+Documentation=https://github.com/regix1/monolithic
+# Order after Docker and the network being routable. docker.service alone is not
+# enough — the daemon socket may be up before networking is usable.
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+# Block startup until the cache disk is mounted. systemd resolves this to the
+# closest enclosing mount unit, so /srv/lancache will wait for /srv/lancache,
+# /srv, /, or whichever is actually a mount point in your fstab.
+# >>> EDIT THIS PATH to your cache mount point <<<
+RequiresMountsFor=/srv/lancache
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# >>> EDIT THIS PATH to the directory containing your docker-compose.yml <<<
+WorkingDirectory=/srv/lancache
+# `up -d` returns once containers are started; --remove-orphans cleans up any
+# containers from a previous compose revision that no longer exist in the file.
+ExecStart=/usr/bin/docker compose -f /srv/lancache/docker-compose.yml up -d --remove-orphans
+ExecStop=/usr/bin/docker compose -f /srv/lancache/docker-compose.yml down
+# Retry on transient failure (e.g. Docker socket not yet accepting connections),
+# but don't loop forever on permanent errors.
+Restart=on-failure
+RestartSec=15s
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

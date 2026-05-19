@@ -64,7 +64,14 @@ fi
 
 echo "  User configured: $(id ${WEBUSER})"
 
-# Note: We don't do chown -R here because:
-# 1. It's slow on large cache directories
-# 2. The existing 20_perms_check.sh hook already handles this intelligently with a fast check
-# 3. Use FORCE_PERMS_CHECK=true environment variable if you need a full recursive fix
+# Shallow chown of /data + its top-level subdirs so the (possibly remapped) web
+# user can create files like /data/noslice.dict at startup. We deliberately do
+# NOT recurse into /data/cache (potentially enormous) — 20_perms_check.sh
+# handles deeper cases, and FORCE_PERMS_CHECK=true forces a full recursive fix.
+if [ -d /data ]; then
+    chown "${WEBUSER}:${WEBUSER}" /data 2>/dev/null || true
+    for d in /data/cache /data/logs /data/config /data/info /data/cachedomains; do
+        [ -d "$d" ] && chown "${WEBUSER}:${WEBUSER}" "$d" 2>/dev/null || true
+    done
+    find /data -maxdepth 1 -type f -exec chown "${WEBUSER}:${WEBUSER}" {} + 2>/dev/null || true
+fi

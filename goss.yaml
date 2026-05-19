@@ -5,6 +5,21 @@ file:
   /data/logs/error.log:
     exists: true
     contains: []
+  # The shell-script background tasks have been replaced by njs (nginx
+  # JavaScript) periodics running inside the nginx worker process. The files
+  # below MUST NOT come back — they would race the in-process detector.
+  /scripts/noslice-detector.sh:
+    exists: false
+  /scripts/heartbeat.sh:
+    exists: false
+  /scripts/log-watcher.sh:
+    exists: false
+  /etc/supervisor/conf.d/noslice-detector.conf:
+    exists: false
+  /etc/supervisor/conf.d/heartbeat.conf:
+    exists: false
+  /etc/supervisor/conf.d/log-watcher.conf:
+    exists: false
 port:
   tcp:80:
     listening: true
@@ -14,6 +29,16 @@ command:
     stdout:
     - Succesfully Cached
     timeout: 20000
+  # njs module loaded by nginx
+  nginx-njs-loaded:
+    exec: 'nginx -T 2>&1 | grep -q "load_module modules/ngx_http_js_module.so"'
+    exit-status: 0
+    timeout: 10000
+  # Shared dict zone for noslice state is configured
+  nginx-njs-shared-dict:
+    exec: 'nginx -T 2>&1 | grep -q "js_shared_dict_zone zone=lancache"'
+    exit-status: 0
+    timeout: 10000
 process:
   nginx:
     running: true
@@ -29,3 +54,13 @@ http:
     headers:
     - "Access-Control-Allow-Origin: *"
     - "Access-Control-Allow-Private-Network: true"
+  # The internal noslice state endpoint returns JSON consumed by the admin
+  # backend. The body must contain "enabled" (the contract field) so a stale
+  # placeholder cannot pass.
+  http://127.0.0.1:8080/lancache-internal/noslice:
+    status: 200
+    allow-insecure: false
+    no-follow-redirects: false
+    timeout: 0
+    body:
+    - '"enabled"'

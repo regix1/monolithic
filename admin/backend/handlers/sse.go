@@ -139,15 +139,11 @@ func sendFastData(w http.ResponseWriter, flusher http.Flusher) {
 		},
 	})
 
-	// Noslice
-	enabled := services.EnvOrDefault("NOSLICE_FALLBACK", "false") == "true"
-	blockedHosts := services.ReadBlockedHosts()
-	sendEvent(w, flusher, "noslice", models.NosliceResponse{
-		Enabled:      enabled,
-		BlockedCount: len(blockedHosts),
-		BlockedHosts: blockedHosts,
-		State:        services.ReadNosliceState(),
-	})
+	// Noslice — fetched live from the internal njs HTTP endpoint.
+	sendEvent(w, flusher, "noslice", services.BuildNosliceResponse())
+
+	// Epic diagnostic — Epic cache hit/miss ratio + HTTPS-leak warning.
+	sendEvent(w, flusher, "epic", services.BuildEpicDiagnostic())
 }
 
 func sendConfigData(w http.ResponseWriter, flusher http.Flusher) {

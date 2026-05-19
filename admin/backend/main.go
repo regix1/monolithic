@@ -18,6 +18,10 @@ func main() {
 	// background. This ensures the SSE endpoint serves cached data instantly.
 	services.StartLogStatsWorker(15 * time.Second)
 
+	// Log-watcher goroutine: polls log-file inodes/size and triggers
+	// `nginx -s reopen` after rotation or deletion.
+	services.StartLogWatcher(30 * time.Second)
+
 	port := os.Getenv("ADMIN_API_PORT")
 	if port == "" {
 		port = "8082"
@@ -97,6 +101,8 @@ func main() {
 		}
 		handlers.NosliceHandler(w, r)
 	})
+
+	mux.HandleFunc("/api/epic", handlers.EpicHandler)
 
 	mux.HandleFunc("/api/domains", handlers.DomainsHandler)
 

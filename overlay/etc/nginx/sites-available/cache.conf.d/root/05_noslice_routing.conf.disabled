@@ -1,7 +1,13 @@
-    # Route hosts in the noslice blocklist to @noslice location
-    # $noslice_host is set via map in /etc/nginx/maps.d/30_maps.conf
-    # The blocklist is managed by the noslice-detector script
-    # Note: Can't use 'rewrite' to named locations - must use error_page
+    # Route hosts in the noslice blocklist to @noslice (slice-disabled) location.
+    #
+    # `$noslice_host` is a `js_set` variable resolved by `lancache.nosliceHost`
+    # (see conf.d/05_njs.conf + njs/noslice.js). The value comes live from the
+    # `lancache` shared dict — there is no generated `map` and no reload when
+    # the blocklist changes. Returns "0" whenever NOSLICE_FALLBACK!=true, so
+    # this block is safe to include unconditionally; the entrypoint still
+    # enables/disables it via the .disabled rename for clarity.
+    #
+    # Note: nginx can't `rewrite` into a named location — go via error_page 460.
     error_page 460 = @noslice;
     if ($noslice_host = 1) {
       return 460;

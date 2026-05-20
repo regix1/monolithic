@@ -6,14 +6,10 @@ import (
 	"time"
 
 	"github.com/lancachenet/monolithic/admin/services"
+	"github.com/lancachenet/monolithic/admin/services/logs"
 )
 
 func LogUpstream(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	// Parse hours parameter — if provided, filter by time window; otherwise return last 50 entries
 	var since time.Time
 	n := 50
@@ -24,7 +20,7 @@ func LogUpstream(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	entries, err := services.ParseUpstreamLog(services.UpstreamFallbackLogPath, n, since)
+	entries, err := logs.ParseUpstreamLog(services.UpstreamFallbackLogPath, n, since)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to read upstream log: "+err.Error())
 		return
@@ -34,11 +30,6 @@ func LogUpstream(w http.ResponseWriter, r *http.Request) {
 }
 
 func LogStats(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	// Parse hours parameter (default 720 = 30 days)
 	hours := 720
 	if h := r.URL.Query().Get("hours"); h != "" {
@@ -48,7 +39,7 @@ func LogStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Serve from precomputed cache if available (covers 1h, 24h, 7d, 30d).
-	if cached := services.GetCachedLogStatsByHours(hours); cached != nil {
+	if cached := logs.GetCachedLogStatsByHours(hours); cached != nil {
 		writeJSON(w, cached)
 		return
 	}
@@ -64,7 +55,7 @@ func LogStats(w http.ResponseWriter, r *http.Request) {
 
 	// Fallback: compute on demand for non-standard ranges only.
 	since := time.Now().Add(-time.Duration(hours) * time.Hour)
-	resp := services.ComputeAllLogStats(
+	resp := logs.ComputeAllLogStats(
 		services.AccessLogPath,
 		services.ErrorLogPath,
 		services.UpstreamErrorLogPath,

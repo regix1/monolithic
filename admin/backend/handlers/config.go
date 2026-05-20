@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,35 +15,7 @@ import (
 )
 
 func GetConfig(w http.ResponseWriter, r *http.Request) {
-	overrides := services.LoadOverrides()
-	groups := make([]models.ConfigGroup, len(services.EnvVarGroups))
-
-	for i, group := range services.EnvVarGroups {
-		vars := make([]models.EnvVar, len(group.Vars))
-		for j, v := range group.Vars {
-			value := overrides[v.Key]
-			if value == "" {
-				value = os.Getenv(v.Key)
-			}
-			if value == "" {
-				value = v.Default
-			}
-			vars[j] = models.EnvVar{
-				Key:         v.Key,
-				Value:       value,
-				Default:     v.Default,
-				Description: v.Description,
-				Type:        v.Type,
-				Options:     v.Options,
-			}
-		}
-		groups[i] = models.ConfigGroup{
-			Name: group.Name,
-			Vars: vars,
-		}
-	}
-
-	writeJSON(w, models.ConfigResponse{Groups: groups})
+	writeJSON(w, services.BuildConfigResponse())
 }
 
 func UpdateConfig(w http.ResponseWriter, r *http.Request) {
@@ -100,7 +73,6 @@ func UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-const configHashPath = "/data/cache/CONFIGHASH"
 const configHashDescription = "Config hash guards against cache invalidation from config changes. Delete and restart container to regenerate."
 
 func parseConfigHashComponents(raw string) models.ConfigHashComponents {
@@ -127,7 +99,7 @@ func parseConfigHashComponents(raw string) models.ConfigHashComponents {
 }
 
 func GetConfigHash(w http.ResponseWriter, r *http.Request) {
-	data, err := os.ReadFile(configHashPath)
+	data, err := os.ReadFile(services.ConfigHashPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			writeJSON(w, models.ConfigHashResponse{
@@ -152,7 +124,7 @@ func GetConfigHash(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteConfigHash(w http.ResponseWriter, r *http.Request) {
-	if err := os.Remove(configHashPath); err != nil {
+	if err := os.Remove(services.ConfigHashPath); err != nil {
 		if os.IsNotExist(err) {
 			writeError(w, http.StatusNotFound, "CONFIGHASH file does not exist")
 			return
@@ -161,7 +133,7 @@ func DeleteConfigHash(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("[ADMIN] CONFIGHASH deleted via API\n")
+	log.Printf("[ADMIN] CONFIGHASH deleted via API")
 	writeJSON(w, models.DeleteConfigHashResponse{
 		OK:      true,
 		Message: "CONFIGHASH deleted. Restart the container to regenerate it.",

@@ -1,0 +1,66 @@
+# golangci-lint configuration for admin/backend.
+#
+# Run locally:
+#   golangci-lint run ./...
+#
+# CI gate (incremental enforcement on PRs):
+#   golangci-lint run --new-from-rev=origin/master ./...
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  # Pick deliberately; do not enable everything.
+  disable-all: true
+  enable:
+    # Bug-finding
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - unused
+    - bodyclose
+    - errorlint
+    - errname
+    # Style / hygiene
+    - gosimple
+    - gofmt
+    - goimports
+    - misspell
+    - unconvert
+    # Security
+    - gosec
+    # Complexity / size
+    - gocognit
+    - gocyclo
+    - dupl
+    - unparam
+
+linters-settings:
+  gocognit:
+    min-complexity: 20
+  gocyclo:
+    min-complexity: 15
+  dupl:
+    threshold: 120
+  goimports:
+    local-prefixes: github.com/lancachenet/monolithic/admin
+  gosec:
+    excludes:
+      # G304: file path provided as taint input — handlers legitimately read
+      # from configured /data/* paths.
+      - G304
+
+issues:
+  exclude-rules:
+    # Tests: allow dupl + high complexity + unchecked errors (table-driven cases,
+    # large struct literals, intentional error elision in setup).
+    - path: _test\.go
+      linters:
+        - dupl
+        - gocognit
+        - gocyclo
+        - errcheck
+  max-issues-per-linter: 0
+  max-same-issues: 0

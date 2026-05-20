@@ -9,6 +9,17 @@ import (
 	"time"
 
 	"github.com/lancachenet/monolithic/admin/models"
+	"github.com/lancachenet/monolithic/admin/services/logs"
+)
+
+// Package-level regexes for upstream-pool config parsing. Lifted out of
+// ParseUpstreamPools so each call doesn't pay the compile cost.
+var (
+	upstreamPoolBlockRegex     = regexp.MustCompile(`^\s*upstream\s+(\S+)\s*\{`)
+	upstreamServerRegex        = regexp.MustCompile(`^\s*server\s+(\S+)\s+resolve\s*;`)
+	upstreamKeepaliveRegex     = regexp.MustCompile(`^\s*keepalive\s+(\d+)\s*;`)
+	upstreamKeepaliveTimeoutRe = regexp.MustCompile(`^\s*keepalive_timeout\s+(\S+)\s*;`)
+	upstreamKeepaliveTimeRe    = regexp.MustCompile(`^\s*keepalive_time\s+(\S+)\s*;`)
 )
 
 func ParseUpstreamPools(path string) []models.UpstreamPool {
@@ -21,17 +32,11 @@ func ParseUpstreamPools(path string) []models.UpstreamPool {
 	var pools []models.UpstreamPool
 	var current *models.UpstreamPool
 
-	upstreamRe := regexp.MustCompile(`^\s*upstream\s+(\S+)\s*\{`)
-	serverRe := regexp.MustCompile(`^\s*server\s+(\S+)\s+resolve\s*;`)
-	keepaliveRe := regexp.MustCompile(`^\s*keepalive\s+(\d+)\s*;`)
-	timeoutRe := regexp.MustCompile(`^\s*keepalive_timeout\s+(\S+)\s*;`)
-	timeRe := regexp.MustCompile(`^\s*keepalive_time\s+(\S+)\s*;`)
-
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		if m := upstreamRe.FindStringSubmatch(line); m != nil {
+		if m := upstreamPoolBlockRegex.FindStringSubmatch(line); m != nil {
 			if current != nil {
 				pools = append(pools, *current)
 			}
@@ -51,13 +56,13 @@ func ParseUpstreamPools(path string) []models.UpstreamPool {
 			continue
 		}
 
-		if m := serverRe.FindStringSubmatch(line); m != nil {
+		if m := upstreamServerRegex.FindStringSubmatch(line); m != nil {
 			current.Domain = m[1]
-		} else if m := keepaliveRe.FindStringSubmatch(line); m != nil {
+		} else if m := upstreamKeepaliveRegex.FindStringSubmatch(line); m != nil {
 			current.Keepalive, _ = strconv.Atoi(m[1])
-		} else if m := timeoutRe.FindStringSubmatch(line); m != nil {
+		} else if m := upstreamKeepaliveTimeoutRe.FindStringSubmatch(line); m != nil {
 			current.Timeout = m[1]
-		} else if m := timeRe.FindStringSubmatch(line); m != nil {
+		} else if m := upstreamKeepaliveTimeRe.FindStringSubmatch(line); m != nil {
 			current.Time = m[1]
 		}
 	}
@@ -70,7 +75,7 @@ func ParseUpstreamPools(path string) []models.UpstreamPool {
 }
 
 func FetchUpstreamStats() models.UpstreamStats {
-	enabled := EnvOrDefault("ENABLE_UPSTREAM_KEEPALIVE", "false") == "true"
+	enabled := EnvFlag("ENABLE_UPSTREAM_KEEPALIVE", false)
 
 	excludeStr := EnvOrDefault("UPSTREAM_KEEPALIVE_EXCLUDE", "")
 	excluded := []string{}
@@ -85,10 +90,10 @@ func FetchUpstreamStats() models.UpstreamStats {
 
 	pools := []models.UpstreamPool{}
 	if enabled {
-		pools = ParseUpstreamPools("/etc/nginx/conf.d/40_upstream_pools.conf")
+		pools = ParseUpstreamPools(UpstreamPoolsConfPath)
 	}
 
-	fallbackEvents, _ := ParseUpstreamLog(UpstreamFallbackLogPath, 20, time.Time{})
+	fallbackEvents, _ := logs.ParseUpstreamLog(UpstreamFallbackLogPath, 20, time.Time{})
 	if fallbackEvents == nil {
 		fallbackEvents = []models.UpstreamLogEntry{}
 	}

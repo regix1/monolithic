@@ -7,6 +7,6 @@ import (
 )
 
 func DomainsHandler(w http.ResponseWriter, r *http.Request) {
-	result := services.LoadDomains("/data/cachedomains")
+	result := services.LoadDomains(services.CacheDomainsDir)
 	writeJSON(w, result)
 }

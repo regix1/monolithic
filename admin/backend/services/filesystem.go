@@ -63,7 +63,7 @@ func DetectFilesystem(path string) (models.FilesystemResponse, error) {
 func ParseDfOutput(output string) (fsType, device, mountPoint string) {
 	lines := strings.Split(output, "\n")
 	if len(lines) < 2 {
-		return "unknown", "unknown", "/data/cache"
+		return "unknown", "unknown", CacheDir
 	}
 
 	dataLine := ""
@@ -76,12 +76,12 @@ func ParseDfOutput(output string) (fsType, device, mountPoint string) {
 	}
 
 	if dataLine == "" {
-		return "unknown", "unknown", "/data/cache"
+		return "unknown", "unknown", CacheDir
 	}
 
 	fields := strings.Fields(dataLine)
 	if len(fields) < 7 {
-		return "unknown", "unknown", "/data/cache"
+		return "unknown", "unknown", CacheDir
 	}
 
 	device = fields[0]

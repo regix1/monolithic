@@ -20,11 +20,11 @@ type EpicHTTPSLeak struct {
 // EpicDiagnostic is the typed payload returned by GET /api/epic and pushed
 // over SSE on the "epic" topic. Mirrors the Dashboard Epic-health card.
 type EpicDiagnostic struct {
-	Window         string          `json:"window"`           // human-readable e.g. "24h"
-	Enabled        bool            `json:"enabled"`          // EPIC_FORCE_NOSLICE flag
-	CacheRatio     EpicCacheRatio  `json:"cache_ratio"`      // counts/hit-rate over the window
-	HTTPSLeak      bool            `json:"https_leak"`       // Epic seen over HTTPS in SNI logs
-	HTTPSHosts     []EpicHTTPSLeak `json:"https_hosts"`      // top Epic SNI hosts (may be empty)
-	EngineIniHint  string          `json:"engine_ini_hint"`  // user-facing remediation hint
-	KnownHosts     []string        `json:"known_hosts"`      // Epic CDN hosts the cache recognises
+	Window        string          `json:"window"`          // human-readable e.g. "24h"
+	Enabled       bool            `json:"enabled"`         // EPIC_FORCE_NOSLICE flag
+	CacheRatio    EpicCacheRatio  `json:"cache_ratio"`     // counts/hit-rate over the window
+	HTTPSLeak     bool            `json:"https_leak"`      // Epic seen over HTTPS in SNI logs
+	HTTPSHosts    []EpicHTTPSLeak `json:"https_hosts"`     // top Epic SNI hosts (may be empty)
+	EngineIniHint string          `json:"engine_ini_hint"` // user-facing remediation hint
+	KnownHosts    []string        `json:"known_hosts"`     // Epic CDN hosts the cache recognises
 }

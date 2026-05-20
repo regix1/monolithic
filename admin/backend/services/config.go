@@ -9,8 +9,6 @@ import (
 	"github.com/lancachenet/monolithic/admin/models"
 )
 
-const AdminOverridesPath = "/data/config/admin-overrides.env"
-
 var EnvVarGroups = []models.ConfigGroup{
 	{Name: "Cache Settings", Vars: []models.EnvVar{
 		{Key: "CACHE_DISK_SIZE", Default: "1000g", Description: "Maximum cache disk usage", Type: "text"},
@@ -72,6 +70,37 @@ var EnvVarGroups = []models.ConfigGroup{
 		{Key: "BEAT_TIME", Default: "1h", Description: "Heartbeat ping interval", Type: "text"},
 		{Key: "SUPERVISORD_LOGLEVEL", Default: "error", Description: "Supervisor log verbosity", Type: "select", Options: []string{"debug", "info", "warn", "error", "critical"}},
 	}},
+}
+
+// BuildConfigResponse merges the on-disk admin overrides over real environment
+// variables over the per-EnvVar default, producing the response shape served at
+// /api/config and the SSE `config` event. The same builder is called from both
+// handlers so the wire output never drifts.
+func BuildConfigResponse() models.ConfigResponse {
+	overrides := LoadOverrides()
+	groups := make([]models.ConfigGroup, len(EnvVarGroups))
+	for i, group := range EnvVarGroups {
+		vars := make([]models.EnvVar, len(group.Vars))
+		for j, v := range group.Vars {
+			value := overrides[v.Key]
+			if value == "" {
+				value = EnvOrDefault(v.Key, v.Default)
+			}
+			vars[j] = models.EnvVar{
+				Key:         v.Key,
+				Value:       value,
+				Default:     v.Default,
+				Description: v.Description,
+				Type:        v.Type,
+				Options:     v.Options,
+			}
+		}
+		groups[i] = models.ConfigGroup{
+			Name: group.Name,
+			Vars: vars,
+		}
+	}
+	return models.ConfigResponse{Groups: groups}
 }
 
 func LoadOverrides() map[string]string {

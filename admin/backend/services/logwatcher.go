@@ -8,10 +8,6 @@ import (
 	"time"
 )
 
-// LogWatchGlob is the filesystem glob used to discover log files to monitor.
-// Matches the path the previous overlay/scripts/log-watcher.sh inspected.
-const LogWatchGlob = "/data/logs/*.log"
-
 // logWatcherState tracks per-file inode + size on the previous tick so the
 // next tick can detect rotation (inode change) or truncation (size shrink).
 type logWatcherState struct {
@@ -131,9 +127,8 @@ func (s *logWatcherState) detectRotation() bool {
 	return rotated
 }
 
-// reopenNginxLogs runs `nginx -s reopen` via the shared RunCommand helper.
+// reopenNginxLogs runs `nginx -s reopen` via the shared NginxSignal helper.
 // `nginx` reads its PID from the master process's pidfile.
 func reopenNginxLogs() error {
-	_, err := RunCommand("nginx", "-s", "reopen")
-	return err
+	return NginxSignal("reopen")
 }

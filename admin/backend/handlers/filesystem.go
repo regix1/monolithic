@@ -7,7 +7,7 @@ import (
 )
 
 func FilesystemHandler(w http.ResponseWriter, r *http.Request) {
-	resp, err := services.DetectFilesystem("/data/cache")
+	resp, err := services.DetectFilesystem(services.CacheDir)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to query filesystem: "+err.Error())
 		return

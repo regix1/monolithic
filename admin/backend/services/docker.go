@@ -9,23 +9,13 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/lancachenet/monolithic/admin/models"
 )
 
 // dockerSocketPath is the conventional location of the Docker Engine API socket.
 // It is only present inside the container when the operator explicitly mounts it.
 const dockerSocketPath = "/var/run/docker.sock"
-
-// RestartPolicy describes whether Docker will bring this container back up after
-// PID 1 exits cleanly — which is exactly what ContainerRestart triggers.
-type RestartPolicy struct {
-	// Name is the Docker restart policy ("no", "always", "unless-stopped",
-	// "on-failure") or "unknown" when it could not be determined.
-	Name string
-	// Determined is true only when the policy was actually read from Docker.
-	Determined bool
-	// SurvivesCleanExit is true when a clean exit (code 0) is auto-restarted.
-	SurvivesCleanExit bool
-}
 
 var dockerContainerIDRegex = regexp.MustCompile(`[0-9a-f]{64}`)
 
@@ -56,8 +46,8 @@ func detectContainerID() string {
 // DetectRestartPolicy reports this container's Docker restart policy. It is
 // best-effort: when the Docker socket is not mounted or the container cannot be
 // identified, it returns Determined=false and callers must not block on it.
-func DetectRestartPolicy() RestartPolicy {
-	unknown := RestartPolicy{Name: "unknown"}
+func DetectRestartPolicy() models.RestartPolicy {
+	unknown := models.RestartPolicy{Name: "unknown"}
 
 	if _, err := os.Stat(dockerSocketPath); err != nil {
 		return unknown
@@ -99,7 +89,7 @@ func DetectRestartPolicy() RestartPolicy {
 	if name == "" {
 		name = "no" // Docker reports an unset restart policy as an empty string.
 	}
-	return RestartPolicy{
+	return models.RestartPolicy{
 		Name:              name,
 		Determined:        true,
 		SurvivesCleanExit: name == "always" || name == "unless-stopped",

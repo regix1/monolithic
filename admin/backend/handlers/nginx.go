@@ -12,11 +12,6 @@ import (
 )
 
 func NginxStatus(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	stats, err := services.FetchNginxStats()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to fetch nginx status: "+err.Error())

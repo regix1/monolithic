@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	pidRegex    = regexp.MustCompile(`pid\s+(\d+)`)
-	uptimeRegex = regexp.MustCompile(`uptime\s+(\d+:\d+:\d+)`)
+	pidRegex      = regexp.MustCompile(`pid\s+(\d+)`)
+	uptimeRegex   = regexp.MustCompile(`uptime\s+(\d+:\d+:\d+)`)
 	validStatuses = map[string]bool{
 		"RUNNING":  true,
 		"STOPPED":  true,

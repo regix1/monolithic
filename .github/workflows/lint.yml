@@ -1,0 +1,47 @@
+name: Lint Backend
+
+on:
+  pull_request:
+    branches:
+      - master
+      - main
+    paths:
+      - 'admin/backend/**'
+      - '.github/workflows/lint.yml'
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - 'admin/backend/**'
+      - '.github/workflows/lint.yml'
+
+jobs:
+  lint-backend:
+    name: golangci-lint (admin/backend)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Full history required so --new-from-rev can resolve origin/master.
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+          cache-dependency-path: admin/backend/go.sum
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: admin/backend
+          # Incremental gate: only fail on findings introduced by this PR/diff.
+          args: --new-from-rev=origin/master --timeout=5m ./...

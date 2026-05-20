@@ -9,6 +9,7 @@ import (
 	"github.com/lancachenet/monolithic/admin/handlers"
 	"github.com/lancachenet/monolithic/admin/middleware"
 	"github.com/lancachenet/monolithic/admin/services"
+	"github.com/lancachenet/monolithic/admin/services/logs"
 )
 
 func main() {
@@ -16,7 +17,12 @@ func main() {
 
 	// Precompute log stats synchronously once, then refresh every 15 seconds in the
 	// background. This ensures the SSE endpoint serves cached data instantly.
-	services.StartLogStatsWorker(15 * time.Second)
+	logs.StartLogStatsWorker(
+		15*time.Second,
+		services.AccessLogPath,
+		services.ErrorLogPath,
+		services.UpstreamErrorLogPath,
+	)
 
 	// Log-watcher goroutine: polls log-file inodes/size and triggers
 	// `nginx -s reopen` after rotation or deletion.
@@ -29,84 +35,25 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/api/health", handlers.HealthHandler)
-	mux.HandleFunc("/api/stats", handlers.StatsHandler)
-
-	mux.HandleFunc("/api/config", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			handlers.GetConfig(w, r)
-		case http.MethodPut:
-			handlers.UpdateConfig(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-
-	mux.HandleFunc("/api/config/confighash", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			handlers.GetConfigHash(w, r)
-		case http.MethodDelete:
-			handlers.DeleteConfigHash(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-
-	mux.HandleFunc("/api/filesystem", handlers.FilesystemHandler)
-
-	mux.HandleFunc("/api/nginx/status", handlers.NginxStatus)
-	mux.HandleFunc("/api/nginx/reload", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		handlers.NginxReload(w, r)
-	})
-
-	mux.HandleFunc("/api/nginx/apply", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		handlers.ApplyConfig(w, r)
-	})
-
-	mux.HandleFunc("/api/container/restart", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		handlers.ContainerRestart(w, r)
-	})
-
-	mux.HandleFunc("/api/supervisor", handlers.HealthHandler)
-
-
-	mux.HandleFunc("/api/logs/upstream", handlers.LogUpstream)
-	mux.HandleFunc("/api/logs/stats", handlers.LogStats)
-
-	mux.HandleFunc("/api/noslice", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		handlers.NosliceHandler(w, r)
-	})
-	mux.HandleFunc("/api/noslice/reset", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		handlers.NosliceHandler(w, r)
-	})
-
-	mux.HandleFunc("/api/epic", handlers.EpicHandler)
-
-	mux.HandleFunc("/api/domains", handlers.DomainsHandler)
-
-	mux.HandleFunc("/api/events", handlers.SSEHandler)
+	mux.HandleFunc("GET /api/health", handlers.HealthHandler)
+	mux.HandleFunc("GET /api/stats", handlers.StatsHandler)
+	mux.HandleFunc("GET /api/config", handlers.GetConfig)
+	mux.HandleFunc("PUT /api/config", handlers.UpdateConfig)
+	mux.HandleFunc("GET /api/config/confighash", handlers.GetConfigHash)
+	mux.HandleFunc("DELETE /api/config/confighash", handlers.DeleteConfigHash)
+	mux.HandleFunc("GET /api/filesystem", handlers.FilesystemHandler)
+	mux.HandleFunc("GET /api/nginx/status", handlers.NginxStatus)
+	mux.HandleFunc("POST /api/nginx/reload", handlers.NginxReload)
+	mux.HandleFunc("POST /api/nginx/apply", handlers.ApplyConfig)
+	mux.HandleFunc("POST /api/container/restart", handlers.ContainerRestart)
+	mux.HandleFunc("GET /api/supervisor", handlers.HealthHandler)
+	mux.HandleFunc("GET /api/logs/upstream", handlers.LogUpstream)
+	mux.HandleFunc("GET /api/logs/stats", handlers.LogStats)
+	mux.HandleFunc("GET /api/noslice", handlers.NosliceGet)
+	mux.HandleFunc("POST /api/noslice/reset", handlers.NosliceReset)
+	mux.HandleFunc("GET /api/epic", handlers.EpicHandler)
+	mux.HandleFunc("GET /api/domains", handlers.DomainsHandler)
+	mux.HandleFunc("GET /api/events", handlers.SSEHandler)
 
 	handler := middleware.CORS(mux)
 

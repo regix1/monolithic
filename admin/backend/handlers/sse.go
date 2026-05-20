@@ -5,26 +5,19 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/lancachenet/monolithic/admin/models"
 	"github.com/lancachenet/monolithic/admin/services"
+	"github.com/lancachenet/monolithic/admin/services/logs"
 )
-
-// SSEMessage wraps a topic and its data payload.
-type SSEMessage struct {
-	Topic string      `json:"topic"`
-	Data  interface{} `json:"data"`
-}
 
 // SSEHandler streams server-sent events to the client.
 // It sends all dashboard data periodically, grouped by topic.
 func SSEHandler(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		http.Error(w, "streaming not supported", http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "streaming not supported")
 		return
 	}
 
@@ -63,7 +56,7 @@ func SSEHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func sendEvent(w http.ResponseWriter, flusher http.Flusher, topic string, data interface{}) {
-	msg := SSEMessage{Topic: topic, Data: data}
+	msg := models.SSEMessage{Topic: topic, Data: data}
 	jsonBytes, err := json.Marshal(msg)
 	if err != nil {
 		log.Printf("SSE marshal error for %s: %v", topic, err)
@@ -81,63 +74,19 @@ func sendAllData(w http.ResponseWriter, flusher http.Flusher) {
 }
 
 func sendFastData(w http.ResponseWriter, flusher http.Flusher) {
-	// Health
-	processes, maxUptime := services.ParseSupervisorStatus()
-	version := services.EnvOrDefault("GENERICCACHE_VERSION", "3.1.0-fork")
-	containerUptime := services.FormatUptime(maxUptime)
-	if maxUptime == 0 {
-		containerUptime = services.GetContainerUptime()
-	}
-	sendEvent(w, flusher, "health", models.HealthResponse{
-		Uptime:    containerUptime,
-		Version:   version,
-		Processes: processes,
-	})
+	sendEvent(w, flusher, "health", services.BuildHealthResponse())
 
-	// Stats (nginx + disk + config hash + upstream + health check)
-	nginx, err := services.FetchNginxStats()
+	// Stats — when the nginx-stats fetch fails we log and emit a zero-valued
+	// stats event rather than disconnect the stream. The REST endpoint
+	// (StatsHandler) maps the same condition to a 500. This is the only
+	// intentional behavioural difference between REST and SSE; the wire shape
+	// is still identical.
+	statsResp, err := services.BuildStatsResponse()
 	if err != nil {
-		nginx = models.NginxStats{}
+		log.Printf("SSE stats: %v", err)
+		statsResp = models.StatsResponse{}
 	}
-	disk, err := services.FetchDiskStats("/data/cache")
-	if err != nil {
-		disk = models.DiskStats{}
-	}
-	configHash := ""
-	if data, err := os.ReadFile("/data/cache/CONFIGHASH"); err == nil {
-		configHash = strings.TrimSpace(string(data))
-	}
-	upstream := services.FetchUpstreamStats()
-
-	// Health checks
-	warnings := []string{}
-	diskWarning := disk.Percent >= 85
-	diskCritical := disk.Percent >= 95
-	if diskCritical {
-		warnings = append(warnings, fmt.Sprintf("Disk critically full: %.1f%% used", disk.Percent))
-	} else if diskWarning {
-		warnings = append(warnings, fmt.Sprintf("Disk space low: %.1f%% used", disk.Percent))
-	}
-	status := "ok"
-	if len(warnings) > 0 {
-		status = "warning"
-	}
-	if diskCritical {
-		status = "critical"
-	}
-
-	sendEvent(w, flusher, "stats", models.StatsResponse{
-		Nginx:      nginx,
-		Disk:       disk,
-		ConfigHash: configHash,
-		Upstream:   upstream,
-		Health: models.HealthCheck{
-			Status:       status,
-			Warnings:     warnings,
-			DiskWarning:  diskWarning,
-			DiskCritical: diskCritical,
-		},
-	})
+	sendEvent(w, flusher, "stats", statsResp)
 
 	// Noslice — fetched live from the internal njs HTTP endpoint.
 	sendEvent(w, flusher, "noslice", services.BuildNosliceResponse())
@@ -147,43 +96,19 @@ func sendFastData(w http.ResponseWriter, flusher http.Flusher) {
 }
 
 func sendConfigData(w http.ResponseWriter, flusher http.Flusher) {
-	overrides := services.LoadOverrides()
-	groups := make([]models.ConfigGroup, len(services.EnvVarGroups))
-	for i, group := range services.EnvVarGroups {
-		vars := make([]models.EnvVar, len(group.Vars))
-		for j, v := range group.Vars {
-			value := overrides[v.Key]
-			if value == "" {
-				value = os.Getenv(v.Key)
-			}
-			if value == "" {
-				value = v.Default
-			}
-			vars[j] = models.EnvVar{
-				Key: v.Key, Value: value, Default: v.Default,
-				Description: v.Description, Type: v.Type, Options: v.Options,
-			}
-		}
-		groups[i] = models.ConfigGroup{Name: group.Name, Vars: vars}
-	}
-	sendEvent(w, flusher, "config", models.ConfigResponse{Groups: groups})
+	sendEvent(w, flusher, "config", services.BuildConfigResponse())
 }
 
 func sendSlowData(w http.ResponseWriter, flusher http.Flusher) {
-	// Filesystem
-	fsResp, err := services.DetectFilesystem("/data/cache")
-	if err == nil {
+	if fsResp, err := services.DetectFilesystem(services.CacheDir); err == nil {
 		sendEvent(w, flusher, "filesystem", fsResp)
 	}
-
-	// Domains
-	domains := services.LoadDomains("/data/cachedomains")
-	sendEvent(w, flusher, "domains", domains)
+	sendEvent(w, flusher, "domains", services.LoadDomains(services.CacheDomainsDir))
 }
 
 func sendLogStatsData(w http.ResponseWriter, flusher http.Flusher) {
 	// Log stats (default 30 days for SSE) — served from background precomputed cache
-	if logStats := services.GetCachedLogStats(); logStats != nil {
+	if logStats := logs.GetCachedLogStats(); logStats != nil {
 		sendEvent(w, flusher, "logstats", logStats)
 		return
 	}

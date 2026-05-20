@@ -32,14 +32,6 @@ type NosliceEvent struct {
 	Error    string `json:"error"`
 }
 
-type UpstreamErrorEntry struct {
-	Time      string `json:"time"`
-	Level     string `json:"level"`
-	ErrorType string `json:"error_type"` // "timeout", "connection_refused", "dns_failure", "other"
-	Host      string `json:"host"`
-	Message   string `json:"message"`
-}
-
 type UpstreamHealthSummary struct {
 	TotalErrors int                 `json:"total_errors"`
 	Timeouts    int                 `json:"timeouts"`
@@ -70,13 +62,13 @@ type BandwidthSummary struct {
 }
 
 type LogStatsResponse struct {
-	CacheStatus    []CacheStatusEntry    `json:"cache_status"`
-	ErrorRate      []ErrorRateBucket     `json:"error_rate"`
-	RecentErrors   []ErrorLogEntry       `json:"recent_errors"`
-	NosliceEvents  []NosliceEvent        `json:"noslice_events"`
+	CacheStatus   []CacheStatusEntry `json:"cache_status"`
+	ErrorRate     []ErrorRateBucket  `json:"error_rate"`
+	RecentErrors  []ErrorLogEntry    `json:"recent_errors"`
+	NosliceEvents []NosliceEvent     `json:"noslice_events"`
 
 	UpstreamHealth UpstreamHealthSummary `json:"upstream_health"`
 
-	Bandwidth      BandwidthSummary      `json:"bandwidth"`
-	Services       []ServiceStats        `json:"services"`
+	Bandwidth BandwidthSummary `json:"bandwidth"`
+	Services  []ServiceStats   `json:"services"`
 }

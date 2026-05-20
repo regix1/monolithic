@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/lancachenet/monolithic/admin/models"
+	"github.com/lancachenet/monolithic/admin/services/logs"
 )
 
 // EpicCacheHosts is the set of substrings used to flag a request as Epic CDN
@@ -32,10 +33,6 @@ var epicHostRegex = regexp.MustCompile(
 	`^\[[^\]]*\]\s+.*?"[A-Z]+\s+\S+.*?"\s+\d+\s+\d+\s+"[^"]*"\s+"[^"]*"\s+"([^"]*)"\s+"([^"]*)"`,
 )
 
-// EpicSNILogPath is the stream/sniproxy access log that records HTTPS
-// passthrough connections by SNI. Used to detect Epic-over-HTTPS leaks.
-const EpicSNILogPath = "/data/logs/sniproxy/access.log"
-
 // EpicAccessLogScanLines is the max number of access-log lines to scan when
 // computing the Epic ratio. 25k lines covers roughly 30-60 minutes on a busy
 // cache, which is enough granularity for the diagnostic card.
@@ -49,14 +46,14 @@ const EpicSNIScanLines = 10000
 // the access log for Epic CDN traffic and the SNI log for HTTPS leaks. Both
 // scans are best-effort and degrade silently if a file is missing.
 func BuildEpicDiagnostic() models.EpicDiagnostic {
-	since := time.Now().Add(-24 * time.Hour)
+	since := SinceHoursAgo(24)
 
 	ratio := computeEpicCacheRatio(AccessLogPath, since)
 	leaks := scanEpicHTTPSLeaks(EpicSNILogPath, since)
 
 	return models.EpicDiagnostic{
 		Window:        "24h",
-		Enabled:       EnvOrDefault("EPIC_FORCE_NOSLICE", "false") == "true",
+		Enabled:       EnvFlag("EPIC_FORCE_NOSLICE", false),
 		CacheRatio:    ratio,
 		HTTPSLeak:     len(leaks) > 0,
 		HTTPSHosts:    leaks,
@@ -71,25 +68,15 @@ func BuildEpicDiagnostic() models.EpicDiagnostic {
 func computeEpicCacheRatio(path string, since time.Time) models.EpicCacheRatio {
 	ratio := models.EpicCacheRatio{}
 
-	lines, err := tailFile(path, EpicAccessLogScanLines)
+	lines, err := logs.TailFile(path, EpicAccessLogScanLines)
 	if err != nil {
 		return ratio
 	}
 
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		if !since.IsZero() {
-			if t, ok := parseAccessLogTime(line); ok && t.Before(since) {
-				continue
-			}
-		}
-
+	logs.ForEachLogLine(lines, since, logs.AccessLogTimeParser, func(line string, parsed time.Time) {
 		host, status := extractEpicHostStatus(line)
 		if host == "" || !isEpicHost(host) {
-			continue
+			return
 		}
 
 		ratio.TotalRequests++
@@ -99,7 +86,7 @@ func computeEpicCacheRatio(path string, since time.Time) models.EpicCacheRatio {
 		case "MISS", "EXPIRED", "BYPASS", "UPDATING", "STALE":
 			ratio.Misses++
 		}
-	}
+	})
 
 	if ratio.TotalRequests > 0 {
 		pct := float64(ratio.Hits) / float64(ratio.TotalRequests) * 100
@@ -165,29 +152,19 @@ func scanEpicHTTPSLeaks(path string, since time.Time) []models.EpicHTTPSLeak {
 		return leaks
 	}
 
-	lines, err := tailFile(path, EpicSNIScanLines)
+	lines, err := logs.TailFile(path, EpicSNIScanLines)
 	if err != nil {
 		return leaks
 	}
 
 	counts := map[string]int{}
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		if !since.IsZero() {
-			if t, ok := parseAccessLogTime(line); ok && t.Before(since) {
-				continue
-			}
-		}
-
+	logs.ForEachLogLine(lines, since, logs.AccessLogTimeParser, func(line string, parsed time.Time) {
 		host := extractEpicSNIHost(line)
 		if host == "" || !isEpicHost(host) {
-			continue
+			return
 		}
 		counts[host]++
-	}
+	})
 
 	for host, c := range counts {
 		leaks = append(leaks, models.EpicHTTPSLeak{Host: host, Count: c})

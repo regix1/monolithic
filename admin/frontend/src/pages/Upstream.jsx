@@ -1,7 +1,21 @@
-import { useState, useEffect } from 'react'
-import { Network, AlertTriangle, FolderTree, ChevronDown, ChevronRight, Wifi, WifiOff, RefreshCw } from 'lucide-react'
-import { Card, StatCard, CollapsibleSection } from '../components'
+import { useState, useEffect, useMemo } from 'react'
+import {
+  Network,
+  AlertTriangle,
+  FolderTree,
+  ChevronDown,
+  ChevronRight,
+  Wifi,
+  WifiOff,
+  RefreshCw,
+  LifeBuoy,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  CheckCircle,
+} from 'lucide-react'
+import { Card, StatCard, CollapsibleSection, ServiceBadge, Tabs } from '../components'
 import { useSSE } from '../hooks/useSSE'
+import { useTimeFormat } from '../hooks/useTimeFormat'
 import { api } from '../lib/api'
 import useTimeRange from '../hooks/useTimeRange'
 
@@ -72,12 +86,215 @@ function DomainTreeItem({ service, data }) {
   )
 }
 
+/* ── Recovery events (Direct fallback + No-slice transitions) ──────── */
+
+/**
+ * Convert a unix-seconds timestamp to the "YYYY-MM-DD HH:MM:SS" string shape
+ * that useTimeFormat().formatTime expects (local time, matching how
+ * error/upstream log lines are emitted by the backend).
+ */
+function unixSecToLocalString(unixSec) {
+  const d = new Date(unixSec * 1000)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
+/** Badge for a no-slice transition row — promoted (amber) or demoted (green). */
+function TransitionKindBadge({ kind }) {
+  if (kind === 'promoted') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium bg-warn/10 text-warn">
+        <ArrowUpCircle size={12} />
+        promoted
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium bg-bamboo/10 text-bamboo">
+      <ArrowDownCircle size={12} />
+      recovered
+    </span>
+  )
+}
+
+function FallbackEventsTable({ rows }) {
+  if (rows.length === 0) {
+    return (
+      <div className="flex items-center gap-2.5 px-5 py-4 text-sm text-bamboo">
+        <CheckCircle size={16} />
+        No direct-fallback events in window
+      </div>
+    )
+  }
+  return (
+    <>
+      <div className="px-5 py-3 border-b border-panda-border">
+        <p className="text-sm text-panda-dim">
+          Requests that bypassed the keepalive upstream pool after a 502/504 and were retried via a direct connection to the CDN. Each row is a request the cache <span className="text-bamboo">recovered</span>, not a failure.
+        </p>
+      </div>
+      <div className="overflow-x-auto overflow-y-auto max-h-75">
+        <table className="w-full min-w-125 text-sm">
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-panda-elevated border-b border-panda-border">
+              <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim whitespace-nowrap">Time</th>
+              <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim whitespace-nowrap">Path</th>
+              <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim whitespace-nowrap">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((event, index) => (
+              <tr
+                key={`${event.time}-${index}`}
+                className={`border-b border-panda-border last:border-b-0 table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
+              >
+                <td className="px-5 py-3 text-sm text-panda-dim whitespace-nowrap align-top">{event.time}</td>
+                <td className="px-5 py-3 font-mono text-sm text-bamboo leading-relaxed align-top">
+                  <span className="break-all block" title={event.host}>{event.host}</span>
+                </td>
+                <td className="px-5 py-3 align-top whitespace-nowrap"><FallbackStatusBadge status={event.status} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )
+}
+
+function NosliceTransitionsTable({ rows, formatTime }) {
+  if (rows.length === 0) {
+    return (
+      <div className="flex items-center gap-2.5 px-5 py-4 text-sm text-bamboo">
+        <CheckCircle size={16} />
+        No no-slice transitions in window
+      </div>
+    )
+  }
+  return (
+    <>
+      <div className="px-5 py-3 border-b border-panda-border">
+        <p className="text-sm text-panda-dim">
+          Hosts the cache promoted to no-slice mode (slice failures crossed the threshold) or demoted back. Promotions mean the cache <span className="text-warn">routed around a problem</span>; demotions mean the host <span className="text-bamboo">recovered</span>.
+        </p>
+      </div>
+      <div className="overflow-x-auto overflow-y-auto max-h-75">
+        <table className="w-full min-w-125 text-sm">
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-panda-elevated border-b border-panda-border">
+              <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim whitespace-nowrap">Time</th>
+              <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Service</th>
+              <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim whitespace-nowrap">Host</th>
+              <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Event</th>
+              <th className="px-5 py-3 text-right text-sm font-medium uppercase tracking-wider text-panda-dim whitespace-nowrap">Count</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((t, index) => (
+              <tr
+                key={`${t.host}-${t.time}-${index}`}
+                className={`border-b border-panda-border last:border-b-0 table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
+              >
+                <td className="px-5 py-3 text-sm text-panda-dim font-mono whitespace-nowrap align-top">
+                  {formatTime(unixSecToLocalString(t.time))}
+                </td>
+                <td className="px-5 py-3 align-top whitespace-nowrap"><ServiceBadge service={t.service} dense /></td>
+                <td className="px-5 py-3 font-mono text-sm text-panda-text break-all align-top">{t.host}</td>
+                <td className="px-5 py-3 align-top whitespace-nowrap"><TransitionKindBadge kind={t.kind} /></td>
+                <td className="px-5 py-3 font-mono text-sm text-panda-muted text-right align-top">{t.count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )
+}
+
+/**
+ * Recovery Events panel — combines the existing Direct-Fallback events and
+ * the new No-Slice transitions under a single CollapsibleSection with an
+ * internal tab bar. Both are "the cache noticed a problem and worked around
+ * it"; keeping them together gives operators one place to look.
+ *
+ * @param {{
+ *   activeFallbackEvents: any[],
+ *   visibleTransitions: any[],
+ *   formatTime: (s: string) => string,
+ * }} props
+ */
+function RecoveryEventsPanel({ activeFallbackEvents, visibleTransitions, formatTime }) {
+  const fallbackCount = activeFallbackEvents.length
+  const nosliceCount = visibleTransitions.length
+  const totalCount = fallbackCount + nosliceCount
+
+  // Default to whichever tab has events; tie goes to Direct Fallback because
+  // it's the more common recovery path.
+  const initialTab = fallbackCount === 0 && nosliceCount > 0 ? 'noslice' : 'fallback'
+  const [tab, setTab] = useState(initialTab)
+
+  const badge = totalCount > 0 ? (
+    <span className="rounded-full px-3 py-1 text-sm bg-info/10 text-info font-medium">
+      {totalCount} recovered
+    </span>
+  ) : (
+    <span className="rounded-full px-3 py-1 text-sm bg-bamboo/10 text-bamboo font-medium">
+      healthy
+    </span>
+  )
+
+  return (
+    <CollapsibleSection
+      title="Recovery Events"
+      icon={LifeBuoy}
+      defaultOpen={totalCount > 0}
+      badge={badge}
+    >
+      {totalCount === 0 ? (
+        <div className="flex items-center gap-2.5 px-5 py-4 text-sm text-bamboo">
+          <CheckCircle size={16} />
+          No recovery events in window — keepalive pool serving all traffic and no slice failures detected.
+        </div>
+      ) : (
+        <>
+          <Tabs
+            value={tab}
+            onChange={setTab}
+            tabs={[
+              { value: 'fallback', label: 'Direct Fallback', icon: AlertTriangle, count: fallbackCount, tone: 'info' },
+              { value: 'noslice',  label: 'No-Slice',        icon: LifeBuoy,      count: nosliceCount,  tone: 'warn' },
+            ]}
+          />
+          {tab === 'fallback' ? (
+            <FallbackEventsTable rows={activeFallbackEvents} />
+          ) : (
+            <NosliceTransitionsTable rows={visibleTransitions} formatTime={formatTime} />
+          )}
+        </>
+      )}
+    </CollapsibleSection>
+  )
+}
+
+/* ── Main page ─────────────────────────────────────────────────────── */
+
 export default function Upstream() {
   const { data: apiStats, loading: loadingStats } = useSSE('stats', api.getStats)
   const { data: apiDomains } = useSSE('domains', api.getDomains, 60000, 35000)
+  const { data: apiNoslice } = useSSE('noslice', api.getNoslice)
+  const { formatTime } = useTimeFormat()
   const loading = loadingStats
 
   const { timeRange, fetchingRange, logStatsLoading, showingStaleLogStats } = useTimeRange()
+
+  // No-slice transition cutoff (unix seconds), recomputed on each SSE tick
+  // so the time-range window stays roughly current. Date.now() is genuinely
+  // what we want here (filter against wall-clock), and apiNoslice in the
+  // deps array is intentional — it's what triggers re-evaluation each tick.
+  // Declared above the `if (loading) return …` early return below so the
+  // hook order stays stable across renders.
+  // eslint-disable-next-line react-hooks/purity, react-hooks/exhaustive-deps
+  const transitionCutoff = useMemo(() => Math.floor(Date.now() / 1000) - timeRange * 3600, [timeRange, apiNoslice])
 
   const [fallbackEventCache, setFallbackEventCache] = useState({})
   const [loadingFallbackEvents, setLoadingFallbackEvents] = useState(false)
@@ -132,6 +349,15 @@ export default function Upstream() {
   const activeFallbackEvents = hasCachedFallbackEvents ? fallbackEventCache[timeRange] : upstream.fallback_events
   const isRefreshingLogStats = fetchingRange || showingStaleLogStats
   const isUpdatingRangeData = isRefreshingLogStats || loadingFallbackEvents
+
+  // No-slice transitions (promotions/demotions). The backend keeps a 50-entry
+  // ring buffer; we filter it to the sidebar's time range and reverse for
+  // newest-first display. Cutoff was computed by useMemo above.
+  const allTransitions = apiNoslice?.transitions ?? []
+  const visibleTransitions = allTransitions
+    .filter((t) => t.time >= transitionCutoff)
+    .slice()
+    .reverse()
 
   return (
     <div className={`flex flex-col gap-5 animate-fade-in transition-opacity duration-300 ${isUpdatingRangeData ? 'opacity-50' : ''}`}>
@@ -218,65 +444,12 @@ export default function Upstream() {
         </div>
       </CollapsibleSection>
 
-      {/* Direct-Fallback Events — collapsible.
-          Despite the previous "Recent Fallback Events" label these are
-          *successful* retries, not errors: nginx bypassed the keepalive
-          upstream pool after a 502/504 and served the chunk directly. They
-          surface here so operators can correlate spikes with upstream
-          troubles, but they don't indicate a failed request. */}
-      <CollapsibleSection
-        title="Direct-Fallback Events"
-        icon={AlertTriangle}
-        defaultOpen={activeFallbackEvents.length > 0}
-        badge={
-          activeFallbackEvents.length > 0 ? (
-            <span className="rounded-full px-3 py-1 text-sm bg-info/10 text-info font-medium">
-              {activeFallbackEvents.length} recovered
-            </span>
-          ) : (
-            <span className="rounded-full px-3 py-1 text-sm bg-bamboo/10 text-bamboo font-medium">
-              healthy
-            </span>
-          )
-        }
-      >
-        <div className="px-5 py-3 border-b border-panda-border">
-          <p className="text-sm text-panda-dim">
-            Successful recovery events — requests that bypassed the keepalive upstream pool after a 502/504 and were retried via a direct connection to the CDN. Each row is a request the cache <span className="text-bamboo">recovered</span>, not a failure.
-          </p>
-        </div>
-        {activeFallbackEvents.length === 0 ? (
-          <div className="flex items-center gap-2 px-5 py-4 text-sm text-bamboo">
-            No direct-fallback events — keepalive pool serving all traffic
-          </div>
-        ) : (
-          <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '300px' }}>
-            <table className="w-full min-w-125 text-sm">
-              <thead className="sticky top-0 z-10">
-                <tr className="bg-panda-elevated border-b border-panda-border">
-                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim whitespace-nowrap">Time</th>
-                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim whitespace-nowrap">Path</th>
-                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim whitespace-nowrap">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activeFallbackEvents.map((event, index) => (
-                  <tr
-                    key={`${event.time}-${index}`}
-                    className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
-                  >
-                    <td className="px-5 py-3 text-sm text-panda-dim whitespace-nowrap align-top">{event.time}</td>
-                    <td className="px-5 py-3 font-mono text-sm text-bamboo leading-relaxed align-top">
-                      <span className="break-all block" title={event.host}>{event.host}</span>
-                    </td>
-                    <td className="px-5 py-3 align-top whitespace-nowrap"><FallbackStatusBadge status={event.status} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </CollapsibleSection>
+      {/* Recovery Events — Direct fallback + No-Slice transitions, tabbed. */}
+      <RecoveryEventsPanel
+        activeFallbackEvents={activeFallbackEvents}
+        visibleTransitions={visibleTransitions}
+        formatTime={formatTime}
+      />
 
       {/* Cache Domains — collapsible with scrollable list */}
       <CollapsibleSection

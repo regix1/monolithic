@@ -79,11 +79,25 @@ function formatClockDate(date) {
   return `${WEEKDAYS[date.getDay()]} · ${date.getDate()} ${MONTHS[date.getMonth()]}`
 }
 
-/** Compact `HH:MM` for the collapsed-sidebar clock chip. */
-function formatClockCompact(date) {
-  const h = String(date.getHours()).padStart(2, '0')
+/**
+ * Compact clock string for the collapsed-sidebar chip. Honors the user's
+ * 12h/24h preference — previously this was hard-coded to 24h.
+ *   24h → "13:34"
+ *   12h → "1:34 PM"
+ *
+ * @param {Date} date
+ * @param {boolean} is24h
+ */
+function formatClockCompact(date, is24h) {
   const m = String(date.getMinutes()).padStart(2, '0')
-  return `${h}:${m}`
+  if (is24h) {
+    const h = String(date.getHours()).padStart(2, '0')
+    return `${h}:${m}`
+  }
+  let h = date.getHours()
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  h = h % 12 || 12
+  return `${h}:${m} ${ampm}`
 }
 
 /* ────────────────────────────────────────────────────────────────────
@@ -105,7 +119,7 @@ export default function Sidebar() {
 
   const time = formatClockTime(now, is24h)
   const date = formatClockDate(now)
-  const compactTime = formatClockCompact(now)
+  const compactTime = formatClockCompact(now, is24h)
 
   return (
     <>

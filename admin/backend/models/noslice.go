@@ -19,6 +19,18 @@ type NosliceUpstream struct {
 	State        map[string]NosliceHostState `json:"state"`
 }
 
+// NosliceTransition is a single recovery-event record: the cache promoted a
+// host to no-slice mode (or demoted it back). Built by the admin backend by
+// diffing successive `/lancache-internal/noslice` polls; not emitted by njs
+// itself. Time is unix seconds.
+type NosliceTransition struct {
+	Host    string `json:"host"`
+	Service string `json:"service"` // canonical cache service name, "" if unknown
+	Time    int64  `json:"time"`    // unix seconds
+	Kind    string `json:"kind"`    // "promoted" or "demoted"
+	Count   int    `json:"count"`   // host error count at the moment of transition
+}
+
 // NosliceResponse is what the admin API returns to the React frontend at
 // `GET /api/noslice`. Fields use snake_case to match the existing contract.
 type NosliceResponse struct {
@@ -27,6 +39,7 @@ type NosliceResponse struct {
 	BlockedCount int                         `json:"blocked_count"`
 	BlockedHosts []string                    `json:"blocked_hosts"`
 	State        map[string]NosliceHostState `json:"state"`
+	Transitions  []NosliceTransition         `json:"transitions"`
 }
 
 // NosliceResetResponse is the API response shape for `POST /api/noslice/reset`.

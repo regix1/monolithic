@@ -36,7 +36,7 @@ import {
   CartesianGrid,
 } from 'recharts'
 import { useTimeFormat } from '../hooks/useTimeFormat'
-import { CollapsibleSection, ServiceBadge } from '../components'
+import { CollapsibleSection, ServiceBadge, Tabs } from '../components'
 
 /* ── Helpers ──────────────────────────────────────────────────── */
 
@@ -429,34 +429,6 @@ function ServiceHealthOverview({ services, serviceFilter }) {
 
 /* ── Issues panel (Errors + No-Slice tabs) ───────────────────── */
 
-function TabButton({ active, count, icon: Icon, label, severity, onClick }) {
-  const activeText = severity === 'err' ? 'text-err' : 'text-warn'
-  const activeBg = severity === 'err' ? 'bg-err/5' : 'bg-warn/5'
-  const activeUnderline = severity === 'err' ? 'bg-err' : 'bg-warn'
-  const activeBadge = severity === 'err' ? 'bg-err/15 text-err' : 'bg-warn/15 text-warn'
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`relative flex-1 flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold transition-colors ${
-        active
-          ? `${activeText} ${activeBg}`
-          : 'text-panda-dim hover:text-panda-text hover:bg-panda-elevated/30'
-      }`}
-    >
-      <Icon size={16} />
-      <span>{label}</span>
-      <span
-        className={`rounded-full px-2 py-0.5 text-xs font-mono ${active ? activeBadge : 'bg-panda-elevated text-panda-dim'}`}
-      >
-        {count}
-      </span>
-      {active && <span className={`absolute bottom-0 left-0 right-0 h-0.5 ${activeUnderline}`} />}
-    </button>
-  )
-}
-
 function ErrorsTable({ rows, formatTime, serviceFilter }) {
   if (rows.length === 0) {
     return (
@@ -570,24 +542,14 @@ function IssuesPanel({ recentErrors, nosliceEvents, formatTime, serviceFilter })
 
   return (
     <div className="rounded-xl bg-panda-surface border border-panda-border overflow-hidden">
-      <div className="flex border-b border-panda-border">
-        <TabButton
-          active={tab === 'errors'}
-          count={errorCount}
-          icon={AlertCircle}
-          label="Errors"
-          severity="err"
-          onClick={() => setTab('errors')}
-        />
-        <TabButton
-          active={tab === 'noslice'}
-          count={nosliceCount}
-          icon={Ban}
-          label="No-Slice"
-          severity="warn"
-          onClick={() => setTab('noslice')}
-        />
-      </div>
+      <Tabs
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { value: 'errors',  label: 'Errors',   icon: AlertCircle, count: errorCount,    tone: 'err' },
+          { value: 'noslice', label: 'No-Slice', icon: Ban,         count: nosliceCount,  tone: 'warn' },
+        ]}
+      />
       {tab === 'errors' ? (
         <ErrorsTable rows={recentErrors} formatTime={formatTime} serviceFilter={serviceFilter} />
       ) : (

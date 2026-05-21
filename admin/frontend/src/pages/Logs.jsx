@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import useTimeRange from '../hooks/useTimeRange'
 import {
   PieChart as PieChartIcon,
@@ -19,6 +20,8 @@ import {
   Download,
   Shield,
   RefreshCw,
+  Tag,
+  X,
 } from 'lucide-react'
 import {
   PieChart,
@@ -116,6 +119,26 @@ function UpstreamStatCard({ icon: Icon, count, label, colorClass }) {
   )
 }
 
+/**
+ * Small chip that renders the cache-service name. Used in Recent Errors,
+ * No-Slice Events, and the Top Failing Hosts list. Empty/unknown service
+ * renders as a muted "—" so the column doesn't visually disappear.
+ *
+ * @param {{ service?: string, dense?: boolean }} props
+ */
+function ServiceBadge({ service, dense = false }) {
+  if (!service) {
+    return <span className="text-panda-dim/60 font-mono text-xs">—</span>
+  }
+  const padding = dense ? 'px-1.5 py-0.5' : 'px-2 py-0.5'
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-md bg-bamboo/10 border border-bamboo/25 ${padding} text-xs font-mono font-medium text-bamboo`}>
+      <Tag size={10} className="opacity-70" />
+      {service}
+    </span>
+  )
+}
+
 /* ── Main Component ───────────────────────────────────────────── */
 
 
@@ -124,12 +147,14 @@ export default function Logs() {
 
   /* All hooks MUST be called before any early return */
   const { formatTime } = useTimeFormat()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const serviceFilter = searchParams.get('service') || ''
+
+  // Per-Service Breakdown keeps its sort UI — operators genuinely want to
+  // re-sort by hit-rate vs bytes vs requests. The other two tables (Recent
+  // Errors, No-Slice Events) are time-desc only.
   const [serviceSortKey, setServiceSortKey] = useState('bytes')
   const [serviceSortDir, setServiceSortDir] = useState('desc')
-  const [errorSortKey, setErrorSortKey] = useState('time')
-  const [errorSortDir, setErrorSortDir] = useState('desc')
-  const [nosliceSortKey, setNosliceSortKey] = useState('time')
-  const [nosliceSortDir, setNosliceSortDir] = useState('desc')
 
   const logStats = activeLogStats
   const isLogStatsLoading = !logStats
@@ -140,7 +165,14 @@ export default function Logs() {
   const uh = logStats?.upstream_health ?? { total_errors: 0, timeouts: 0, conn_refused: 0, dns_failures: 0, other: 0, top_hosts: [] }
   const bw = logStats?.bandwidth ?? { total_served: 0, bandwidth_saved: 0, hit_rate_bytes: 0, unique_clients: 0 }
 
-  const sortedServices = isLogStatsLoading ? [] : [...(logStats.services ?? [])].sort((a, b) => {
+  // Filter helper — when ?service=<name> is set, drop rows whose service
+  // field doesn't match. Used by all three log tables + Per-Service
+  // Breakdown so a deep-link from Dashboard isolates one service across
+  // the whole page.
+  const matchesServiceFilter = (svc) => !serviceFilter || svc === serviceFilter
+
+  const filteredServices = isLogStatsLoading ? [] : (logStats.services ?? []).filter(s => matchesServiceFilter(s.service))
+  const sortedServices = [...filteredServices].sort((a, b) => {
     const dir = serviceSortDir === 'asc' ? 1 : -1
     return (a[serviceSortKey] > b[serviceSortKey] ? 1 : -1) * dir
   })
@@ -154,32 +186,18 @@ export default function Logs() {
     }
   }
 
-  const sortedErrors = isLogStatsLoading ? [] : [...(logStats.recent_errors ?? [])].sort((a, b) => {
-    const dir = errorSortDir === 'asc' ? 1 : -1
-    return (a[errorSortKey] > b[errorSortKey] ? 1 : -1) * dir
-  })
+  // recent_errors and noslice_events arrive in chronological order from the
+  // backend; reverse for newest-first display. No sort UI.
+  const filteredErrors = isLogStatsLoading ? [] : (logStats.recent_errors ?? []).filter(e => matchesServiceFilter(e.service))
+  const recentErrors = [...filteredErrors].reverse()
 
-  function toggleErrorSort(key) {
-    if (errorSortKey === key) {
-      setErrorSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    } else {
-      setErrorSortKey(key)
-      setErrorSortDir('desc')
-    }
-  }
+  const filteredNoslice = isLogStatsLoading ? [] : (logStats.noslice_events ?? []).filter(e => matchesServiceFilter(e.service))
+  const nosliceEvents = [...filteredNoslice].reverse()
 
-  const sortedNoslice = isLogStatsLoading ? [] : [...(logStats.noslice_events ?? [])].sort((a, b) => {
-    const dir = nosliceSortDir === 'asc' ? 1 : -1
-    return (a[nosliceSortKey] > b[nosliceSortKey] ? 1 : -1) * dir
-  })
-
-  function toggleNosliceSort(key) {
-    if (nosliceSortKey === key) {
-      setNosliceSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    } else {
-      setNosliceSortKey(key)
-      setNosliceSortDir('asc')
-    }
+  function clearServiceFilter() {
+    const next = new URLSearchParams(searchParams)
+    next.delete('service')
+    setSearchParams(next, { replace: true })
   }
 
   function SortArrow({ sortKey, currentKey, currentDir }) {
@@ -205,9 +223,23 @@ export default function Logs() {
                 {isRefreshingLogStats ? 'Updating time range...' : 'Loading log stats...'}
               </span>
             )}
+            {serviceFilter && (
+              <button
+                type="button"
+                onClick={clearServiceFilter}
+                title="Clear service filter"
+                className="inline-flex items-center gap-2 rounded-full border border-bamboo/30 bg-bamboo/10 px-3 py-1.5 text-sm text-bamboo hover:bg-bamboo/20 transition-colors"
+              >
+                <Tag size={13} />
+                <span className="font-mono">{serviceFilter}</span>
+                <X size={13} className="opacity-70" />
+              </button>
+            )}
           </div>
           <p className="mt-1 text-base text-panda-dim">
-            Operational analytics — upstream performance &amp; error monitoring
+            {serviceFilter
+              ? <>Showing entries for <span className="font-mono text-bamboo">{serviceFilter}</span> only.</>
+              : <>Operational analytics — upstream performance &amp; error monitoring</>}
           </p>
         </div>
       </div>
@@ -431,8 +463,9 @@ export default function Logs() {
                   <h3 className="text-sm font-medium uppercase tracking-wider text-panda-dim mb-2">Top Failing Hosts</h3>
                   <div className="flex flex-col gap-1.5">
                     {uh.top_hosts.slice(0, 5).map((h) => (
-                      <div key={h.host} className="flex items-center justify-between rounded-lg px-4 py-2.5 bg-panda-bg border border-panda-border">
-                        <span className="font-mono text-sm text-panda-muted truncate mr-3">{h.host}</span>
+                      <div key={h.host} className="flex items-center gap-2 rounded-lg px-4 py-2.5 bg-panda-bg border border-panda-border">
+                        <ServiceBadge service={h.service} dense />
+                        <span className="font-mono text-sm text-panda-muted truncate mr-2 flex-1 min-w-0">{h.host}</span>
                         <span className={`font-mono text-sm font-semibold shrink-0 ${h.count > 50 ? 'text-err' : h.count > 10 ? 'text-warn' : 'text-panda-muted'}`}>{h.count}</span>
                       </div>
                     ))}
@@ -528,62 +561,50 @@ export default function Logs() {
           <AlertCircle size={18} className="text-err" />
           <h2 className="text-base font-semibold text-panda-text">Recent Errors</h2>
           <span className="ml-auto rounded-full px-3 py-1 text-sm bg-panda-elevated text-panda-dim">
-            {(logStats?.recent_errors?.length ?? 0)} entries
+            {recentErrors.length} {recentErrors.length === 1 ? 'entry' : 'entries'}
           </span>
         </div>
 
-        <div className="overflow-auto rounded-lg border border-panda-border" style={{ maxHeight: '400px' }}>
-          <table className="w-full min-w-[500px] text-sm">
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-panda-elevated border-b border-panda-border">
-                <th
-                  onClick={() => toggleErrorSort('time')}
-                  className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider whitespace-nowrap text-panda-dim hover:text-panda-text transition-colors"
-                >
-                  <span className="inline-flex items-center gap-1">
-                    Time <SortArrow sortKey="time" currentKey={errorSortKey} currentDir={errorSortDir} />
-                  </span>
-                </th>
-                <th
-                  onClick={() => toggleErrorSort('client_ip')}
-                  className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider whitespace-nowrap text-panda-dim hover:text-panda-text transition-colors"
-                >
-                  <span className="inline-flex items-center gap-1">
-                    Client IP <SortArrow sortKey="client_ip" currentKey={errorSortKey} currentDir={errorSortDir} />
-                  </span>
-                </th>
-                <th
-                  onClick={() => toggleErrorSort('level')}
-                  className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim hover:text-panda-text transition-colors"
-                >
-                  <span className="inline-flex items-center gap-1">
-                    Level <SortArrow sortKey="level" currentKey={errorSortKey} currentDir={errorSortDir} />
-                  </span>
-                </th>
-                <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Message</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedErrors.map((err, index) => (
-                <tr
-                  key={`${err.time}-${index}`}
-                  className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
-                >
-                  <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-dim font-mono align-top">
-                    {formatTime(err.time)}
-                  </td>
-                  <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-muted font-mono align-top">
-                    {err.client_ip || '-'}
-                  </td>
-                  <td className="px-5 py-3 align-top"><LevelBadge level={err.level} /></td>
-                  <td className="px-5 py-3 font-mono text-sm text-panda-muted leading-relaxed break-all">
-                    <span className="line-clamp-2">{err.message}</span>
-                  </td>
+        {recentErrors.length === 0 ? (
+          <div className="flex items-center gap-2.5 rounded-lg px-5 py-4 text-base bg-bamboo/5 border border-bamboo/20 text-bamboo">
+            <CheckCircle size={18} />
+            {serviceFilter ? `No recent errors for ${serviceFilter}` : 'No errors in the recent window'}
+          </div>
+        ) : (
+          <div className="overflow-auto rounded-lg border border-panda-border" style={{ maxHeight: '400px' }}>
+            <table className="w-full min-w-[600px] text-sm">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-panda-elevated border-b border-panda-border">
+                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider whitespace-nowrap text-panda-dim">Time</th>
+                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Service</th>
+                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider whitespace-nowrap text-panda-dim">Client IP</th>
+                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Level</th>
+                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Message</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {recentErrors.map((err, index) => (
+                  <tr
+                    key={`${err.time}-${index}`}
+                    className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
+                  >
+                    <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-dim font-mono align-top">
+                      {formatTime(err.time)}
+                    </td>
+                    <td className="px-5 py-3 align-top whitespace-nowrap"><ServiceBadge service={err.service} dense /></td>
+                    <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-muted font-mono align-top">
+                      {err.client_ip || '-'}
+                    </td>
+                    <td className="px-5 py-3 align-top"><LevelBadge level={err.level} /></td>
+                    <td className="px-5 py-3 font-mono text-sm text-panda-muted leading-relaxed break-all">
+                      <span className="line-clamp-2">{err.message}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* ── Row 6: No-Slice Events ────────────────────────────────── */}
@@ -591,63 +612,37 @@ export default function Logs() {
         <div className="mb-4 flex items-center gap-3">
           <Ban size={18} className="text-warn" />
           <h2 className="text-base font-semibold text-panda-text">No-Slice Events</h2>
-          {(logStats?.noslice_events?.length ?? 0) > 0 && (
+          {nosliceEvents.length > 0 && (
             <span className="ml-auto rounded-full px-3 py-1 text-sm bg-warn/10 text-warn font-medium">
-              {logStats.noslice_events.length} detected
+              {nosliceEvents.length} detected
             </span>
           )}
         </div>
 
-        {(logStats?.noslice_events?.length ?? 0) === 0 ? (
+        {nosliceEvents.length === 0 ? (
           <div className="flex items-center gap-2.5 rounded-lg px-5 py-4 text-base bg-bamboo/5 border border-bamboo/20 text-bamboo">
-            No slice failures detected
+            {serviceFilter ? `No slice failures for ${serviceFilter}` : 'No slice failures detected'}
           </div>
         ) : (
           <div className="overflow-auto rounded-lg border border-panda-border" style={{ maxHeight: '350px' }}>
-            <table className="w-full min-w-[500px] text-sm">
+            <table className="w-full min-w-[600px] text-sm">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-panda-elevated border-b border-panda-border">
-                  <th
-                    onClick={() => toggleNosliceSort('time')}
-                    className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider whitespace-nowrap text-panda-dim hover:text-panda-text transition-colors"
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      Time <SortArrow sortKey="time" currentKey={nosliceSortKey} currentDir={nosliceSortDir} />
-                    </span>
-                  </th>
-                  <th
-                    onClick={() => toggleNosliceSort('client_ip')}
-                    className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider whitespace-nowrap text-panda-dim hover:text-panda-text transition-colors"
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      Client IP <SortArrow sortKey="client_ip" currentKey={nosliceSortKey} currentDir={nosliceSortDir} />
-                    </span>
-                  </th>
-                  <th
-                    onClick={() => toggleNosliceSort('host')}
-                    className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim hover:text-panda-text transition-colors"
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      Host <SortArrow sortKey="host" currentKey={nosliceSortKey} currentDir={nosliceSortDir} />
-                    </span>
-                  </th>
-                  <th
-                    onClick={() => toggleNosliceSort('error')}
-                    className="cursor-pointer select-none px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim hover:text-panda-text transition-colors"
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      Error <SortArrow sortKey="error" currentKey={nosliceSortKey} currentDir={nosliceSortDir} />
-                    </span>
-                  </th>
+                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider whitespace-nowrap text-panda-dim">Time</th>
+                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Service</th>
+                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider whitespace-nowrap text-panda-dim">Client IP</th>
+                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Host</th>
+                  <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim">Error</th>
                 </tr>
               </thead>
               <tbody>
-                {sortedNoslice.map((event, index) => (
+                {nosliceEvents.map((event, index) => (
                   <tr
                     key={`${event.host}-${index}`}
                     className={`border-b border-panda-border table-row-hover ${index % 2 === 0 ? 'bg-panda-surface' : 'bg-panda-elevated'}`}
                   >
                     <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-dim font-mono align-top">{formatTime(event.time)}</td>
+                    <td className="px-5 py-3 align-top whitespace-nowrap"><ServiceBadge service={event.service} dense /></td>
                     <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-muted font-mono align-top">{event.client_ip || '-'}</td>
                     <td className="px-5 py-3 font-mono text-sm text-bamboo whitespace-nowrap align-top">{event.host}</td>
                     <td className="px-5 py-3 font-mono text-sm text-warn leading-relaxed break-all">

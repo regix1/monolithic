@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
-  Server, Activity, HardDrive, Database, Fingerprint, Shield,
-  CheckCircle, AlertTriangle, Copy, Check, Info, Globe,
+  Server, Activity, HardDrive, Fingerprint, Shield,
+  CheckCircle, AlertTriangle, Copy, Check, Info,
 } from 'lucide-react'
 
 import { StatusBadge, AnimatedCounter } from '../components'
@@ -26,6 +27,61 @@ function SIcon({ icon: Icon, color = '#4ade80' }) {
   )
 }
 
+/**
+ * A single row inside the health-warnings banner. Renders the warning's
+ * message, a row of service chips when the backend has attributed the
+ * warning to specific cache services, and an inline link to Config for the
+ * sendfile-mismatch synthetic warning.
+ *
+ * Each service chip deep-links into `/logs?service=<name>` so the operator
+ * can jump straight to the per-service detail without re-typing or scanning.
+ *
+ * @param {{
+ *   warning: {
+ *     code: string,
+ *     severity: 'warning' | 'critical',
+ *     message: string,
+ *     services?: { service: string, count: number }[],
+ *   },
+ *   critical: boolean,
+ * }} props
+ */
+function WarningRow({ warning, critical }) {
+  const services = warning.services ?? []
+  const textClass = critical ? 'text-err/80' : 'text-warn/80'
+  const chipClass = critical
+    ? 'border-err/30 bg-err/10 text-err hover:bg-err/20 hover:border-err/50'
+    : 'border-warn/30 bg-warn/10 text-warn hover:bg-warn/20 hover:border-warn/50'
+
+  return (
+    <li className={`text-sm ${textClass}`}>
+      <div className="leading-relaxed">{warning.message}</div>
+      {services.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {services.map((s) => (
+            <Link
+              key={s.service}
+              to={`/logs?service=${encodeURIComponent(s.service)}`}
+              className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-mono transition-colors ${chipClass}`}
+              title={`View ${s.service} in Logs`}
+            >
+              <span className="font-semibold">{s.service}</span>
+              <span className="opacity-70">{s.count}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+      {warning.code === 'sendfile_mismatch' && (
+        <div className="mt-1.5">
+          <Link to="/config" className="text-xs text-info hover:underline">
+            → Fix on Config
+          </Link>
+        </div>
+      )}
+    </li>
+  )
+}
+
 export default function Dashboard() {
   const [copied, setCopied] = useState(false)
 
@@ -47,17 +103,45 @@ export default function Dashboard() {
   const httpsHostsCount = apiEpic?.https_hosts?.length ?? 0
   const greeting = getGreeting()
   const allRunning = health.processes.every(p => p.status === 'RUNNING')
-  const healthCheck = rawStats.health ?? { status: 'ok', warnings: [], disk_warning: false, disk_critical: false }
+  const healthCheck = rawStats.health ?? { status: 'ok', warnings: [], warnings_detailed: [], disk_warning: false, disk_critical: false }
   const baseStatus = !allRunning ? 'warning' : healthCheck.status
   const healthStatus = httpsLeak && baseStatus === 'ok' ? 'warning' : baseStatus
   const stoppedServices = health.processes.filter(p => p.status !== 'RUNNING').map(p => p.name)
-  const healthWarnings = [
-    ...(stoppedServices.length > 0 ? [`Services not running: ${stoppedServices.join(', ')}`] : []),
-    ...(healthCheck.warnings ?? []),
-    ...(httpsLeak
-      ? [`Epic CDN traffic over HTTPS — ${httpsHostsCount} ${httpsHostsCount === 1 ? 'host' : 'hosts'} bypassing the cache. Open the Config page for the full diagnostic.`]
-      : []),
-  ]
+
+  // Structured warnings: prefer the backend's WarningsDetailed (with per-service
+  // attribution), fall back to the legacy plain-string Warnings field on older
+  // containers. Frontend-only signals (stopped supervisor processes, the Epic
+  // HTTPS leak flag from the SSE epic topic) are added on top — those don't
+  // come from /api/stats so the backend can't know about them.
+  const backendWarnings = (healthCheck.warnings_detailed && healthCheck.warnings_detailed.length > 0)
+    ? healthCheck.warnings_detailed
+    : (healthCheck.warnings ?? []).map(msg => ({ code: 'legacy', severity: 'warning', message: msg }))
+
+  const frontendWarnings = []
+  if (stoppedServices.length > 0) {
+    frontendWarnings.push({
+      code: 'stopped_services',
+      severity: 'critical',
+      message: `Services not running: ${stoppedServices.join(', ')}`,
+    })
+  }
+  if (fs.mismatch) {
+    frontendWarnings.push({
+      code: 'sendfile_mismatch',
+      severity: 'warning',
+      message: `Sendfile mismatch on ${fs.type || 'this filesystem'} — recommended: sendfile ${fs.sendfile_recommended}.`,
+    })
+  }
+  if (httpsLeak) {
+    frontendWarnings.push({
+      code: 'https_leak',
+      severity: 'warning',
+      message: `Epic CDN traffic over HTTPS — ${httpsHostsCount} ${httpsHostsCount === 1 ? 'host' : 'hosts'} bypassing the cache.`,
+      services: [{ service: 'epic', count: httpsHostsCount }],
+    })
+  }
+
+  const healthWarnings = [...frontendWarnings, ...backendWarnings]
   function handleCopy() {
     navigator.clipboard.writeText(configHash).catch(() => {})
     setCopied(true)
@@ -105,11 +189,9 @@ export default function Dashboard() {
               {healthWarnings.length} {healthWarnings.length === 1 ? 'issue' : 'issues'} detected
             </span>
           </div>
-          <ul className="ml-5 sm:ml-7 flex flex-col gap-1">
+          <ul className="ml-5 sm:ml-7 flex flex-col gap-2.5">
             {healthWarnings.map((w, i) => (
-              <li key={i} className={`text-sm ${healthStatus === 'critical' ? 'text-err/80' : 'text-warn/80'}`}>
-                {w}
-              </li>
+              <WarningRow key={`${w.code}-${i}`} warning={w} critical={healthStatus === 'critical'} />
             ))}
           </ul>
         </div>
@@ -178,7 +260,12 @@ export default function Dashboard() {
               <SIcon icon={Server} />
               <div>
                 <h3 className="text-base font-semibold text-panda-text">Service Health</h3>
-                <p className="text-sm text-panda-dim">Uptime: {health.uptime}</p>
+                <p className="text-sm text-panda-dim">
+                  Uptime: {health.uptime}
+                  {rawStats.upstream?.pool_count > 0 && (
+                    <> · {rawStats.upstream.pool_count} upstream {rawStats.upstream.pool_count === 1 ? 'pool' : 'pools'}{rawStats.upstream.keepalive_enabled ? ' · keepalive on' : ''}</>
+                  )}
+                </p>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
@@ -249,95 +336,12 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Row 2b: Upstream Services */}
-      {rawStats.upstream && rawStats.upstream.pools && (
-        <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex-1 flex flex-col">
-          <div className="flex items-center gap-3 mb-4">
-            <SIcon icon={Globe} />
-            <div>
-              <h3 className="text-base font-semibold text-panda-text">Upstream Services</h3>
-              <p className="text-sm text-panda-dim">
-                {rawStats.upstream.pool_count} {rawStats.upstream.pool_count === 1 ? 'pool' : 'pools'}
-                {rawStats.upstream.keepalive_enabled ? ' · keepalive enabled' : ''}
-              </p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
-            {rawStats.upstream.pools.map((pool) => {
-              return (
-                <div key={pool.domain}
-                  className="flex items-center justify-between rounded-lg bg-panda-bg px-4 py-3.5">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-2.5 h-2.5 rounded-full shrink-0 bg-bamboo breathe-green" />
-                    <div className="min-w-0">
-                      <p className="text-base font-medium text-panda-text font-mono truncate">{pool.domain}</p>
-                      <p className="text-xs text-panda-dim leading-snug">configured upstream</p>
-                      <p className="text-sm text-panda-muted mt-0.5">
-                        {pool.keepalive ? `keepalive ${pool.keepalive}` : ''}
-                        {pool.keepalive && pool.timeout ? ' · ' : ''}
-                        {pool.timeout ? `timeout ${pool.timeout}` : ''}
-                      </p>
-                    </div>
-                  </div>
-                  <StatusBadge status="running" label="CONFIGURED" />
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Row 3: Filesystem + Config Hash + Noslice */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Filesystem */}
-        <div className="flex">
-          <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex-1 flex flex-col">
-            <div className="flex items-center gap-3 mb-4">
-              <SIcon icon={Database} />
-              <h3 className="text-base font-semibold text-panda-text">Filesystem</h3>
-            </div>
-
-            <div className="text-center mb-4">
-              <p className="text-2xl md:text-3xl font-bold text-panda-text font-mono">{fs.type}</p>
-              <p className="text-sm text-panda-dim mt-1">{fs.mount_point}</p>
-            </div>
-
-            {fs.mismatch ? (
-              <div className="rounded-lg bg-warn/5 border border-warn/20 px-4 py-3 mb-4">
-                <div className="flex items-center gap-2.5">
-                  <AlertTriangle size={16} className="text-warn shrink-0" />
-                  <div>
-                    <p className="text-sm font-semibold text-warn">Sendfile Mismatch</p>
-                    <p className="text-sm text-warn/70">
-                      Recommend: <span className="font-mono">sendfile {fs.sendfile_recommended}</span>
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="rounded-lg bg-bamboo/5 border border-bamboo/20 px-4 py-3 mb-4 flex items-center gap-2.5">
-                <CheckCircle size={16} className="text-bamboo" />
-                <p className="text-sm text-bamboo">Configuration optimal</p>
-              </div>
-            )}
-
-            <div className="flex-1" />
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-lg bg-panda-bg px-4 py-3">
-                <p className="text-sm text-panda-dim mb-1">Current</p>
-                <p className={`text-lg font-bold font-mono ${fs.mismatch ? 'text-warn' : 'text-bamboo'}`}>
-                  {fs.sendfile_current}
-                </p>
-              </div>
-              <div className="rounded-lg bg-panda-bg px-4 py-3">
-                <p className="text-sm text-panda-dim mb-1">Recommended</p>
-                <p className="text-lg font-bold text-bamboo font-mono">{fs.sendfile_recommended}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
+      {/* Row 3: Config Hash + No-Slice
+         (Filesystem card removed — sendfile mismatch is now surfaced via the
+          health banner with a "→ Fix on Config" link. Upstream pool detail
+          lives on the Upstream page; its count appears in Service Health's
+          subtitle above.) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Config Hash */}
         <div className="flex">
           <div className="rounded-xl bg-panda-surface border border-panda-border p-5 flex-1 flex flex-col">

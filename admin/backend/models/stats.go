@@ -36,11 +36,31 @@ type UpstreamStats struct {
 	FallbackEvents   []UpstreamLogEntry `json:"fallback_events"`
 }
 
+// ServiceErrorCount attributes a count of errors to a single service name.
+// Used inside HealthWarning.Services to break down a generic warning total
+// across the services that contributed to it.
+type ServiceErrorCount struct {
+	Service string `json:"service"`
+	Count   int    `json:"count"`
+}
+
+// HealthWarning is the structured form of a HealthCheck warning entry.
+// Frontend prefers WarningsDetailed when present so it can render service
+// breakdown chips + per-service deep links into Logs. Warnings []string is
+// kept for backward compatibility and equals WarningsDetailed[*].Message.
+type HealthWarning struct {
+	Code     string              `json:"code"`               // e.g. "disk_warning", "high_error_rate", "upstream_errors"
+	Message  string              `json:"message"`            // human-readable, includes service breakdown when applicable
+	Severity string              `json:"severity"`           // "warning" or "critical"
+	Services []ServiceErrorCount `json:"services,omitempty"` // top contributing services when applicable
+}
+
 type HealthCheck struct {
-	Status       string   `json:"status"`        // "ok", "warning", "critical"
-	Warnings     []string `json:"warnings"`      // list of warning/critical messages
-	DiskWarning  bool     `json:"disk_warning"`  // true if disk > 85%
-	DiskCritical bool     `json:"disk_critical"` // true if disk > 95%
+	Status           string          `json:"status"`            // "ok", "warning", "critical"
+	Warnings         []string        `json:"warnings"`          // legacy: each message verbatim
+	WarningsDetailed []HealthWarning `json:"warnings_detailed"` // structured form with codes + service breakdown
+	DiskWarning      bool            `json:"disk_warning"`      // true if disk > 85%
+	DiskCritical     bool            `json:"disk_critical"`     // true if disk > 95%
 }
 
 type StatsResponse struct {

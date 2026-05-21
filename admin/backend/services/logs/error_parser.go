@@ -20,10 +20,13 @@ func ParseErrorLog(path string, n int, since time.Time) ([]models.ErrorLogEntry,
 
 	entries := make([]models.ErrorLogEntry, 0, len(lines))
 	forEachErrorLogMatch(lines, since, func(m ErrorLogMatch) {
+		host := extractHostFromMessage(m.Msg)
 		entries = append(entries, models.ErrorLogEntry{
 			Time:     convertErrorTimestamp(m.TimeRaw),
 			Level:    m.Level,
 			ClientIP: extractClientIP(m.Msg),
+			Host:     host,
+			Service:  ServiceForHost(host),
 			Message:  m.Msg,
 		})
 	})
@@ -137,23 +140,27 @@ func processErrorLog(lines []string, hours int, since time.Time) ([]models.Error
 		}
 
 		clientIP := extractClientIP(msg)
+		host := extractHostFromMessage(msg)
+		service := ServiceForHost(host)
 
 		// ---- recent errors (accumulate all, trim to newest 50 after loop) ----
 		recentErrors = append(recentErrors, models.ErrorLogEntry{
 			Time:     ts,
 			Level:    level,
 			ClientIP: clientIP,
+			Host:     host,
+			Service:  service,
 			Message:  msg,
 		})
 
 		// ---- noslice events ----
 		lower := strings.ToLower(m.Raw)
 		if strings.Contains(lower, "unexpected status code") || strings.Contains(lower, "slice") {
-			host := extractHostFromMessage(msg)
 			nosliceEvents = append(nosliceEvents, models.NosliceEvent{
 				Time:     ts,
 				ClientIP: clientIP,
 				Host:     host,
+				Service:  service,
 				Error:    msg,
 			})
 		}

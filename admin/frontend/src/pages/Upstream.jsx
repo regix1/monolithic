@@ -239,15 +239,20 @@ export default function Upstream() {
         </div>
       </CollapsibleSection>
 
-      {/* Fallback Events — collapsible */}
+      {/* Direct-Fallback Events — collapsible.
+          Despite the previous "Recent Fallback Events" label these are
+          *successful* retries, not errors: nginx bypassed the keepalive
+          upstream pool after a 502/504 and served the chunk directly. They
+          surface here so operators can correlate spikes with upstream
+          troubles, but they don't indicate a failed request. */}
       <CollapsibleSection
-        title="Recent Fallback Events"
+        title="Direct-Fallback Events"
         icon={AlertTriangle}
         defaultOpen={activeFallbackEvents.length > 0}
         badge={
           activeFallbackEvents.length > 0 ? (
-            <span className="rounded-full px-3 py-1 text-sm bg-warn/10 text-warn font-medium">
-              {activeFallbackEvents.length} events
+            <span className="rounded-full px-3 py-1 text-sm bg-info/10 text-info font-medium">
+              {activeFallbackEvents.length} recovered
             </span>
           ) : (
             <span className="rounded-full px-3 py-1 text-sm bg-bamboo/10 text-bamboo font-medium">
@@ -258,12 +263,12 @@ export default function Upstream() {
       >
         <div className="px-5 py-3 border-b border-panda-border">
           <p className="text-sm text-panda-dim">
-            Requests that bypassed the keepalive upstream pool due to 502/504 errors and were retried via direct connection to the CDN.
+            Successful recovery events — requests that bypassed the keepalive upstream pool after a 502/504 and were retried via a direct connection to the CDN. Each row is a request the cache <span className="text-bamboo">recovered</span>, not a failure.
           </p>
         </div>
         {activeFallbackEvents.length === 0 ? (
           <div className="flex items-center gap-2 px-5 py-4 text-sm text-bamboo">
-            No fallback events — upstream connections healthy
+            No direct-fallback events — keepalive pool serving all traffic
           </div>
         ) : (
           <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '300px' }}>

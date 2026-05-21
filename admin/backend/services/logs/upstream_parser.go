@@ -163,8 +163,9 @@ func computeUpstreamHealthFromLines(lines []string, since time.Time) models.Upst
 	}
 	for i := 0; i < limit; i++ {
 		summary.TopHosts = append(summary.TopHosts, models.UpstreamErrorHost{
-			Host:  sorted[i].host,
-			Count: sorted[i].count,
+			Host:    sorted[i].host,
+			Service: ServiceForHost(sorted[i].host),
+			Count:   sorted[i].count,
 		})
 	}
 

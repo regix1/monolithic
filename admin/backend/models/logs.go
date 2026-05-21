@@ -4,6 +4,8 @@ type ErrorLogEntry struct {
 	Time     string `json:"time"`
 	Level    string `json:"level"`
 	ClientIP string `json:"client_ip"`
+	Host     string `json:"host"`
+	Service  string `json:"service"`
 	Message  string `json:"message"`
 }
 
@@ -29,6 +31,7 @@ type NosliceEvent struct {
 	Time     string `json:"time"`
 	ClientIP string `json:"client_ip"`
 	Host     string `json:"host"`
+	Service  string `json:"service"`
 	Error    string `json:"error"`
 }
 
@@ -42,8 +45,9 @@ type UpstreamHealthSummary struct {
 }
 
 type UpstreamErrorHost struct {
-	Host  string `json:"host"`
-	Count int    `json:"count"`
+	Host    string `json:"host"`
+	Service string `json:"service"`
+	Count   int    `json:"count"`
 }
 
 type ServiceStats struct {

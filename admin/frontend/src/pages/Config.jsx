@@ -12,7 +12,7 @@ import {
   Hash,
 } from 'lucide-react'
 import Modal from '../components/Modal'
-import { Card, Toggle, EpicCacheCard } from '../components'
+import { Card, Toggle } from '../components'
 import Dropdown from '../components/Dropdown'
 import TagSelect from '../components/TagSelect'
 import { useSSE } from '../hooks/useSSE'
@@ -348,7 +348,6 @@ export default function Config() {
   const { data: apiConfig, loading: loadingConfig } = useSSE('config', api.getConfig)
   const { data: apiFs } = useSSE('filesystem', api.getFilesystem, 60000, 35000)
   const { data: apiDomains } = useSSE('domains', api.getDomains, 60000, 35000)
-  const { data: apiEpic } = useSSE('epic', api.getEpic, 60000, 35000)
 
   const serviceNames = useMemo(() => {
     if (!apiDomains) return []
@@ -654,11 +653,6 @@ export default function Config() {
           tagOptions={serviceNames}
         />
       ))}
-
-      {/* Epic / Fortnite cache diagnostic — paired with the EPIC_FORCE_NOSLICE
-          toggle in the env-var groups above. Surfaces HTTPS leak detection
-          (the ForceNonSslCdn smoking gun) and the 24h hit/miss ratio. */}
-      {groups.length > 0 && <EpicCacheCard diagnostic={apiEpic ?? null} />}
 
       {/* CONFIGHASH management */}
       {groups.length > 0 && <ConfigHashSection />}

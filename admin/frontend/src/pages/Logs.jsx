@@ -48,22 +48,29 @@ function formatBytes(bytes) {
   return `${bytes} B`
 }
 
+// Hit-rate colors deliberately never use `err` (red). A low hit rate means the
+// cache is serving fewer requests from local storage — it is *underperforming*,
+// not *erroring*. Red is reserved across the app for actual failures (errors,
+// conn refused, disk critical, etc.). Hit rate uses a green → amber gradient:
+//   ≥ 80%  bamboo   — healthy, cache earning its keep
+//   ≥ 50%  warn     — mediocre, room for improvement
+//   < 50%  warn/70  — low but not an error (e.g. new content, cold cache)
 function hitRateColor(rate) {
   if (rate >= 80) return 'text-bamboo'
-  if (rate >= 60) return 'text-warn'
-  return 'text-err'
+  if (rate >= 50) return 'text-warn'
+  return 'text-warn/70'
 }
 
 function hitRateBg(rate) {
   if (rate >= 80) return 'bg-bamboo'
-  if (rate >= 60) return 'bg-warn'
-  return 'bg-err'
+  if (rate >= 50) return 'bg-warn'
+  return 'bg-warn/60'
 }
 
 function hitRateDot(rate) {
   if (rate >= 80) return 'bg-bamboo breathe-green'
-  if (rate >= 60) return 'bg-warn breathe-amber'
-  return 'bg-err breathe-red'
+  if (rate >= 50) return 'bg-warn breathe-amber'
+  return 'bg-warn/60 breathe-amber'
 }
 
 /* ── Custom tooltips ──────────────────────────────────────────── */
@@ -353,6 +360,9 @@ function ServiceHealthCard({ svc }) {
       </div>
 
       <div className="flex flex-col gap-1.5">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-panda-dim">
+          Cache hit rate
+        </p>
         <p
           className={`text-3xl font-bold font-mono leading-none ${accentClass}`}
           style={{ fontVariantNumeric: 'tabular-nums' }}
@@ -366,6 +376,9 @@ function ServiceHealthCard({ svc }) {
             style={{ width: `${Math.max(0, Math.min(hr, 100))}%` }}
           />
         </div>
+        <p className="text-[11px] text-panda-dim leading-snug">
+          of bytes served from cache
+        </p>
       </div>
 
       <div className="mt-auto pt-2 border-t border-panda-border/50 flex items-center justify-between text-xs">

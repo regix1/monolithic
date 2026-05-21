@@ -148,9 +148,9 @@ function HeroKPIStrip({ bw }) {
       <KPICard
         label="Cache Hit Rate"
         icon={Shield}
-        iconClass={hitRateColor(bw.hit_rate_bytes)}
-        value={`${bw.hit_rate_bytes.toFixed(1)}%`}
-        valueClass={hitRateColor(bw.hit_rate_bytes)}
+        iconClass={bw.total_served > 0 ? hitRateColor(bw.hit_rate_bytes) : 'text-panda-dim'}
+        value={bw.total_served > 0 ? `${bw.hit_rate_bytes.toFixed(1)}%` : '—'}
+        valueClass={bw.total_served > 0 ? hitRateColor(bw.hit_rate_bytes) : 'text-panda-dim'}
       />
       <KPICard label="Total Served" icon={Database} value={formatBytes(bw.total_served)} />
       <KPICard label="Active Clients" icon={Users} value={bw.unique_clients.toLocaleString()} />
@@ -180,13 +180,13 @@ function KPICard({ label, icon: Icon, iconClass = 'text-panda-muted', value, val
 function PerformancePanel({ hasErrors, errorRate, cacheStatus, totalRequests, uh }) {
   return (
     <div className="rounded-xl bg-panda-surface border border-panda-border p-5">
-      <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr_1.4fr] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr_1.4fr] gap-6">
         {/* Error Rate trend */}
         <PerformanceColumn title="Error Rate" icon={TrendingUp} iconClass="text-err/80">
           {hasErrors ? (
-            <div style={{ height: '140px' }}>
+            <div className="h-60 sm:h-65">
               <ResponsiveContainer width="100%" height="100%" minHeight={0}>
-                <AreaChart data={errorRate} margin={{ top: 5, right: 5, left: -22, bottom: 0 }}>
+                <AreaChart data={errorRate} margin={{ top: 5, right: 5, left: -18, bottom: 0 }}>
                   <defs>
                     <linearGradient id="errorGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#ef5350" stopOpacity={0.4} />
@@ -194,18 +194,18 @@ function PerformancePanel({ hasErrors, errorRate, cacheStatus, totalRequests, uh
                       <stop offset="100%" stopColor="#ef5350" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fill: '#8a8a8e', fontSize: 11 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#8a8a8e', fontSize: 11 }} width={22} allowDecimals={false} />
-                  <Tooltip content={<CustomLineTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#8a8a8e', fontSize: 11 }} width={26} allowDecimals={false} />
+                  <Tooltip content={<CustomLineTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.12)', strokeWidth: 1 }} />
                   <Area
                     type="monotone"
                     dataKey="errors"
                     stroke="#ef5350"
-                    strokeWidth={2}
+                    strokeWidth={2.5}
                     fill="url(#errorGrad)"
-                    dot={false}
-                    activeDot={{ fill: '#ef5350', r: 4, strokeWidth: 2, stroke: '#1c1c1e' }}
+                    dot={{ fill: '#ef5350', r: 3.5, strokeWidth: 0 }}
+                    activeDot={{ fill: '#ef5350', r: 5, strokeWidth: 2, stroke: '#1c1c1e' }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -218,11 +218,11 @@ function PerformancePanel({ hasErrors, errorRate, cacheStatus, totalRequests, uh
         {/* Cache mix donut */}
         <PerformanceColumn title="Cache Mix" icon={PieChartIcon} iconClass="text-bamboo">
           {totalRequests > 0 ? (
-            <div className="flex flex-col items-center gap-2.5">
-              <div style={{ width: '140px', height: '140px' }}>
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-50 h-50 sm:w-55 sm:h-55">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={cacheStatus} dataKey="value" innerRadius={42} outerRadius={62} paddingAngle={2}>
+                    <Pie data={cacheStatus} dataKey="value" innerRadius={62} outerRadius={92} paddingAngle={2}>
                       {cacheStatus.map((e) => <Cell key={e.name} fill={e.color} />)}
                     </Pie>
                     <Tooltip content={<CustomPieTooltip />} />
@@ -244,7 +244,13 @@ function PerformancePanel({ hasErrors, errorRate, cacheStatus, totalRequests, uh
           )}
         </PerformanceColumn>
 
-        {/* Upstream Health */}
+        {/* Upstream Health
+           Color semantics:
+             timeouts     — amber (transient network issue)
+             conn refused — red   (hard upstream failure)
+             dns          — amber (resolver problem; recoverable)
+             other        — amber (unknown error class; lean caution)
+           A count of 0 is dimmed regardless (handled in MiniStat). */}
         <PerformanceColumn title="Upstream Health" icon={Server} iconClass="text-bamboo">
           {uh.total_errors === 0 ? (
             <QuietHealthy>No upstream errors</QuietHealthy>
@@ -253,8 +259,8 @@ function PerformancePanel({ hasErrors, errorRate, cacheStatus, totalRequests, uh
               <div className="grid grid-cols-2 gap-2">
                 <MiniStat icon={AlertTriangle} count={uh.timeouts} label="Timeouts" colorClass="text-warn" />
                 <MiniStat icon={Wifi} count={uh.conn_refused} label="Conn refused" colorClass="text-err" />
-                <MiniStat icon={Globe} count={uh.dns_failures} label="DNS" colorClass="text-info" />
-                <MiniStat icon={HelpCircle} count={uh.other} label="Other" colorClass="text-panda-muted" />
+                <MiniStat icon={Globe} count={uh.dns_failures} label="DNS" colorClass="text-warn" />
+                <MiniStat icon={HelpCircle} count={uh.other} label="Other" colorClass="text-warn" />
               </div>
               {uh.top_hosts && uh.top_hosts.length > 0 && (
                 <div className="flex flex-col gap-1">
@@ -266,7 +272,7 @@ function PerformancePanel({ hasErrors, errorRate, cacheStatus, totalRequests, uh
                       <ServiceBadge service={h.service} dense />
                       <span className="font-mono text-panda-muted truncate flex-1 min-w-0">{h.host}</span>
                       <span
-                        className={`font-mono font-semibold shrink-0 ${h.count > 50 ? 'text-err' : h.count > 10 ? 'text-warn' : 'text-panda-muted'}`}
+                        className={`font-mono font-semibold shrink-0 ${h.count > 50 ? 'text-err' : h.count > 10 ? 'text-warn' : 'text-warn/70'}`}
                       >
                         {h.count}
                       </span>
@@ -324,19 +330,26 @@ function MiniStat({ icon: Icon, count, label, colorClass }) {
 
 function ServiceHealthCard({ svc }) {
   const hr = svc.hit_rate
-  const accentClass = hitRateColor(hr)
-  const dotClass = hitRateDot(hr)
-  const barColor = hitRateBg(hr)
+  // A service with very few requests can show a 0% hit rate that isn't really
+  // "bad" — it just hasn't seen enough traffic yet. Treat < 10 requests as a
+  // no-data state with muted colors instead of red.
+  const hasMeaningfulData = svc.requests >= 10
+  const accentClass = hasMeaningfulData ? hitRateColor(hr) : 'text-panda-muted'
+  const dotClass = hasMeaningfulData ? hitRateDot(hr) : 'bg-panda-dim'
+  const barColor = hasMeaningfulData ? hitRateBg(hr) : 'bg-panda-elevated'
   const displayName = svc.service.charAt(0).toUpperCase() + svc.service.slice(1)
 
   return (
     <Link
       to={`/logs?service=${encodeURIComponent(svc.service)}`}
-      className="group rounded-xl bg-panda-surface border border-panda-border hover:border-bamboo/40 hover:bg-panda-elevated/30 transition-colors p-4 flex flex-col gap-3 min-h-[160px]"
+      className="group rounded-xl bg-panda-surface border border-panda-border hover:border-bamboo/40 hover:bg-panda-elevated/30 transition-colors p-4 flex flex-col gap-3 min-h-40"
     >
       <div className="flex items-center gap-2.5">
         <span className={`w-2 h-2 rounded-full shrink-0 ${dotClass}`} />
         <h3 className="text-base font-semibold text-panda-text truncate flex-1">{displayName}</h3>
+        {!hasMeaningfulData && (
+          <span className="text-[10px] uppercase tracking-wider text-panda-dim/80">low data</span>
+        )}
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -442,7 +455,7 @@ function ErrorsTable({ rows, formatTime, serviceFilter }) {
   }
   return (
     <div className="overflow-auto" style={{ maxHeight: '400px' }}>
-      <table className="w-full min-w-[600px] text-sm">
+      <table className="w-full min-w-150 text-sm">
         <thead className="sticky top-0 z-10">
           <tr className="bg-panda-elevated border-b border-panda-border">
             <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider whitespace-nowrap text-panda-dim">Time</th>
@@ -488,7 +501,7 @@ function NosliceTable({ rows, formatTime, serviceFilter }) {
   }
   return (
     <div className="overflow-auto" style={{ maxHeight: '400px' }}>
-      <table className="w-full min-w-[600px] text-sm">
+      <table className="w-full min-w-150 text-sm">
         <thead className="sticky top-0 z-10">
           <tr className="bg-panda-elevated border-b border-panda-border">
             <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider whitespace-nowrap text-panda-dim">Time</th>
@@ -511,7 +524,7 @@ function NosliceTable({ rows, formatTime, serviceFilter }) {
               <td className="px-5 py-3 text-sm whitespace-nowrap text-panda-muted font-mono align-top">
                 {event.client_ip || '-'}
               </td>
-              <td className="px-5 py-3 font-mono text-sm text-bamboo whitespace-nowrap align-top">
+              <td className="px-5 py-3 font-mono text-sm text-panda-text whitespace-nowrap align-top">
                 {event.host}
               </td>
               <td className="px-5 py-3 font-mono text-sm text-warn leading-relaxed break-all">
@@ -605,7 +618,7 @@ function LoadingSkeleton() {
         <div className="h-4 w-32 bg-panda-elevated rounded animate-pulse mb-4" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="rounded-xl bg-panda-bg border border-panda-border p-4 min-h-[160px]">
+            <div key={i} className="rounded-xl bg-panda-bg border border-panda-border p-4 min-h-40">
               <div className="h-3 w-20 bg-panda-elevated rounded animate-pulse mb-3" />
               <div className="h-7 w-16 bg-panda-elevated rounded animate-pulse mb-3" />
               <div className="h-1.5 w-full bg-panda-elevated rounded animate-pulse" />
@@ -775,7 +788,7 @@ export default function Logs() {
                 <p className="px-5 py-4 text-sm text-panda-dim">No services have seen traffic in this window.</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[600px] text-sm">
+                  <table className="w-full min-w-150 text-sm">
                     <thead>
                       <tr className="bg-panda-elevated border-b border-panda-border">
                         <th

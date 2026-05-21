@@ -22,7 +22,7 @@ export default function Toggle({ checked, onChange, disabled = false }) {
   }
 
   return (
-    <div className="inline-flex min-h-[44px] items-center">
+    <div className="inline-flex min-h-11 items-center">
       <button
         type="button"
         role="switch"

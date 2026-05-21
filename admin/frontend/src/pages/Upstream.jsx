@@ -6,13 +6,21 @@ import { api } from '../lib/api'
 import useTimeRange from '../hooks/useTimeRange'
 
 function FallbackStatusBadge({ status }) {
+  // Color semantics:
+  //   bamboo (green)  — fallback_ok (recovery succeeded)
+  //   info   (blue)   — fallback (the recovery action itself; informational)
+  //   warn   (amber)  — transient states (stale keepalive, DNS timeout)
+  //   err    (red)    — hard failures (upstream error, connect failed) —
+  //                     even though they were recovered, the original
+  //                     failure was a real error and the operator should
+  //                     read it that way at a glance.
   const map = {
     stale_keepalive: { bg: 'bg-warn/10', text: 'text-warn', label: 'stale_keepalive' },
     fallback_ok: { bg: 'bg-bamboo/10', text: 'text-bamboo', label: 'fallback_ok' },
-    upstream_error: { bg: 'bg-warn/10', text: 'text-warn', label: 'upstream_error' },
+    upstream_error: { bg: 'bg-err/10', text: 'text-err', label: 'upstream_error' },
     fallback: { bg: 'bg-info/10', text: 'text-info', label: 'fallback' },
     dns_timeout: { bg: 'bg-warn/10', text: 'text-warn', label: 'dns_timeout' },
-    connect_failed: { bg: 'bg-warn/10', text: 'text-warn', label: 'connect_failed' },
+    connect_failed: { bg: 'bg-err/10', text: 'text-err', label: 'connect_failed' },
   }
   const style = map[status] ?? { bg: 'bg-info/10', text: 'text-info', label: status }
   return (
@@ -184,7 +192,7 @@ export default function Upstream() {
         }
       >
         <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '400px' }}>
-          <table className="w-full min-w-[500px] text-sm">
+          <table className="w-full min-w-125 text-sm">
             <thead className="sticky top-0 z-10">
               <tr className="bg-panda-elevated border-b border-panda-border">
                 <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim whitespace-nowrap">Domain</th>
@@ -243,7 +251,7 @@ export default function Upstream() {
           </div>
         ) : (
           <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '300px' }}>
-            <table className="w-full min-w-[500px] text-sm">
+            <table className="w-full min-w-125 text-sm">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-panda-elevated border-b border-panda-border">
                   <th className="px-5 py-3 text-left text-sm font-medium uppercase tracking-wider text-panda-dim whitespace-nowrap">Time</th>

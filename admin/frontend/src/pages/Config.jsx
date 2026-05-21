@@ -201,9 +201,9 @@ function ConfigHashSection() {
         size="sm"
       >
         <div className="flex flex-col gap-4">
-          <div className="flex items-start gap-3 rounded-lg bg-red-500/10 px-4 py-3">
-            <AlertTriangle size={16} className="text-red-400 shrink-0 mt-0.5" />
-            <div className="flex flex-col gap-1 text-sm text-red-400">
+          <div className="flex items-start gap-3 rounded-lg bg-err/10 px-4 py-3">
+            <AlertTriangle size={16} className="text-err shrink-0 mt-0.5" />
+            <div className="flex flex-col gap-1 text-sm text-err">
               <p>This will delete the CONFIGHASH file.</p>
               <p>The container must be restarted after deletion to regenerate it.</p>
               <p>If your config has changed, existing cached data may be invalidated.</p>
@@ -220,7 +220,7 @@ function ConfigHashSection() {
             <button
               type="button"
               onClick={performDeleteHash}
-              className="flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 px-4 py-2 text-sm font-semibold text-white transition-colors"
+              className="flex items-center gap-1.5 rounded-lg bg-err hover:bg-err/85 px-4 py-2 text-sm font-semibold text-white transition-colors"
             >
               <Trash2 size={13} />
               Delete
@@ -256,7 +256,7 @@ function ConfigHashSection() {
           )}
         </div>
 
-        <div className={['px-4 py-4 flex flex-col gap-4', hashLoading ? 'min-h-[200px]' : ''].join(' ')}>
+        <div className={['px-4 py-4 flex flex-col gap-4', hashLoading ? 'min-h-50' : ''].join(' ')}>
           {hashLoading && (
             <p className="text-sm text-panda-dim">Loading…</p>
           )}
@@ -505,7 +505,7 @@ export default function Config() {
             <button
               type="button"
               onClick={handleRestart}
-              className="flex items-center gap-1.5 rounded-lg bg-err hover:bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors"
+              className="flex items-center gap-1.5 rounded-lg bg-err hover:bg-err/85 px-4 py-2 text-sm font-semibold text-white transition-colors"
             >
               <RotateCcw size={13} />
               Restart Container
@@ -555,7 +555,7 @@ export default function Config() {
           <button
             onClick={() => setShowRestartModal(true)}
             disabled={restarting}
-            className="flex items-center gap-1.5 rounded-lg bg-err px-3 py-2 text-sm font-semibold text-white hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 rounded-lg bg-err px-3 py-2 text-sm font-semibold text-white hover:bg-err/85 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <RotateCcw size={13} className={restarting ? 'animate-spin' : ''} />
             {restarting ? 'Restarting…' : 'Restart'}
@@ -604,7 +604,7 @@ export default function Config() {
           <button
             type="button"
             onClick={handleFixNow}
-            className="shrink-0 flex items-center gap-1.5 rounded-lg bg-warn px-4 py-2 text-sm font-semibold text-panda-bg hover:bg-amber-400 transition-colors"
+            className="shrink-0 flex items-center gap-1.5 rounded-lg bg-warn px-4 py-2 text-sm font-semibold text-panda-bg hover:bg-warn/85 transition-colors"
           >
             <Zap size={13} />
             Fix Now
@@ -634,7 +634,7 @@ export default function Config() {
               type="button"
               onClick={() => setShowRestartModal(true)}
               disabled={restarting}
-              className="flex items-center gap-1.5 rounded-lg bg-err px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 rounded-lg bg-err px-4 py-2 text-sm font-semibold text-white hover:bg-err/85 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <RotateCcw size={13} className={restarting ? 'animate-spin' : ''} />
               {restarting ? 'Restarting…' : 'Restart'}

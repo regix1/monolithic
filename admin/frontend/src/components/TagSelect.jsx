@@ -114,7 +114,7 @@ export default function TagSelect({ value, options, onChange }) {
           onFocus={() => { if (!open) { setOpen(true); updatePos() } }}
           onKeyDown={handleKeyDown}
           placeholder={selected.length === 0 ? 'Type to search...' : ''}
-          className="flex-1 min-w-[80px] bg-transparent text-sm text-panda-text font-mono outline-none placeholder-panda-dim focus:outline-none [&]:outline-none"
+          className="flex-1 min-w-20 bg-transparent text-sm text-panda-text font-mono outline-none placeholder-panda-dim focus:outline-none [&]:outline-none"
           style={{ outline: 'none' }}
         />
         <ChevronDown size={14} className="text-panda-dim shrink-0" />
@@ -124,7 +124,7 @@ export default function TagSelect({ value, options, onChange }) {
       {open && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed max-h-[240px] overflow-y-auto rounded-lg border border-panda-border bg-panda-elevated shadow-2xl"
+          className="fixed max-h-60 overflow-y-auto rounded-lg border border-panda-border bg-panda-elevated shadow-2xl"
           style={{ top: pos.top, left: pos.left, width: pos.width, maxWidth: 'calc(100vw - 1rem)', zIndex: 100 }}
         >
           {filtered.length === 0 && selected.length < options.length ? (

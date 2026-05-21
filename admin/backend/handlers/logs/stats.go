@@ -1,33 +1,14 @@
-package handlers
+package loghandlers
 
 import (
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/lancachenet/monolithic/admin/handlers/httpx"
 	"github.com/lancachenet/monolithic/admin/services"
 	"github.com/lancachenet/monolithic/admin/services/logs"
 )
-
-func LogUpstream(w http.ResponseWriter, r *http.Request) {
-	// Parse hours parameter — if provided, filter by time window; otherwise return last 50 entries
-	var since time.Time
-	n := 50
-	if h := r.URL.Query().Get("hours"); h != "" {
-		if parsed, err := strconv.Atoi(h); err == nil && parsed > 0 {
-			since = time.Now().Add(-time.Duration(parsed) * time.Hour)
-			n = 5000
-		}
-	}
-
-	entries, err := logs.ParseUpstreamLog(services.UpstreamFallbackLogPath, n, since)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to read upstream log: "+err.Error())
-		return
-	}
-
-	writeJSON(w, entries)
-}
 
 func LogStats(w http.ResponseWriter, r *http.Request) {
 	// Parse hours parameter (default 720 = 30 days)
@@ -40,15 +21,15 @@ func LogStats(w http.ResponseWriter, r *http.Request) {
 
 	// Serve from precomputed cache if available (covers 1h, 24h, 7d, 30d).
 	if cached := logs.GetCachedLogStatsByHours(hours); cached != nil {
-		writeJSON(w, cached)
+		httpx.WriteJSON(w, cached)
 		return
 	}
 
 	// For standard precomputed ranges, return 202 if cache is still building
 	// rather than computing on-demand (which would timeout through nginx).
-	for _, r := range []int{1, 24, 168, 720} {
-		if hours == r {
-			writeJSONStatus(w, http.StatusAccepted, map[string]interface{}{"loading": true, "status": "loading", "message": "stats are being computed, try again shortly"})
+	for _, rng := range []int{1, 24, 168, 720} {
+		if hours == rng {
+			httpx.WriteJSONStatus(w, http.StatusAccepted, map[string]interface{}{"loading": true, "status": "loading", "message": "stats are being computed, try again shortly"})
 			return
 		}
 	}
@@ -62,5 +43,5 @@ func LogStats(w http.ResponseWriter, r *http.Request) {
 		hours,
 		since,
 	)
-	writeJSON(w, resp)
+	httpx.WriteJSON(w, resp)
 }

@@ -47,8 +47,11 @@ function hitRateAccent(rate) {
 }
 
 /**
- * Dashboard card showing Epic/Fortnite cache health: hit rate, request counts,
- * HTTPS-leak warning, and an Engine.ini remediation hint when relevant.
+ * Config-page diagnostic for Epic/Fortnite cache health: hit rate, request
+ * counts, HTTPS-leak warning, and an Engine.ini remediation hint when relevant.
+ * Lives on the Config page alongside the EPIC_FORCE_NOSLICE toggle. The
+ * Dashboard surfaces an HTTPS-leak warning inline via the healthWarnings
+ * banner — it does not render this full card.
  *
  * @param {{ diagnostic: EpicDiagnostic | null }} props
  */

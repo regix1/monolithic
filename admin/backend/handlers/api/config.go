@@ -1,4 +1,4 @@
-package handlers
+package api
 
 import (
 	"encoding/json"
@@ -10,18 +10,19 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/lancachenet/monolithic/admin/handlers/httpx"
 	"github.com/lancachenet/monolithic/admin/models"
 	"github.com/lancachenet/monolithic/admin/services"
 )
 
 func GetConfig(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, services.BuildConfigResponse())
+	httpx.WriteJSON(w, services.BuildConfigResponse())
 }
 
 func UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	var body map[string]string
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body: "+err.Error())
+		httpx.WriteError(w, http.StatusBadRequest, "invalid JSON body: "+err.Error())
 		return
 	}
 
@@ -35,11 +36,11 @@ func UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	keys := make([]string, 0, len(body))
 	for k, v := range body {
 		if !knownKeys[k] {
-			writeError(w, http.StatusBadRequest, "unknown config key: "+k)
+			httpx.WriteError(w, http.StatusBadRequest, "unknown config key: "+k)
 			return
 		}
 		if strings.ContainsAny(v, "\n\r") {
-			writeError(w, http.StatusBadRequest, "invalid value for "+k+": contains newlines")
+			httpx.WriteError(w, http.StatusBadRequest, "invalid value for "+k+": contains newlines")
 			return
 		}
 		keys = append(keys, k)
@@ -54,12 +55,12 @@ func UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	content := strings.Join(lines, "\n") + "\n"
 
 	if err := os.MkdirAll(filepath.Dir(services.AdminOverridesPath), 0755); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to create config directory: "+err.Error())
+		httpx.WriteError(w, http.StatusInternalServerError, "failed to create config directory: "+err.Error())
 		return
 	}
 
 	if err := os.WriteFile(services.AdminOverridesPath, []byte(content), 0644); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to write config: "+err.Error())
+		httpx.WriteError(w, http.StatusInternalServerError, "failed to write config: "+err.Error())
 		return
 	}
 
@@ -67,7 +68,7 @@ func UpdateConfig(w http.ResponseWriter, r *http.Request) {
 		os.Setenv(k, v)
 	}
 
-	writeJSON(w, models.UpdateConfigResponse{
+	httpx.WriteJSON(w, models.UpdateConfigResponse{
 		OK:      true,
 		Message: "Configuration saved. Restart required to apply.",
 	})
@@ -102,7 +103,7 @@ func GetConfigHash(w http.ResponseWriter, r *http.Request) {
 	data, err := os.ReadFile(services.ConfigHashPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			writeJSON(w, models.ConfigHashResponse{
+			httpx.WriteJSON(w, models.ConfigHashResponse{
 				Exists:      false,
 				Raw:         "",
 				Components:  models.ConfigHashComponents{},
@@ -110,12 +111,12 @@ func GetConfigHash(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "failed to read CONFIGHASH: "+err.Error())
+		httpx.WriteError(w, http.StatusInternalServerError, "failed to read CONFIGHASH: "+err.Error())
 		return
 	}
 
 	raw := strings.TrimSpace(string(data))
-	writeJSON(w, models.ConfigHashResponse{
+	httpx.WriteJSON(w, models.ConfigHashResponse{
 		Exists:      true,
 		Raw:         raw,
 		Components:  parseConfigHashComponents(raw),
@@ -126,15 +127,15 @@ func GetConfigHash(w http.ResponseWriter, r *http.Request) {
 func DeleteConfigHash(w http.ResponseWriter, r *http.Request) {
 	if err := os.Remove(services.ConfigHashPath); err != nil {
 		if os.IsNotExist(err) {
-			writeError(w, http.StatusNotFound, "CONFIGHASH file does not exist")
+			httpx.WriteError(w, http.StatusNotFound, "CONFIGHASH file does not exist")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "failed to delete CONFIGHASH: "+err.Error())
+		httpx.WriteError(w, http.StatusInternalServerError, "failed to delete CONFIGHASH: "+err.Error())
 		return
 	}
 
 	log.Printf("[ADMIN] CONFIGHASH deleted via API")
-	writeJSON(w, models.DeleteConfigHashResponse{
+	httpx.WriteJSON(w, models.DeleteConfigHashResponse{
 		OK:      true,
 		Message: "CONFIGHASH deleted. Restart the container to regenerate it.",
 	})

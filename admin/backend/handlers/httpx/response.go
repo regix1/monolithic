@@ -1,4 +1,4 @@
-package handlers
+package httpx
 
 import (
 	"encoding/json"
@@ -6,19 +6,19 @@ import (
 	"net/http"
 )
 
-func writeJSON(w http.ResponseWriter, data interface{}) {
-	writeJSONStatus(w, http.StatusOK, data)
+func WriteJSON(w http.ResponseWriter, data interface{}) {
+	WriteJSONStatus(w, http.StatusOK, data)
 }
 
-func writeJSONStatus(w http.ResponseWriter, status int, data interface{}) {
+func WriteJSONStatus(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(data); err != nil {
-		log.Printf("writeJSON encode error: %v", err)
+		log.Printf("WriteJSON encode error: %v", err)
 	}
 }
 
-func writeError(w http.ResponseWriter, status int, msg string) {
+func WriteError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})

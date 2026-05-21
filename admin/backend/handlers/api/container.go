@@ -1,4 +1,4 @@
-package handlers
+package api
 
 import (
 	"log"
@@ -7,56 +7,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lancachenet/monolithic/admin/handlers/httpx"
 	"github.com/lancachenet/monolithic/admin/models"
 	"github.com/lancachenet/monolithic/admin/services"
 )
-
-func NginxStatus(w http.ResponseWriter, r *http.Request) {
-	stats, err := services.FetchNginxStats()
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to fetch nginx status: "+err.Error())
-		return
-	}
-
-	writeJSON(w, stats)
-}
-
-func NginxReload(w http.ResponseWriter, r *http.Request) {
-	output, err := services.RunCommand("nginx", "-s", "reload")
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "nginx reload failed: "+output)
-		return
-	}
-
-	writeJSON(w, map[string]interface{}{
-		"ok":      true,
-		"message": "nginx reloaded",
-	})
-}
-
-func ApplyConfig(w http.ResponseWriter, r *http.Request) {
-	// Return 200 immediately so the browser doesn't time out.
-	writeJSON(w, map[string]any{"status": "applying"})
-	if f, ok := w.(http.Flusher); ok {
-		f.Flush()
-	}
-
-	go func() {
-		hooks := []string{
-			"/hooks/entrypoint-pre.d/10_setup.sh",
-			"/hooks/entrypoint-pre.d/15_generate_maps.sh",
-			"/hooks/entrypoint-pre.d/16_generate_upstream_keepalive.sh",
-		}
-		for _, hook := range hooks {
-			if output, err := services.RunCommand("bash", hook); err != nil {
-				log.Printf("ApplyConfig: hook %s failed: %v — %s", hook, err, output)
-			}
-		}
-		if output, err := services.RunCommand("nginx", "-s", "reload"); err != nil {
-			log.Printf("ApplyConfig: nginx reload failed: %v — %s", err, output)
-		}
-	}()
-}
 
 // ContainerRestart restarts the whole container by sending SIGTERM to PID 1
 // (supervisord), which then exits cleanly. Docker's restart policy recreates
@@ -70,7 +24,7 @@ func ApplyConfig(w http.ResponseWriter, r *http.Request) {
 func ContainerRestart(w http.ResponseWriter, r *http.Request) {
 	// Gate 1: never restart into a config nginx will reject.
 	if output, err := services.RunCommand("nginx", "-t"); err != nil {
-		writeError(w, http.StatusConflict,
+		httpx.WriteError(w, http.StatusConflict,
 			"Restart refused: the current nginx configuration is invalid, so the "+
 				"container would fail to start back up. Fix it with Save & Apply first.\n\n"+
 				output)
@@ -80,7 +34,7 @@ func ContainerRestart(w http.ResponseWriter, r *http.Request) {
 	// Gate 2: refuse if we can prove Docker will not bring the container back.
 	policy := services.DetectRestartPolicy()
 	if policy.Determined && !policy.SurvivesCleanExit {
-		writeError(w, http.StatusConflict,
+		httpx.WriteError(w, http.StatusConflict,
 			"Restart refused: this container's Docker restart policy is '"+policy.Name+
 				"', so stopping it would not bring it back. Set 'restart: unless-stopped' "+
 				"on the monolithic service in your compose file, then try again.")
@@ -88,7 +42,7 @@ func ContainerRestart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return 200 to the client before killing PID 1 so the browser gets a response.
-	writeJSON(w, models.ContainerRestartResponse{
+	httpx.WriteJSON(w, models.ContainerRestartResponse{
 		Status:         "restarting",
 		RestartPolicy:  policy.Name,
 		PolicyVerified: policy.Determined,

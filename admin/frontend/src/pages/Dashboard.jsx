@@ -4,7 +4,7 @@ import {
   CheckCircle, AlertTriangle, Copy, Check, Info, Globe,
 } from 'lucide-react'
 
-import { StatusBadge, AnimatedCounter, EpicCacheCard } from '../components'
+import { StatusBadge, AnimatedCounter } from '../components'
 import Tooltip from '../components/Tooltip'
 import { useSSE } from '../hooks/useSSE'
 import { api } from '../lib/api'
@@ -43,16 +43,20 @@ export default function Dashboard() {
   const configHash = rawStats.config_hash || ''
   const fs = apiFs ?? { type: '', mount_point: '', device: '', sendfile_current: '', sendfile_recommended: '', mismatch: false, warning: '' }
   const ns = apiNoslice ?? { enabled: false, mode: 'log', blocked_count: 0, blocked_hosts: [], state: {} }
-  const epic = apiEpic ?? null
+  const httpsLeak = Boolean(apiEpic?.https_leak)
+  const httpsHostsCount = apiEpic?.https_hosts?.length ?? 0
   const greeting = getGreeting()
   const allRunning = health.processes.every(p => p.status === 'RUNNING')
   const healthCheck = rawStats.health ?? { status: 'ok', warnings: [], disk_warning: false, disk_critical: false }
-  const overallHealthy = healthCheck.status === 'ok' && allRunning
-  const healthStatus = !allRunning ? 'warning' : healthCheck.status
+  const baseStatus = !allRunning ? 'warning' : healthCheck.status
+  const healthStatus = httpsLeak && baseStatus === 'ok' ? 'warning' : baseStatus
   const stoppedServices = health.processes.filter(p => p.status !== 'RUNNING').map(p => p.name)
   const healthWarnings = [
     ...(stoppedServices.length > 0 ? [`Services not running: ${stoppedServices.join(', ')}`] : []),
     ...(healthCheck.warnings ?? []),
+    ...(httpsLeak
+      ? [`Epic CDN traffic over HTTPS — ${httpsHostsCount} ${httpsHostsCount === 1 ? 'host' : 'hosts'} bypassing the cache. Open the Config page for the full diagnostic.`]
+      : []),
   ]
   function handleCopy() {
     navigator.clipboard.writeText(configHash).catch(() => {})
@@ -282,11 +286,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-
-      {/* Row 2c: Epic / Fortnite Cache Health */}
-      <div className="grid grid-cols-1 lg:grid-cols-1 gap-5">
-        <EpicCacheCard diagnostic={epic} />
-      </div>
 
       {/* Row 3: Filesystem + Config Hash + Noslice */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">

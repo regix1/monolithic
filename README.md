@@ -224,13 +224,13 @@ Even with the client and server fixes applied, Epic update deltas use chunk URLs
 
 **4. Live diagnostic.**
 
-The admin panel renders an Epic-specific health card on the Dashboard showing:
+The full Epic diagnostic lives on the **Config page** of the admin panel, directly under the env-var groups that include `EPIC_FORCE_NOSLICE`. It is a passive troubleshooting view — there is intentionally nothing to monitor here in steady state. Look at it when downloads MISS more than they should. It reports:
 
-- 24 h hit/miss ratio across Epic CDN hosts
-- whether the sniproxy logs show Epic traffic going over HTTPS (the `ForceNonSslCdn` smoking gun)
-- a hint linking back to `contrib/lancache-epic-fix.ps1` when an HTTPS leak is detected
+- the 24-hour hit/miss ratio across the known Epic CDN hosts (`*.epicgamescdn.com`, `cloudflare.epicgamescdn.com`, `download.epicgames.com`, `epicgames-download1.akamaized.net`, `fastly-download.epicgames.com`, `download2.epicgames.com`, `download3.epicgames.com`, `fastly-download.epicgames.com`), pulled from `/data/logs/access.log`
+- whether the sniproxy access log shows any of those hosts going over **HTTPS** — the `ForceNonSslCdn` smoking gun (an HTTP miss the cache could in principle serve vs. an HTTPS bypass it cannot)
+- an actionable next step: re-run `contrib/lancache-epic-fix.ps1` on each affected client when the leak is HTTPS, or set `EPIC_FORCE_NOSLICE=true` when the hit rate is collapsing under slice errors
 
-The same data is exposed at `GET /api/epic` for scripting or alerting.
+The Dashboard stays quiet while everything is healthy. The only Epic signal it surfaces is a one-line entry in the standard "issues detected" banner when an HTTPS leak is currently active — pointing back to the Config page. The full JSON is also exposed at `GET /api/epic` for external scripting or alerting.
 
 **5. Other launcher symptoms (Epic Games / Riot).**
 

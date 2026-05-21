@@ -1,4 +1,4 @@
-package handlers
+package sse
 
 import (
 	"encoding/json"
@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/lancachenet/monolithic/admin/handlers/httpx"
 	"github.com/lancachenet/monolithic/admin/models"
 	"github.com/lancachenet/monolithic/admin/services"
 	"github.com/lancachenet/monolithic/admin/services/logs"
@@ -17,7 +18,7 @@ import (
 func SSEHandler(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		writeError(w, http.StatusInternalServerError, "streaming not supported")
+		httpx.WriteError(w, http.StatusInternalServerError, "streaming not supported")
 		return
 	}
 

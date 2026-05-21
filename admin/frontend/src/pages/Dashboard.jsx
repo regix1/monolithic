@@ -5,7 +5,7 @@ import {
   CheckCircle, AlertTriangle, Copy, Check, Info,
 } from 'lucide-react'
 
-import { StatusBadge, AnimatedCounter } from '../components'
+import { StatusBadge, AnimatedCounter, ServiceBadge } from '../components'
 import Tooltip from '../components/Tooltip'
 import { useSSE } from '../hooks/useSSE'
 import { api } from '../lib/api'
@@ -49,9 +49,7 @@ function SIcon({ icon: Icon, color = '#4ade80' }) {
 function WarningRow({ warning, critical }) {
   const services = warning.services ?? []
   const textClass = critical ? 'text-err/80' : 'text-warn/80'
-  const chipClass = critical
-    ? 'border-err/30 bg-err/10 text-err hover:bg-err/20 hover:border-err/50'
-    : 'border-warn/30 bg-warn/10 text-warn hover:bg-warn/20 hover:border-warn/50'
+  const chipTone = critical ? 'err' : 'warn'
 
   return (
     <li className={`text-sm ${textClass}`}>
@@ -59,15 +57,13 @@ function WarningRow({ warning, critical }) {
       {services.length > 0 && (
         <div className="mt-1.5 flex flex-wrap gap-1.5">
           {services.map((s) => (
-            <Link
+            <ServiceBadge
               key={s.service}
+              service={s.service}
               to={`/logs?service=${encodeURIComponent(s.service)}`}
-              className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-mono transition-colors ${chipClass}`}
-              title={`View ${s.service} in Logs`}
-            >
-              <span className="font-semibold">{s.service}</span>
-              <span className="opacity-70">{s.count}</span>
-            </Link>
+              tone={chipTone}
+              trailing={s.count}
+            />
           ))}
         </div>
       )}

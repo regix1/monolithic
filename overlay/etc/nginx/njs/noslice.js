@@ -224,7 +224,7 @@ function bumpHost(s, host) {
         var was = d.get(keyBlock(host));
         d.set(keyBlock(host), 1);
         if (!was) {
-            s.log('lancache.noslice: blocklisted ' + host +
+            ngx.log(ngx.INFO, 'lancache.noslice: blocklisted ' + host +
                   ' (count=' + count + ' threshold=' + E.THRESHOLD + ')');
         }
     }
@@ -271,7 +271,7 @@ function decayCounts(s) {
             d.delete(keyLast(host));
             if (d.get(keyBlock(host))) {
                 d.delete(keyBlock(host));
-                s.log('lancache.noslice: cleared ' + host + ' (decayed)');
+                ngx.log(ngx.INFO, 'lancache.noslice: cleared ' + host + ' (decayed)');
             }
         } else {
             // Reset lastError so the next decay window restarts.
@@ -354,7 +354,7 @@ function seedStaticHosts(s) {
         d.set(keyBlock(h), 1);
         seeded++;
     }
-    if (seeded) s.log('lancache.noslice: seeded ' + seeded + ' static host(s)');
+    if (seeded) ngx.log(ngx.INFO, 'lancache.noslice: seeded ' + seeded + ' static host(s)');
 }
 
 // ── js_content GET /lancache-internal/noslice ────────────────────────────────
